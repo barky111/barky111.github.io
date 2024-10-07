@@ -1,0 +1,3533 @@
+<!DOCTYPE html>
+<html lang="en">
+	<script src="script/barky_main.js"></script>
+	<script src="script/barky_strings.js"></script>
+	<script src="script/site.js"></script>
+	<script>
+		document.write(head);
+	</script>
+	<head>
+		<title>text tools</title>
+		<style>
+			body {
+				background: #f7567c;
+				color: black;
+			}
+			.citation {
+				text-shadow: orange 2px 2px;
+				color: #472f00;
+				display: inline;
+			}
+			.source {
+				text-shadow: cornflowerblue 2px 2px;
+				color: #2f2f5f;
+				display: inline;
+			}
+			.sourcetext {
+			/* this isn't really a thing yet, might not be for a while. */
+				text-shadow: cornflowerblue 2px 2px;
+				display: inline;
+			}
+		</style>
+	</head>
+	<body>
+		<script>
+		let wrapper = {
+		// an object that stores things related to my "wrapper" system.
+		// - all tools are encased in a <details> thing
+		// - if url parameters match the names of tools, those tools are
+		//   automatically opened
+		// - the tips thing at the bottom shows tips, but only tips related to
+		//   the tools you have open
+		// - at the bottom, it shows the url parameters that will open the given
+		//   tools.
+			list: [],
+			// list of all tool prefixes.
+			names: {
+			// if a prefix has a property in here, that string is used in all
+			// displays. (ex: the summary thing will say "fighting game move
+			// list" instead of "fgml")
+				jumbler: "text jumbler",
+				wobbly: "wobbly text",
+				timelog: "time log",
+				//dropdowner: "dropdowner",
+				sorter: "content sorter",
+				fgml: "fighting game move list",
+				leit: "leitner box",
+				lic: "life is cruel",
+				bul: "Bullets tool",
+			},
+			param: new URLSearchParams(new URL(document.URL).search),
+			create: function(prefix, inside) {
+			// writes out the wrapper, adds it to the list, etc.
+				wrapper.list[wrapper.list.length] = prefix;
+				document.write([
+					`<details id="` + prefix + `_wrapper"><summary><strong>` + (wrapper.names[prefix] ?? prefix) + `</strong></summary>`,
+					`\t<br>`,
+					`\t` + inside.replaceAll(`\n`, `\n\t`),
+					`\t<br>`,
+					`</details>`
+				].join(`\n`));
+				let ref = document.getElementById(prefix + "_wrapper")
+				ref.ontoggle = wrapper.refresh;
+				ref.open = wrapper.param.has(prefix);
+			},
+			refresh: function(e) {
+			// recreates wrapper.tips
+				if(!wrapper.finished) {
+				// this should only be possible if they open/close a wrapper
+				// after it's made but before the page is finished... whatever.
+					return;
+				}
+				let open = [];
+				wrapper.tips = [];
+				for(let i1 = 0; i1 < wrapper.list.length; i1++) {
+					let prefix = wrapper.list[i1];
+					let ref = document.getElementById(prefix + "_wrapper");
+					if(ref && ref.open) {
+						open[open.length] = prefix;
+						let add = wrapper._tips[prefix] ?? [];
+						for(let i2 = 0; i2 < add.length; i2++) {
+							wrapper.tips[ wrapper.tips.length ] = (wrapper.names[prefix] ?? prefix) + ": " + add[i2];
+						}
+					};
+				}
+				if(wrapper.tips.length) {
+					wrapper.tips_index = Math.floor(Math.random()*wrapper.tips.length) - 1;
+					document.getElementById("tips_button").click();
+				}
+				else {
+					wrapper.tips_index = -1;
+					document.getElementById("tips_text").innerHTML = "";
+				}
+				document.getElementById("tips_param").innerHTML = open.length ? `add "?` + open.join("&") + `" to the end of the url to open ` + (open.length === 1 ? `this tool` : `these tools`) + ` automatically.` : ``;
+			},
+			_tips: {
+				timelog: [
+					"they can have DDmmmYY dates and bullets, and you can specify what part of the project you were working on by typing a colon and subtitle. it'll process all that and sort it accordingly."
+				],
+				dropdowner: [
+					"you can repeat page names, the text will be added to the text from previous uses of that name. i use a blank title to store content that doesn't belong to any particular song."
+				],
+				leit: [
+					"edit the beginning of the data text to change various settings.",
+					"max_level is related to the maximum number of days between reviews of a question. ex: if max_level = 7, cards will be reviewed after 1 day, then 2 days, then 4, etc, but it stops once it reaches 2^7.",
+					"nullify decides what happens if you get a question right when it's already at the max_level. false means you'll just keep reviewing it with the same interval, with no changes at all. true means the card will be nullified, meaning it will stop appearing in reviews at all.",
+					"allow_html keeps it from doing entity replacement on the text. this means you can use html code like &#60;b&#62; and &#60;i&#62;, but characters like &#60; and &#62; will get interpreted as that, and you have to go to stupid lengths for line breaks, indents, and nonbreaking spaces...",
+					`you can add exceptions to the settings per question by typing text in the same line as the until/period fraction. for example, writing "max_level: 4, nullify: false" after the fraction will make it so the number of days between reviews will never be higher than 2^4, and it'll never be nullified either, even if it contradicts the main max_level and nullify settings.`,
+					"if the answer you type has the correct answer within it, it'll be ruled as correct immediately without having to click anything. (casing differences and spaces at the beginning/end are also ignored.) useful for questions with simple answers."
+				],
+			},
+			tips: [],
+			// an array of only the tips relevant right now.
+			tips_index: -1,
+			finished: false,
+			finish: function() {
+			// makes the html for the tips button, text, and parameter text, and
+			// runs refresh so .create doesn't have to. (it should be run at the
+			// bottom of the page, so that it shows after all the wrappers.)
+				wrapper.finished = true;
+				document.write(`\n<hr>\n` + [
+					`<button id="tips_button">tips</button><div id="tips_text"></div>`,
+					`<hr>`,
+					`<div id="tips_param"></div>`
+				].join(`\n`));
+				document.getElementById("tips_button").onclick = function() {
+					if(!wrapper.tips.length) {
+						return;
+					};
+					wrapper.tips_index = posmod(wrapper.tips_index + 1, wrapper.tips.length);
+					document.getElementById("tips_text").innerHTML = wrapper.tips[wrapper.tips_index];
+				};
+				//
+				wrapper.refresh();
+			},
+		};
+		let verticalscreen = (window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight) > (window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth);
+		function converttime(input, fromnumbers, amount, shush) {
+		// only accepts XX:XX[a/p] format. this is not how javascript writes
+		// dates, it's how i write dates.
+		// - fromnumbers: if this is true, it'll use the input as a number
+		//   and convert to the time string instead.
+		// - amount: if this is true, it'll assume you're converting not a
+		//   time, but an amount of hours, minutes, and seconds.
+		//   - it accepts XhXXmXXs, XhXXm, XmXXs, Xh, Xm, and Xs.
+		//   - NOTE: it returns the seconds, not minutes! also, if you're
+		//     converting *to* a time amount, it will always write the seconds.
+		// - gotta make sure to test this... i always screw up with
+		//   functions like this, somehow.
+		//   - takes way longer than you'd think, too.
+		// - NOTE: it gets rid of "~" at the beginning, and it can process +/-
+		//   at the beginning
+		// =
+		// moved to reusables
+			let i1 = 0;
+			let i2 = 0;
+			if(!fromnumbers && input.startsWith("~")) {
+				input = input.slice(1);
+			};
+			if(amount) {
+				if(fromnumbers) {
+					let negative = input < 0;
+					input = Math.floor(Math.abs(input));
+					let seconds = input;
+					let minutes = Math.floor(seconds/60);
+					seconds -= minutes*60;
+					let hours = Math.floor(minutes/60);
+					minutes -= hours*60;
+					seconds += "";
+					minutes += "";
+					hours += "";
+					minutes = "0".repeat(2 - minutes.length) + minutes;
+					seconds = "0".repeat(2 - seconds.length) + seconds;
+					let output = hours + "h" + minutes + "m" + seconds + "s";
+					// example: 0h03m56s
+					if(hours === "0") {
+						output = output.slice(2);
+						if(minutes === "00") {
+							output = output.slice(3);
+							if(seconds === "00") {
+								output = output.slice(1);
+							}
+							else if(seconds.slice(0, 1) === "0") {
+								output = output.slice(1);
+							};
+						}
+						else if(minutes.slice(0, 1) === "0") {
+							output = output.slice(1);
+						};
+					};
+					return (negative ? "-" : "") + output;
+				}
+				else {
+					let negative = false;
+					if(input[0] === "+") {
+						input = input.slice(1);
+					}
+					else if(input[0] === "-") {
+						input = input.slice(1);
+						negative = true;
+					};
+					let nums = {};
+					let slicestart = 0;
+					for (i1 = 0; i1 < input.length; i1++) {
+						if("hms".includes(input[i1])) {
+							nums[input[i1]] = Number(input.slice(slicestart, i1));
+							if(slicestart !== 0 && i1 - slicestart !== 2) {
+							// only the largest type is allowed to have as many
+							// digits as it wants. (ex: 1h7m is invalid, 1m100s
+							// is invalid)
+								if(!shush) {
+									console.log("invalid input.");
+								}
+								return;
+							}
+							slicestart = i1 + 1;
+						}
+						else if(i1 === input.length - 1) {
+						// it should end with one of those.
+							if(!shush) {
+								console.log("invalid input.");
+							}
+							return;
+						}
+						else if(!"0123456789".includes(input[i1])) {
+						// it should only be numbers and h/m/s.
+							if(!shush) {
+								console.log("invalid input.");
+							}
+							return;
+						}
+					}
+					nums.h ??= 0;
+					nums.m ??= 0;
+					nums.s ??= 0;
+					return (negative ? -1 : 1)*(nums.h*60*60 + nums.m*60 + nums.s);
+				};
+			}
+			else {
+				if(fromnumbers) {
+					input %= 24*60;
+					let ampm = "";
+					if(input >= 12*60) {
+						input -= 12*60;
+						ampm += "p";
+					};
+					let hours = Math.floor(input/60).toString();
+					let minutes = (input%60).toString();
+					if(hours === "0") {
+						hours = "12";
+					};
+					hours = "0".repeat(2 - hours.length) + hours;
+					return hours + ":" + minutes + ampm;
+				}
+				else {
+					let hours = Number( input.slice(0, input.indexOf(":")) );
+					let minutes = Number( input.slice(input.indexOf(":") + 1, -1) );
+					if(
+					!input.includes(":")
+					||
+					(input.slice(-1) !== "a" && input.slice(-1) !== "p")
+					||
+					!hours || !Number.isInteger(hours) || hours < 1 || hours > 12
+					||
+					!input.slice(input.indexOf(":") + 1, -1) || !Number.isInteger(minutes) || minutes < 0 || minutes >= 60
+					) {
+						// hours shouldn't be zero, though that's valid in some
+						// systems (also empty space can be number-converted to
+						// 0 and i don't feel like dealing with it. except i
+						// already did for minutes.)
+						if(!shush) {
+							console.log("invalid converttime input.");
+						};
+						return;
+					};
+					if(hours === 12) {
+						hours = 0;
+					};
+					return hours * 60 + minutes + (input.slice(-1) === "p" ? 12*60 : 0);
+				};
+			};
+		}
+		function divideat(input, index) {
+		// returns an array of the part of the string before and after the index
+		// specified. use it with .indexOf.
+			return [input.slice(0, index), input.slice(index)];
+		};
+		function cluding(input, terms, mode) {
+		// - "orin" mode: returns whether the input has at least one of the
+		//   terms.
+		//   - this is the default.
+		// - "andin" mode: returns whether the input has every term.
+		// - "orex" mode: returns whether the input is missing at least one of
+		//   the terms.
+		// - "andex" mode: returns whether the input is missing all of the
+		//   terms.
+			let i1 = 0;
+			mode = ["orin", "andin", "orex", "andex"].includes(mode) ? mode : "orin";
+			if(typeof terms === "string") {
+				terms = [terms];
+			};
+			for (i1 = 0; i1 < terms.length; i1++) {
+				if(["orin", "andex"].includes(mode) && input.includes(terms[i1])) {
+				// the modes where all it has to know is if *one* term is there
+				// or not
+					if(mode === "orin") {
+						return true;
+					}
+					else if(mode === "andex") {
+						return false;
+					}
+				}
+				else if(["andin", "orex"].includes(mode) && !input.includes(terms[i1])) {
+				// modes where it reacts to whether *all* terms are there or not
+					if(mode === "andin") {
+						return false;
+					}
+					else if(mode === "orex") {
+						return true;
+					}
+				};
+			}
+			if(mode === "orin") {
+			// didn't find any of the terms
+				return false;
+			}
+			else if(mode === "andex") {
+			// didn't find any of the terms, and it's not supposed to
+				return true;
+			}
+			if(mode === "andin") {
+			// never found a term it didn't have
+				return true;
+			}
+			else if(mode === "orex") {
+			// wasn't missing any of the excluded terms, and it's supposed to
+				return false;
+			}
+		}
+		function acronymizer(input, required, desired, desiredquota) {
+		// input a string like "HEHoHa", and it'll give every possible
+		// arrangement of "H", "E", "Ho", and "Ha" that meets the array of
+		// requireds, ordered by the number of desireds.
+		// - requireds and desireds have similar formatting as input. a "HoHa"
+		//   string in required means the results must have "Ho" and "Ha" next
+		//   to each other.
+		//   - if there's three or more, what it means is, "all of these must be
+		//     adjacent to each other."
+		//   - requireds/desireds can have spaces in them. this acts like an ||,
+		//     kind of. it'll find all the applicable strings for the first one,
+		//     then all the strings for the second one, etc, and an order only
+		//     has to have one of those for it to count as fulfilled.
+		// - wrote this up in an hour to help with a mnemonic.
+		//   - that said, nothing's a sure thing until it's tested. this kind of
+		//     recursive, mind-bendy logic always has complicated bugs.
+		// - even just 8 characters will mean 40320 combinations, so you should
+		//   definitely set some requireds and desireds and a desiredquota of 1.
+			let i0 = 0;
+			let i1 = 0;
+			let i2 = 0;
+			let i3 = 0;
+			required ??= [];
+			desired ??= [];
+			function acronym_split(input) {
+			// "HEHoHa" becomes ["H", "E", "Ho", "Ha"], etc
+				let i1 = 0;
+				if(
+					input.charAt(0) === input.charAt(0).toLowerCase()
+				) {
+				// it should begin with an uppercase
+					if(input === input.toLowerCase()) {
+					// but if all of it is lowercase, just break it up per
+					// letter
+						return input.split("");
+					}
+					else {
+						console.log("invalid acronym_split input.");
+						return;
+					}
+				};
+				input = input.split("");
+				for (i1 = 0; i1 < input.length; i1++) {
+					if(i1 !== 0 && input[i1] === input[i1].toLowerCase()) {
+						// if it's not an uppercase letter, merge it with the previous.
+						input[i1 - 1] += input[i1];
+						input.splice(i1, 1);
+						i1--;
+					}
+				}
+				return input;
+			}
+			input = acronym_split(input);
+			if(input.length > 10) {
+				console.log("this is probably a stupid idea.");
+				// 1*2*3*4*5*6*7*8*9*10 === 3628800 possible orders.
+				return;
+			};
+			function acronym_lattice(input) {
+			// input an array of strings, it will create an array of every order
+			// those strings can be combined.
+			// - this sounds right, but it's pretty likely it'll freeze or
+			//   something. whatever. i'll fix it later.
+				let i1 = 0;
+				let i2 = 0;
+				let array = [];
+				for (i1 = 0; i1 < input.length; i1++) {
+					let temp = structuredClone(input);
+					temp.splice(i1, 1);
+					let arraytemp = acronym_lattice(temp);
+					// create a lattice from the letters that are always there,
+					// and the remaining letters
+					if(arraytemp.length === 0) {
+						array[array.length] = input[i1];
+					}
+					else {
+						for (i2 = 0; i2 < arraytemp.length; i2++) {
+							array[array.length] = input[i1] + arraytemp[i2];
+						}
+					}
+				}
+				return array;
+			}
+			let output = acronym_lattice(input);
+			let ref = null;
+			for (i0 = 0; i0 < 2; i0++) {
+				ref = [required, desired][i0];
+				// object reference
+				for (i1 = 0; i1 < ref.length; i1++) {
+					let temp = ref[i1].split(" ");
+					// split it up into different ways of fulfilling the condition.
+					ref[i1] = [];
+					for (i2 = 0; i2 < temp.length; i2++) {
+					// for each way, create an acronym_lattice
+						ref[i1] = ref[i1].concat(acronym_lattice(acronym_split(temp[i2])));
+					}
+					// now it's a list of all strings that will satisfy this condition.
+				}
+			}
+			for (i1 = 0; i1 < output.length; i1++) {
+			// search through every arrangement
+				let remove = false;
+				// stores whether there's been a required that it didn't fulfill
+				for (i2 = 0; i2 < required.length; i2++) {
+				// run for every required
+					let fulfilled = cluding(output[i1], required[i2], "orin");
+					// boolean for whether it has at least one of the strings
+					// this requirement wants
+					if(!fulfilled) {
+					// there's a requirement it didn't fulfill.
+						remove = true;
+						i2 += required.length;
+						// exit loop
+					}
+				}
+				if(remove) {
+				// remove it
+					output.splice(i1, 1);
+					i1--;
+				}
+				else {
+				// check for desireds
+					let d_temp = [];
+					// array of desireds it fulfilled
+					for (i2 = 0; i2 < desired.length; i2++) {
+					// run for every desired
+						if(cluding(output[i1], desired[i2], "orin")) {
+							d_temp[d_temp.length] = desired[i2][0];
+						};
+					}
+					if(desiredquota && d_temp.length < desiredquota) {
+					// if it didn't meet the quota, remove it
+						output.splice(i1, 1);
+						i1--;
+					}
+					else {
+					// otherwise, make it an object so the desireds can be
+					// stored
+						output[i1] = {
+							text: output[i1],
+							desireds: structuredClone(d_temp),
+							// stores the desireds it fulfilled
+						};
+					}
+				}
+			}
+			function acronym_sort(a, b) {
+				return a.desireds.length - b.desireds.length;
+			};
+			output.sort(acronym_sort);
+			return output;
+		}
+		function anagramkeysmash(word, length) {
+		// i had a funny idea.
+			let i1 = 0;
+			let string = "";
+			let wordtemp = word;
+			let numtemp = 0;
+			for (i1 = 0; i1 < length; i1++) {
+				numtemp = Math.floor(Math.random()*wordtemp.length);
+				string += wordtemp.charAt(numtemp);
+				wordtemp = wordtemp.slice(0, numtemp) + wordtemp.slice(numtemp + 1);
+				if(wordtemp.length < 1) {
+					wordtemp = word;
+				}
+			}
+			return string;
+		}
+		wrapper.create("jumbler", `
+			shuffles words around.
+			<br>
+			<br><label>input:
+			<br><textarea id="jumbler_input" rows="10" cols="66"></textarea></label>
+			<br><button id="jumbler_button">run</button>
+			<br><label>output:
+			<br><textarea id="jumbler_output" rows="10" cols="66"></textarea></label>
+		`);
+		function jumbler(input) {
+		// takes a string input and returns a version of it with the words
+		// shuffled around.
+			let i1 = 0;
+			let i2 = 0;
+			if(!input || typeof input !== "string") {
+				return "";
+			};
+			input = input.split(" ");
+			let output = [];
+			//
+			let unicodeletters = [];
+			let unicodemax = 4096;
+			let temp = "";
+			for (i1 = 0; i1 < unicodemax; i1++) {
+				temp = String.fromCharCode(i1);
+				if(temp.length === 1 && temp.toLowerCase() !== temp.toUpperCase()) {
+					unicodeletters[unicodeletters.length] = temp;
+				}
+			}
+			for (i1 = 0; i1 < 10; i1++) {
+				unicodeletters[unicodeletters.length] = "" + i1;
+			}
+			//console.log(unicodeletters.join(" "));
+			// this should create a list of letters and numbers.
+			// - the length requirement is because control strings like "\u0000"
+			//   have letters in them.
+			// - i could just check a to z and A to Z, but then i'd miss
+			//   anything with accents
+			// - this still probably isn't compatible with a lot of scripts.
+			//   - oh, cyrillic seems fine.
+			for(i1 = 0; i1 < input.length; i1++) {
+				temp = false;
+				for (i2 = 0; i2 < unicodeletters.length; i2++) {
+					if(input[i1].includes(unicodeletters[i2])) {
+						temp = true;
+					};
+				}
+				if(!temp) {
+					if(i1 === 0) {
+						input[i1 + 1] = input[i1] + " " + input[i1 + 1];
+						input.splice(i1, 1);
+						i1--;
+						// compensate for splice
+					}
+					else {
+						input[i1 - 1] = input[i1 - 1] + " " + input[i1];
+						input.splice(i1, 1);
+						i1--;
+					};
+				};
+			}
+			// make sure there's no non-words in there, tack them onto the
+			// previous word if there's no letters or numbers.
+			function haspunct(word) {
+			// check if the first and last letters are not letters or
+			// apostrophes and returns "start", "end", and "both".
+				let start = false;
+				let end = false;
+				if(word.charCodeAt(0) !== 39 && !unicodeletters.includes(word.charAt(0))) {
+					start = true;
+				};
+				if(word.charCodeAt(word.length - 1) !== 39 && !unicodeletters.includes(word.charAt(word.length - 1))) {
+					end = true;
+				};
+				if(start) {
+					if(end) {
+						return "both";
+					}
+					else {
+						return "start";
+					};
+				}
+				else {
+					if(end) {
+						return "end";
+					}
+					else {
+						return false;
+					};
+				};
+			}
+			output = [];
+			// structure:
+			// - groups of words, separated by non-letters like commas,
+			//   brackets, quotes, etc (array)
+			//   - words (strings)
+			let jumbleindex = 0;
+			output[jumbleindex] = [];
+			for(i1 = 0; i1 < input.length; i1++) {
+				if(
+					(haspunct(input[i1]) === "start" || haspunct(input[i1]) === "both")
+					&&
+					output[jumbleindex].length
+				) {
+					jumbleindex++;
+					output[jumbleindex] = [];
+					// start a new array first (unless the current array never
+					// even had anything)
+				};
+				output[jumbleindex][ output[jumbleindex].length ] = input[i1];
+				// add this word to that array
+				if(
+					(haspunct(input[i1]) === "end" || haspunct(input[i1]) === "both")
+					&&
+					output[jumbleindex].length
+				) {
+					jumbleindex++;
+					output[jumbleindex] = [];
+					// start a new array
+				};
+			}
+			if(output[output.length - 1].length === 0) {
+				output.splice(output.length - 1, 1);
+			};
+			//console.log(output);
+			//return;
+			temp = [];
+			let startpunc = "";
+			let endpunc = "";
+			let temp2 = 0;
+			let temp3 = 0;
+			for (i1 = 0; i1 < output.length; i1++) {
+			// run for each group of words
+				startpunc = "";
+				temp = output[i1][0];
+				// the first word
+				for (i2 = 0; i2 < temp.length; i2++) {
+				// run for every letter of the first word
+					if(temp.charCodeAt(i2) !== 39 && !unicodeletters.includes(temp.charAt(i2))) {
+						startpunc += temp.charAt(i2);
+					}
+					else {
+						output[i1][0] = output[i1][0].slice(i2);
+						i2 += temp.length;
+					};
+				}
+				endpunc = "";
+				temp = output[i1][ output[i1].length - 1 ];
+				// the last word
+				for (i2 = temp.length - 1; i2 >= 0; i2--) {
+				// run for every letter of the last word
+					if(temp.charCodeAt(i2) !== 39 && !unicodeletters.includes(temp.charAt(i2))) {
+						endpunc = temp.charAt(i2) + endpunc;
+					}
+					else {
+						output[i1][ output[i1].length - 1 ] = output[i1][ output[i1].length - 1 ].slice(0, i2 + 1);
+						i2 -= temp.length;
+					};
+				}
+				temp = structuredClone(output[i1]);
+				temp2 = 0;
+				temp3 = output[i1].length;
+				// i could have the loop condition be "temp.length > 0" but then
+				// that might cause problems if something weird happens, like
+				// the loop being run on a group of 0 words
+				//*
+				output[i1] = "";
+				for (i2 = 0; i2 < temp3; i2++) {
+				// move words from temp back into output[i1] in a random
+				// order.
+					temp2 = Math.floor(Math.random() * temp.length);
+					// pick a random index
+					output[i1] += (i2 === 0 ? "" : " ") + temp[temp2];
+					temp.splice(temp2, 1);
+				}
+				output[i1] = startpunc + output[i1] + endpunc;
+				//*/
+				/*
+				"i am so fuk cing baddass" "yeah go ahead and power up you littl
+				little bitch. the challenge, it makes my saiyan blood
+				boil!!!!!!" "the challenge, it makes my saiyan blood shrivel up
+				and cry like a baby!!!!!! ah!!!! you tricked me!!!!!! you
+				fucker!!!!!"
+				-
+				has become
+				-
+				"am baddass so fuk i cing" "ahead and go little bitch up you
+				yeah power. challenge the, my saiyan blood boil makes it!!!!!!"
+				"the challenge, blood up shrivel it my saiyan and a cry baby
+				makes like!!!!!! ah!!!! me tricked you!!!!!! you fucker!!!!!"
+				-
+				i guess it works! i, works guess it. only took a bit less than
+				two hours.
+				//*/
+			}
+			output = output.join(" ");
+			return output;
+		}
+		document.getElementById("jumbler_button").onclick = function() {
+			document.getElementById("jumbler_output").value = jumbler(document.getElementById("jumbler_input").value);
+		};
+		//
+		wrapper.create("wobbly", `
+			alternates letter casing every one or two characters. evokes
+			wonkiness, pain, etc.
+			<ul>
+				<li>
+				if the same letter is used twice in a row, they're always
+				different cases.
+				</li>
+			</ul>
+			<br><textarea id="wobbly_text" rows="10" cols="66"></textarea>
+			<br><button id="wobbly_button">run</button>
+		`);
+		document.getElementById("wobbly_button").onclick = function() {
+			document.getElementById("wobbly_text").value = wobblytext(document.getElementById("wobbly_text").value);
+		};
+		//
+		wrapper.create("timelog", `
+			type time amounts in XhXXmXXs format, followed by what
+			project/whatever that time is for. it adds them up.
+			<br><label>input:
+			<br><textarea id="timelog_input" rows="10" cols="75"></textarea></label>
+			<br><button id="timelog_button">run</button>
+			<br><label><input type="radio" id="timelog_collapse_none" name="timelog_collapse" value="" checked> show all contents</label>
+			<br><label><input type="radio" id="timelog_collapse_text" name="timelog_collapse" value="text"> hide extra text</label>
+			<br><label><input type="radio" id="timelog_collapse_full" name="timelog_collapse" value="full"> hide text and individual times</label>
+			<br><label>from <input type="text" id="timelog_from"></label><label> to <input type="text" id="timelog_to"></label>
+			<br><label>output:
+			<br><div id="timelog_output"></div></label>
+		`);
+		function timelog(input, collapse, from, to) {
+			let i1 = 0;
+			let i2 = 0;
+			let i3 = 0;
+			let projects = {};
+			// structure:
+			// - [project names]
+			//   - [dates]
+			//     - time (in seconds)
+			//     - bullets
+			from = datetonum(from);
+			to = datetonum(to);
+			input = breakbydate(input.trim());
+			for (i1 in input) {
+				if (input.hasOwnProperty(i1) && input[i1].trim()) {
+				// for each date... (that actually has text.)
+					let bullets = new Bullets(input[i1], true).split();
+					// an array of Bullets, broken up so each 0 indent bullet is
+					// the start of an index.
+					for (i2 = 0; i2 < bullets.length; i2++) {
+						let time = bullets[i2][0].text;
+						let proj = time.indexOf(" ");
+						let subcategory = "";
+						if(proj === -1) {
+							proj = "";
+						}
+						else {
+							let temp = proj;
+							proj = time.slice(temp + 1);
+							time = time.slice(0, temp);
+							temp = proj.indexOf(":");
+							if(temp !== -1) {
+								subcategory = proj.slice(temp + 1).trim();
+								proj = proj.slice(0, temp).trim();
+							};
+						};
+						let seconds = converttime(time, false, true, true);
+						if(seconds === undefined) {
+							console.log(time);
+						}
+						if(seconds !== undefined) {
+						// skip anything that doesn't start with a time.
+							projects[proj] ??= {};
+							projects[proj][i1] ??= {};
+							let ref = projects[proj][i1];
+							// this project and this date
+							ref.time ??= 0;
+							ref.bullets ??= new Bullets("", true);
+							// create an empty time and bullets for this date
+							ref.time += seconds;
+							// add to the time
+							bullets[i2][0].text = (time + " " + subcategory).trim();
+							bullets[i2].changeindent(1);
+							// only retain the time and the subcategory if it's
+							// there. (the project name would be redundant) add
+							// one indent
+							ref.bullets = ref.bullets.concat(bullets[i2]);
+							// add to the bullets
+						}
+					}
+				}
+			}
+			let output = [];
+			// .join-ed later
+			let totaltotal = 0;
+			// total of all projects' total time.
+			for (i1 in projects) {
+				if (projects.hasOwnProperty(i1)) {
+				// for each project
+					let total = 0;
+					let text = [];
+					text[0] = i1;
+					// .join-ed later
+					let omit = true;
+					// deactivated if there's at least one time log within the
+					// from/to range.
+					for (i2 in projects[i1]) {
+						if (projects[i1].hasOwnProperty(i2) && datewithinrange(i2, from, to)) {
+						// for each date within range, add the text and time
+							omit = false;
+							let ref = projects[i1][i2];
+							if(collapse !== "full") {
+								text[text.length] = " ".repeat(3) + i2;
+								if(collapse === "text") {
+									let length = ref.bullets.length;
+									for (i3 = 0; i3 < length; i3++) {
+										if(ref.bullets[i3].indent === 1) {
+											text[text.length] = ref.bullets.stringat(i3, 77, true);
+										}
+									}
+									// only write the lowest level indent
+								}
+								else {
+									text[text.length] = ref.bullets.string(77, true);
+								}
+							}
+							total += ref.time;
+						};
+					}
+					if(!omit) {
+						text[0] = converttime(total, true, true) + " " + text[0];
+						text = text.join(String.fromCharCode(10));
+						output[output.length] = text;
+						totaltotal += total;
+					}
+				}
+			}
+			output[output.length] = converttime(totaltotal, true, true) + " TOTAL";
+			output = output.join(String.fromCharCode(10));
+			return output;
+		}
+		document.getElementById("timelog_button").onclick = function() {
+			let temp = document.getElementsByName("timelog_collapse");
+			let collapse = "";
+			for (i1 in temp) {
+				if (temp.hasOwnProperty(i1) && temp[i1].checked) {
+					collapse = temp[i1].value;
+				};
+			}
+			document.getElementById("timelog_output").innerHTML = "<pre>" + timelog(
+				document.getElementById("timelog_input").value,
+				collapse,
+				document.getElementById("timelog_from").value,
+				document.getElementById("timelog_to").value
+			) + "</pre>";
+		};
+		//
+		wrapper.create("dropdowner", `
+			type a line that starts with the break string followed by a page
+			name. it'll organize the text by those page names and make a
+			dropdown that lets you flip through them. i use it to divide up
+			music transcripts by song. or lyrics, because genius.com is one of
+			the laggiest shittiest websites i've ever visited
+			<br><br><label>input:
+			<br><textarea id="dropdowner_input" rows="25" cols="75"></textarea></label>
+			<br><label>break string: <input type="text" id="dropdowner_breakstring" value="##"></label>
+			<br><label>numbering: <input type="checkbox" id="dropdowner_numbering" checked></label>
+			<br><button id="dropdowner_button">run</button>
+			<br><label>page <select id="dropdowner_page">
+			</select></label>
+			<br><label>output:
+			<br><textarea id="dropdowner_output" rows="25" cols="75" readonly></textarea></label>
+		`);
+		let dropdowner_text = {"": ""};
+		function dropdowner(input, breakstring) {
+		// sorts the input into an object of different pages.
+			let i1 = 0;
+			let i2 = 0;
+			let temp = input.startsWith(breakstring);
+			if(temp) {
+				input = input.slice(breakstring.length);
+			};
+			input = input.split(String.fromCharCode(10) + breakstring);
+			let output = {};
+			for(i1 = 0; i1 < input.length; i1++) {
+				let name = "";
+				let text = input[i1];
+				if(i1 === 0 && !temp) {
+				}
+				else {
+					name = input[i1].indexOf(String.fromCharCode(10));
+					// index of first line break
+					text = text.slice(name + 1).trim();
+					// text after line break (or "", if there were none)
+					name = input[i1].slice(0, (name === -1 ? input[i1].length : name)).trim();
+					// the first line, minus the breakstring
+				};
+				if(!text) {
+				}
+				else if(output.hasOwnProperty(name)) {
+					output[name] += String.fromCharCode(10) + text;
+				}
+				else {
+					output[name] = text;
+				};
+			}
+			return output;
+		}
+		function resetdropdown() {
+			let pagehtml = [];
+			let i1 = 0;
+			for (i1 in dropdowner_text) {
+				if (dropdowner_text.hasOwnProperty(i1)) {
+					pagehtml[pagehtml.length] = `<option value="` + i1 + `">` + (document.getElementById("dropdowner_numbering").checked ? pagehtml.length + ": " : "") + i1 + `</option>`;
+				}
+			}
+			document.getElementById("dropdowner_page").innerHTML = String.fromCharCode(10) + pagehtml.join(String.fromCharCode(10)) + String.fromCharCode(10);
+			document.getElementById("dropdowner_output").value = dropdowner_text[ document.getElementById("dropdowner_page").value ];
+			document.getElementById("dropdowner_output").rows = document.getElementById("dropdowner_output").value.split(String.fromCharCode(10)).length;
+		};
+		resetdropdown();
+		document.getElementById("dropdowner_button").onclick = function() {
+			dropdowner_text = dropdowner(document.getElementById("dropdowner_input").value, document.getElementById("dropdowner_breakstring").value);
+			resetdropdown();
+		};
+		document.getElementById("dropdowner_page").onchange = function() {
+			document.getElementById("dropdowner_output").value = dropdowner_text[ document.getElementById("dropdowner_page").value ];
+			document.getElementById("dropdowner_output").rows = document.getElementById("dropdowner_output").value.split(String.fromCharCode(10)).length;
+		};
+		//
+		let sorter = {
+			initialize: function() {
+				let html = `
+					lets you sort text into multiple categories, by paragraph. (it can
+					handle DDmmmYY dates, too.)
+					<br><br><label>input:
+					<br><textarea id="sorter_input" rows="25" cols="75"></textarea></label>
+					<br><label>categories: <input type="text" id="sorter_categories" value="6"></label> (use commas to separate category names, or a number to create that many numbered categories.)
+					<br><button id="sorter_button">start</button>
+					<br>
+				`;
+				let temp = [
+					`<pre id="sorter_content"></pre>`,
+					`<br><button id="sorter_undo">undo</button><button id="sorter_redo">redo</button>
+					<br><label>current category: <select id="sorter_page">
+					</select></label>
+					<br><label>output:
+					<br><textarea id="sorter_output" rows="25" cols="75" readonly></textarea></label>`
+				];
+				temp = (
+					verticalscreen
+					?
+					temp.join("<br>")
+					:
+					(`<table id="sorter_table"><tr valign="top"><td id="sorter_cell1">` + temp[0] + `</td><td id="sorter_cell2">` + temp[1] + `</td></tr></table>`)
+				);
+				html += temp;
+				wrapper.create("sorter", html);
+				if(false && !verticalscreen) {
+					temp = (window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth)/2 + "px";
+					document.getElementById("sorter_cell1").style.width = temp;
+					document.getElementById("sorter_cell2").style.width = temp;
+				};
+				sorter.reset();
+				document.getElementById("sorter_button").onclick = function() {
+					sorter.start(document.getElementById("sorter_input").value, document.getElementById("sorter_categories").value);
+				};
+				document.getElementById("sorter_page").onchange = sorter.reset;
+				document.getElementById("sorter_undo").onclick = sorter.undo.func;
+				document.getElementById("sorter_redo").onclick = sorter.redo;
+			},
+			text: {},
+			// structure:
+			// - [date]
+			//   - [array of objects for the different paragraphs]
+			//     - string: string of the paragraph
+			//     - category: where it's stored right now. null means it hasn't
+			//       been sorted yet.
+			//     - index: the number for the order it appears in the text.
+			//       (this could be figured out by counting these objects, but
+			//       there's a lot of ways that could go wrong.)
+			//       - this is the text overall, not the paragraphs for this
+			//         date. it's also set before the sortdatedobject.
+			createstate: function() {
+			// used to save undo/redo data. an array of the category every
+			// paragraph is in.
+				let date = 0;
+				let i1 = 0;
+				let state = [];
+				for(date in sorter.text) {
+					if(sorter.text.hasOwnProperty(date)) {
+						let ref = sorter.text[date];
+						for(i1 = 0; i1 < ref.length; i1++) {
+							state[ ref[i1].index ] = ref[i1].category;
+						}
+					}
+				}
+				return state;
+			},
+			savestate: function() {
+				if(sorter.undo.index > 0) {
+				// if this edit is happening after some undos, delete the data
+				// needed for redos
+					sorter.undo.data = sorter.undo.data.slice(sorter.undo.index);
+					sorter.undo.index = 0;
+				};
+				sorter.undo.data.splice(0, 0, sorter.createstate());
+				if(sorter.undo.data.length > sorter.undo.max) {
+				// make sure it doesn't surpass the max undos
+					sorter.undo.data = sorter.undo.data.slice(0, sorter.undo.max);
+				};
+			},
+			loadstate: function(state) {
+				let date = 0;
+				let i1 = 0;
+				for(date in sorter.text) {
+					if(sorter.text.hasOwnProperty(date)) {
+						let ref = sorter.text[date];
+						for(i1 = 0; i1 < ref.length; i1++) {
+							ref[i1].category = state[ ref[i1].index ];
+						}
+					}
+				}
+				sorter.reset();
+			},
+			undo: {
+				data: [],
+				// each index is what createstate makes. the current index should
+				// match the current state of the categories and whatever.
+				// - newer edits come first
+				index: 0,
+				// how many undos have happened, how many redos it is from the
+				// current state.
+				max: Infinity,
+				func: function() {
+					if(sorter.undo.index + 1 < sorter.undo.data.length) {
+						sorter.undo.index++;
+						sorter.loadstate(sorter.undo.data[ sorter.undo.index ]);
+					}
+				},
+			},
+			redo: function() {
+				if(sorter.undo.index > 0) {
+					sorter.undo.index--;
+					sorter.loadstate(sorter.undo.data[ sorter.undo.index ]);
+				}
+			},
+			start: function(input, categories) {
+			// converts an input into the .text property, creates the dropdown
+			// based on the categories input
+				let i1 = 0;
+				let i2 = 0;
+				input = input.trim().split("\n\n");
+				sorter.text = {};
+				// arrays of paragraphs, sorted by date.
+				let ref = sorter.text;
+				let date = "unknown";
+				let index = 0;
+				for(i1 = 0; i1 < input.length; i1++) {
+					input[i1] = input[i1].trim();
+					if(!input[i1]) {
+						input.splice(i1, 1);
+						i1--;
+					}
+					else if(datechecker(input[i1])) {
+						date = input[i1];
+					}
+					else {
+						ref[date] ??= [];
+						ref[date][ ref[date].length ] = {
+							string: input[i1],
+							category: null,
+							index,
+						};
+						index++;
+					};
+				};
+				let temp = structuredClone(sorter.text.unknown);
+				sorter.text = sortdatedobject(sorter.text);
+				sorter.text.unknown = structuredClone(temp);
+				// end of sorter.text creation
+				//
+				if(Number.isInteger(Number(categories))) {
+				// if i only check for NaN, you could screw it up by using
+				// "Infinity" like an asshole
+					let num = Number(categories);
+					categories = [];
+					for(i1 = 1; i1 <= num; i1++) {
+						categories[i1 - 1] = "" + i1;
+					}
+				}
+				else if(categories.includes(",")) {
+					categories = categories.split(",");
+					for(i1 = 0; i1 < categories.length; i1++) {
+						categories[i1] = categories[i1].trim();
+					}
+				}
+				else {
+					categories = ["1", "2"];
+				};
+				// categories is now an array of category names
+				for(i1 = 0; i1 < categories.length; i1++) {
+				// trim and turn it into html for the category dropdown
+					categories[i1] = categories[i1].trim();
+					categories[i1] = `<option value="` + categories[i1] + `">` + categories[i1] + `</option>`;
+				}
+				document.getElementById("sorter_page").innerHTML = String.fromCharCode(10) + categories.join(String.fromCharCode(10)) + String.fromCharCode(10);
+				//
+				sorter.undo.data = [];
+				sorter.undo.index = 0;
+				// it shouldn't retain data from a previous input.
+				sorter.savestate();
+				// so that there's an initial state that can be undo-ed back to
+				sorter.reset();
+			},
+			move: function(html_id) {
+				let date = "";
+				let i1 = 0;
+				let i2 = 0;
+				let index = Number(html_id.slice(html_id.lastIndexOf("_") + 1));
+				if(!Number.isInteger(index)) {
+					console.log("invalid sorter.move html_id.");
+					return;
+				};
+				let category = document.getElementById("sorter_page").value;
+				let bool = false;
+				for (date in sorter.text) {
+					if (sorter.text.hasOwnProperty(date)) {
+						for(i1 = 0; i1 < sorter.text[date].length; i1++) {
+							if(sorter.text[date][i1].index === index) {
+								if(bool) {
+									console.log("sorter.move: two paragraphs have this index. that isn't supposed to happen.");
+									return;
+								}
+								if(sorter.text[date][i1].category === category) {
+									category = null;
+								};
+								sorter.text[date][i1].category = category;
+								bool = true;
+							}
+						}
+					}
+				}
+				sorter.savestate();
+				sorter.reset();
+			},
+			reset: function() {
+			// resets the html content of the unsorted text and the dropdown.
+			// this should be run every time there's a change in sorter.text or
+			// the category the user selected.
+				let date = "";
+				let i1 = 0;
+				let i2 = 0;
+				let ref = sorter.text;
+				document.getElementById("sorter_content").innerHTML = sorter.categorytext(null, true);
+				// creates div tags
+				for (date in ref) {
+					if (ref.hasOwnProperty(date)) {
+						for(i1 = 0; i1 < ref[date].length; i1++) {
+						// adds event listeners
+							document.getElementById("sorter_content_" + ref[date][i1].index).addEventListener("click", function(){ sorter.move(this.id) });
+							// single clicks are too easy to do by accident.
+							// - but doubleclicks don't work on mobile, or at
+							//   least my phone... and there's markers for
+							//   reversing change easily, so whatever.
+						}
+					}
+				}
+				//
+				document.getElementById("sorter_output").value = sorter.categorytext(document.getElementById("sorter_page").value);
+				document.getElementById("sorter_output").rows = document.getElementById("sorter_output").value.split(String.fromCharCode(10)).length;
+				// sets the content of the output
+			},
+			categorytext: function(category, html) {
+			// enter a category name, and it'll list all the text for it.
+			// - html: boolean for whether to write them as div tags
+				let date = "";
+				let i1 = 0;
+				let ref = sorter.text;
+				let array = [];
+				for (date in ref) {
+					if (ref.hasOwnProperty(date)) {
+						if(date !== "unknown") {
+						// add date
+						// - "unknown" should be the first date anyway, so it's
+						//   fine to omit it.
+							array[array.length] = date;
+						}
+						let temp = array.length;
+						for(i1 = 0; i1 < ref[date].length; i1++) {
+							if(ref[date][i1].category === category) {
+								array[array.length] = (
+									html
+									?
+									`<div id="sorter_content_` + ref[date][i1].index + `">` + ref[date][i1].string + `</div>`
+									:
+									ref[date][i1].string
+								);
+							}
+							else if(category === null && html) {
+								array[array.length] = (
+									html
+									?
+									`<div id="sorter_content_` + ref[date][i1].index + `">` + (String.fromCharCode(8756) + String.fromCharCode(8757)).repeat(2) + `</div>`
+									:
+									ref[date][i1].string
+								);
+								//style="color: orange; text-shadow: brown 2px 2px"
+							}
+						}
+						if(date !== "unknown" && array.length === temp) {
+						// if nothing was in this category, cut the date
+							array.splice(array.length - 1, 1);
+						}
+					}
+				}
+				return array.join(String.fromCharCode(10).repeat(2));
+			},
+		};
+		sorter.initialize();
+		//
+		let fgml = {
+		// short for "fighting game move list".
+			divide: {
+				game: "###",
+				character: "##",
+				type: "#",
+				// types of moves, ex: normal, special, super
+			},
+			// strings for dividing the text
+			desc: "*",
+			// lines that start with this are mostly ignored (but saved under
+			// that game/character/move)
+			shorthand: {
+				qcf: "d df f",
+				qcb: "d db b",
+				hcf: "b db d df f",
+				hcb: "f df d db b",
+				Z: "f d df",
+				bZ: "b d db",
+				dp: "f d df",
+				rdp: "b d db",
+			},
+			other: ["+", "then", "or", "and", "360", "720"],
+			// these aren't directions, buttons, shorthand, or parenthesed tags,
+			// but they can be included without making it assume it's a move
+			// name.
+			buttonshortcuts: {
+			// you can use one of these property names in place of actual
+			// buttons to fill in common combinations.
+				"4-button": "lp lk hp hk p k 2p 2k select",
+				"6-button": "lp lk mp mk hp hk p k 2p 2k 3p 3k select",
+			},
+			levels: ["all", "game", "character", "type", "move"],
+			content: null,
+			// object storing all interpreted data.
+			// - [games]
+			//   - chars
+			//     - [characters]
+			//       - moves
+			//         - [move types]
+			//           - [moves]
+			//             - input
+			//             - desc: array of description bullets
+			//       - desc
+			//   - buttons
+			//   - types: array of move types
+			//   - desc
+			scene: {
+				game: null,
+				character: null,
+			},
+			// data for the current "scene".
+			// - null and null: list of all games buttons
+			// - null character: entire game's move list
+			// - game and character: one character's move list
+			readinput: function(buttons, text) {
+			// (input as in the directions and buttons for the attack, not input
+			// as in the move list the user gave.) returns null if it isn't a
+			// valid input, or the converted input if it is.
+				let i1 = 0;
+				let i2 = 0;
+				text = bracketsplit(text, "(", ")");
+				// split up by word. (and parenthese tag.)
+				let isdirection = (word) => (
+					word.length === 1
+					?
+					"udbf".includes(word)
+					:
+					word.length === 2
+					?
+					("ud".includes(word[0]) && "bf".includes(word[1]))
+					:
+					false
+				);
+				for(i1 = 0; i1 < text.length; i1++) {
+					let word = text[i1];
+					if(word.startsWith("(") && word.endsWith(")")) {
+					// all parenthesed content is allowed.
+					}
+					else {
+						if(isdirection(word)) {
+						// valid direction. look for a shorthand to replace it
+						// with
+							let ref = fgml.shorthand;
+							let longest = null;
+							for(let i2 in ref) {
+								if(
+									ref.hasOwnProperty(i2)
+									&&
+									text.slice(i1).join(" ").startsWith(ref[i2])
+									// the directions matches something in
+									// shorthand
+									&&
+									(
+										longest === null
+										||
+										ref[i2].split(" ").length > ref[longest].split(" ").length
+									)
+									// the first match, or the longest
+								) {
+									longest = i2;
+								}
+							}
+							if(longest) {
+								text = text.slice(0, i1).concat(
+									[longest]
+								).concat(
+									text.slice(i1 + ref[longest].split(" ").length)
+								);
+							};
+						}
+						else if(fgml.shorthand.hasOwnProperty(word) || fgml.other.includes(word)) {
+							// valid shorthand, or something like "then" or "or"
+						}
+						else {
+							// a string of buttons, hopefully
+							word = word.split("/");
+							let isbutton = true;
+							for(let i2 = 0; i2 < word.length && isbutton; i2++) {
+								if(!buttons.includes(word[i2])) {
+									isbutton = false;
+									// means it failed.
+								};
+							}
+							if(!isbutton) {
+							// if it isn't a button or combination of buttons,
+							// maybe it's a combination of directions.
+								for(let i2 = 0; i2 < word.length; i2++) {
+									if(!isdirection(word[i2])) {
+										return null;
+										// but if not, this input is unreadable.
+									};
+								}
+							}
+						};
+					}
+				}
+				return text;
+			},
+			readcharacter: function(game, text) {
+				let i1 = 0;
+				text = breakbyline(text, (line) => line.startsWith(fgml.divide.type) && !line.startsWith(fgml.divide.character), null, true);
+				//console.log(text);
+				let moves = {};
+				let desc = [];
+				let inputnext = game.inputfirst;
+				// boolean for whether it expects an input.
+				let name = null;
+				for(let i1 = 0; i1 < text.length; i1++) {
+				// for every move type
+					let _text = text[i1].split("\n");
+					let type = game.types[i1] ?? "unknown";
+					// start with the default type names for this game
+					let currmove = {
+						name: null,
+						input: null,
+						desc: [],
+					};
+					for(let i2 = 0; i2 < _text.length; i2++) {
+					// for every line
+						if(i2 === 0) {
+						// name line, whether the character or the move type.
+							if(i1 === 0) {
+							// character name
+								name = _text[i2].slice(fgml.divide.character.length).trim();
+							}
+							else {
+							// move type
+								let temp = _text[i2].slice(fgml.divide.type.length).trim();
+								if(temp) {
+									type = temp;
+								}
+							}
+						}
+						else if(!_text[i2].trim()) {
+							// blank line. ignore it, don't let it interfere
+							// with the name-input pattern
+						}
+						else if(_text[i2].startsWith(fgml.desc)) {
+						// description
+							let temp = _text[i2].slice(fgml.desc.length).trim();
+							if(currmove.name === null && currmove.input === null) {
+							// before the first move, meaning it should be
+							// associated with the character.
+								desc[desc.length] = temp;
+							}
+							else {
+								currmove.desc[ currmove.desc.length ] = temp;
+							};
+						}
+						else {
+						// input, or move name
+							let input = fgml.readinput(game.buttons, _text[i2]);
+							//console.log(_text[i2]);
+							//console.log(input === null ? "name" : input);
+							if(inputnext === null) {
+							// null inputnext means "it hasn't seen the first
+							// move in the game yet, and will determine the
+							// pattern from that"
+								game.inputfirst = input !== null;
+								inputnext = game.inputfirst;
+							}
+							else if(inputnext === (input === null)) {
+							// cause an error if it broke the pattern
+								return "during " + name + "'s move list, the line \"" + _text[i2] + "\" breaks the pattern of alternating name lines and input lines. you probably screwed something up, like put something besides a valid button, input shorthand, direction, or " + fgml.other.join("/") + " in a move input. or there was a move name that read like a plausible move input, somehow. or you didn't define any buttons, but a subtitle or something got mistaken for buttons.\n\nif you seriously can't figure it out, it's probably that you made a mistake defining the buttons.";
+							};
+							if(currmove.name !== null && currmove.input !== null) {
+							// if both name and input exist but there's a new
+							// name/input, that means it's time to start a new
+							// move
+							// - it has to do this when a new move starts,
+							//   rather than when the move has both name and
+							//   input... otherwise, it wouldn't be able to
+							//   associate descriptions with the move above
+							//   them.
+								moves[type] ??= {};
+								moves[type][currmove.name] = structuredClone(currmove);
+								delete moves[type][currmove.name].name;
+								currmove = {
+									name: null,
+									input: null,
+									desc: [],
+								};
+							};
+							if(input === null) {
+								currmove.name = _text[i2].trim();
+							}
+							else {
+								currmove.input = input;
+							};
+							// set the name/input it gave
+							//console.log((inputnext ? "input" : "name") + ": " + _text[i2]);
+							inputnext = !inputnext;
+							// expect the opposite thing on the next line
+						}
+					}
+					if(currmove.name !== null || currmove.input !== null) {
+					// last move of this type (ie there isn't going to be a new
+					// move later that finishes this, so do it now.)
+						if(currmove.name === null || currmove.input === null) {
+							return name + "'s last " + type + " move is missing a name or input.";
+						}
+						moves[type] ??= {};
+						moves[type][currmove.name] = structuredClone(currmove);
+						delete moves[type][currmove.name].name;
+					};
+				}
+				return {name, moves, desc};
+			},
+			interpret: function(text) {
+			// reads the input and returns either an error string or an object
+			// to replace .content with.
+				let i1 = 0;
+				let i2 = 0;
+				let i3 = 0;
+				text = breakbyline(text, (line) => line.startsWith(fgml.divide.game));
+				let content = {};
+				for(i1 = 0; i1 < text.length; i1++) {
+				// for every game...
+					let _text = breakbyline(text[i1], (line) => line.startsWith(fgml.divide.character) && !line.startsWith(fgml.divide.game), null, true);
+					// split up by character
+					let intro = _text[0].split("\n");
+					// search the part before any character for the name,
+					// buttons, and move types.
+					let name = intro[0].slice(fgml.divide.game.length).trim();
+					let temp = name.lastIndexOf(":");
+					let buttons = null;
+					if(temp !== -1) {
+					// title line includes a colon => assumes the content after
+					// the last colon is the buttons
+						buttons = name.slice(temp + 1);
+						name = name.slice(0, temp);
+						temp = 1;
+					}
+					else if(intro.length >= 2 && intro[1].trim()) {
+						buttons = intro[1];
+						temp = 2;
+					}
+					else {
+						return "game \"" + name + "\" does not have buttons defined. (put them after a colon, or on the next line. include every type of button input separated by spaces. make sure to include things like taunts and \"press all 3 at once\". you don't need to include / combinations though.)";
+					};
+					buttons = buttons.trim();
+					buttons = fgml.buttonshortcuts[buttons] ?? buttons;
+					// if they used a .buttonshortcuts property name, use that
+					// property
+					content[name] = {
+						chars: {},
+						buttons: trimspecial(buttons, null),
+						types: ["normal", "special", "super"],
+						desc: [],
+						inputfirst: null,
+						// made true or false later
+					};
+					let game = content[name];
+					for(i2 = temp; i2 < intro.length; i2++) {
+					// search the rest of the intro for notable text
+						if(intro[i2].startsWith(fgml.desc)) {
+						// add description bullet
+							game.desc[ game.desc.length ] = intro[i2].slice(fgml.desc.length).trim();
+						}
+						else if(intro[i2].startsWith("types:")) {
+						// move types
+							let temp = intro[i2].slice("types:".length).trim().split(",");
+							for(i3 = 0; i3 < temp.length; i3++) {
+								temp[i3] = temp[i3].trim();
+								if(!temp[i3]) {
+									temp.splice(i3, 1);
+									i3--;
+								}
+							}
+							game.types = structuredClone(temp);
+						}
+						else if(intro[i2].trim()) {
+						// unknown line that isn't blank
+							console.log("not sure what this line of " + name + " is supposed to mean:\n" + intro[i2]);
+						}
+					}
+					for(i2 = 1; i2 < _text.length; i2++) {
+						let temp = fgml.readcharacter(game, _text[i2]);
+						if(typeof temp === "string") {
+						// error
+							return temp;
+						};
+						game.chars[temp.name] = structuredClone(temp);
+						delete game.chars[temp.name].name;
+						_text[i2] = _text[i2].trim();
+					}
+				}
+				return content;
+			},
+			element: (suffix) => document.getElementById("fgml_" + suffix),
+			initialize: function() {
+				let html = [
+					`useful for old fighting games that don't have move lists,
+					or just personal notes. enter a move list, and it'll
+					generate html stuff that lets you look at just one game's
+					move list, or just one character.
+					<ul>
+						<li>
+						use lines starting with ### to divide the list up by
+						game.
+						</li>
+						<ul>
+							<li>
+							the rest of the line is used as the game name. ex:
+							&#34;### guilty gear&#34; will associate all text
+							until the next ### line with guilty gear.
+							</li>
+							<li>
+							on the next line, or after a colon at the end of the
+							name, define all the stuff that counts as buttons.
+							ex: for a six button capcom fighter, it&#39;d be
+							like &#34;lp lk mp mk hp hk p k 2p 2k 3p 3k
+							select&#34;.
+							</li>
+							<ul>
+								<li>
+								if you type "4-button" or "6-button" instead,
+								it'll use templates for those games. it's easy
+								to screw up entering those in since it's so
+								monotonous.
+								</li>
+							</ul>
+						</ul>
+						<li>
+						use lines starting with ## to divide games up by
+						character.
+						</li>
+						<li>
+						use lines starting with # to divide characters up by
+						move type.
+						</li>
+						<ul>
+							<li>
+							by default, the move types are &#34;normal&#34;,
+							&#34;special&#34;, and &#34;super&#34;.
+							</li>
+							<li>
+							but you can give your own names, by game or by
+							character.
+							</li>
+							<ul>
+								<li>
+								to name them by game, type a line like
+								&#34;types: normal, special, super&#34; before
+								the first character.
+								</li>
+								<li>
+								to name them by character, just type a name
+								after the #, like naming games or characters.
+								</li>
+							</ul>
+						</ul>
+						<li>
+						lines should alternate between move names and move
+						inputs.
+						</li>
+						<ul>
+							<li>
+							it can be input-name order instead, but if it
+							isn&#39;t consistent with the order the rest of the
+							game uses, it&#39;ll assume this is a mistake and
+							show an error.
+							</li>
+						</ul>
+						<li>
+						move inputs can have shorthand, (qcf/qcb, hcf/hcb,
+						dp/rdp, Z/bZ) directions, buttons, or a few other words.
+						(+, then, or, and, 360, 720) if anything else is found,
+						it&#39;s assumed to be a name, not an input.
+						</li>
+						<ul>
+							<li>
+							you can put multiple directions and buttons
+							separated by slashes.
+							</li>
+							<li>
+							anything in parentheses is allowed too, and used as
+							a tag for the include/exclude system.
+							</li>
+							<ul>
+								<li>
+								like &#34;(close)&#34;, &#34;(grab)&#34;,
+								&#34;(lv3)&#34;
+								</li>
+								<li>
+								they don&#39;t need spaces on the sides either,
+								so you can use &#34;b(charge)&#34; or
+								&#34;k(rapid)&#34; without screwing anything up.
+								</li>
+							</ul>
+						</ul>
+						<li>
+						lines starting with * are descriptions. it&#39;ll save
+						these and show them in the move list.
+						</li>
+						<ul>
+							<li>
+							depending on where they are, they can be associated
+							with games, characters, or moves.
+							</li>
+						</ul>
+						<li>
+						the include/exclude field lets you include/exclude
+						parenthesed tags or move types. just type the contents
+						of the tag or the name of the type.
+						</li>
+					</ul>`,
+					addhtml("fgml", "textarea", "input", `cols=33 rows=17`),
+					addhtml("fgml", "button", "run"),
+					addhtml("fgml", "div", "output"),
+					addhtml("fgml", "textarea", "include", "cols=17 rows=5"),
+					addhtml("fgml", "textarea", "exclude", "cols=17 rows=5"),
+					addhtml("fgml", "input", "hide description", `type="checkbox"`)
+				];
+				wrapper.create("fgml", `<div id="fgml_div">` + html.join(`<br>`) + `</div>`);
+				fgml.element("run").onclick = fgml.run;
+				fgml.element("include").onchange = fgml.refresh;
+				fgml.element("exclude").onchange = fgml.refresh;
+				fgml.element(tohtmlid("hide description")).onchange = fgml.refresh;
+				//fetch("move list.txt").then(response => response.text).then(function(text) {
+				//	fgml.element("input").value = text;
+				//});
+				// thanks to same-origin policy, this is untestable offline.
+			},
+			run: function() {
+				let i1 = 0;
+				let i2 = 0;
+				fgml.content = fgml.interpret(document.getElementById("fgml_input").value);
+				// create content object from script
+				if(typeof fgml.content === "string") {
+				// error
+					fgml.element("output").innerHTML = fgml.content;
+					fgml.content = null;
+					return;
+				}
+				else if(objectisempty(fgml.content)) {
+					fgml.element("output").innerHTML = ``;
+					fgml.content = null;
+					return;
+				};
+				fgml.scene.game = null;
+				fgml.scene.character = null;
+				let temp = false;
+				for(i1 in fgml.content) {
+					if(fgml.content.hasOwnProperty(i1) && !temp) {
+						if(fgml.scene.game === null) {
+						// at the first game, set the scene as that.
+							fgml.scene.game = i1;
+						}
+						else {
+						// if there's more than one game, set the scene as the
+						// whole game directory. (and make sure nothing the rest
+						// of the loops do nothing.)
+							fgml.scene.game = null;
+							temp = true;
+						}
+					}
+				}
+				let namehtml = (type, name, settings, inside) => addhtml(
+					"fgml",
+					type,
+					null,
+					`name="` + tohtmlid(name) + `"` + (settings ? ` ` + settings : ``),
+					inside ?? (type === "button" ? name : null)
+				);
+				//addhtml(prefix, type, name, settings, inside)
+				// adds html that uses names instead of ids. (ids have to be
+				// unique, which means it's hard to structure them with strings
+				// that could be anything.)
+				function createhtml(name, object, level) {
+				// recursive function for creating html
+					const levelnum = fgml.levels.indexOf(level);
+					if(levelnum === -1) {
+						console.log("this shouldn't happen");
+						return;
+					};
+					let intro = [];
+					let children = [];
+					let ref = fgml.contentchildren(object, level);
+					// object to iterate through for the stuff one level deeper.
+					// (ex: where the characters are if level is "game", types
+					// if level is "character", etc) it'll recurse through this.
+					if(level === "all" || level === "game") {
+						intro[intro.length] = `<strong style="font-size: 1.5em">` + name + `</strong>`;
+					}
+					else if(level === "character") {
+						intro[intro.length] = `<b style="font-size: 1.25em">` + name + `</b>`;
+					}
+					else if(level === "type") {
+						intro[intro.length] = `<b>` + name + `</b>`;
+					}
+					else if(level === "move") {
+						if(ref !== object && object.hasOwnProperty("input") && object.input.length) {
+							intro[intro.length] = (
+								object.inputfirst
+								?
+								object.input.join(" ") + `\n<br>` + name
+								:
+								name + `\n<br>` + object.input.join(" ")
+							);
+						}
+						else {
+							intro[intro.length] = name;
+						};
+					};
+					intro[intro.length - 1] = (level === "move" ? `<br>` : `<hr>`) + intro[intro.length - 1];
+					// add divider line and title, before the child buttons
+					if(ref !== object && object.hasOwnProperty("desc") && object.desc.length) {
+					// it's possible there could be a game or move named
+					// "desc", so hide it behind a conditional...
+						let temp = [`<li>\n`, `\n</li>`];
+						temp = temp[0] + object.desc.join(temp[1] + `\n` + temp[0]) + temp[1];
+						temp = `<ul>\n\t` + temp.replaceAll(`\n`, `\n\t`) + `\n</ul>`;
+						intro[intro.length - 1] += `\n` + temp;
+						//intro[intro.length] = `<ul>\n\t<li>\n\t\t` + object.desc.join(`\n\t</li>\n\t<li>\n\t\t`) + `\n\t</li>\n</ul>`;
+						//intro[intro.length] = `<p>\n` + object.desc.join(`\n</p>\n<p>\n`) + `\n</p>`;
+					};
+					if(ref) {
+					// if it has children, iterate through them.
+						let _level = fgml.levels[levelnum + 1];
+						for(let i1 in ref) {
+							if(ref.hasOwnProperty(i1)) {
+								if(_level === "game" || _level === "character") {
+									intro[intro.length] = namehtml("button", i1);
+									// add game/character buttons
+								}
+								if(levelnum + 1 < fgml.levels.length) {
+									children[children.length] = createhtml(i1, ref[i1], _level);
+								}
+							}
+						}
+					}
+					intro = intro.join(`\n<br>`);
+					children = children.join(`\n`);
+					// child divs already have a <hr> at the beginning. (even if
+					// you added a <br>, you'd have to make sure it's on the
+					// inside, or it won't be hidden. which would mean clicking
+					// the last character's button would show a long stretch of
+					// whitespace before their move list.)
+					if(level === "all") {
+					// need these divs around them, so it can show the content
+					// or the games buttons depending on if it's in the game
+					// menu
+						intro = [
+						// back buttons
+							`<hr>`,
+							addhtml("fgml", "button", "game menu"),
+							`<br>` + addhtml("fgml", "button", "full move list")
+						].join(`\n`) + `\n<br>` + namehtml("div", "game menu", null, intro)//addhtml("fgml", "div", "game menu", null, intro);
+						// enclose game buttons in game menu div, so they can be
+						// hidden when they're irrelevant
+						children = namehtml("div", "games", null, children)//addhtml("fgml", "div", "games", null, children);
+					}
+					//let html = `\n` + `\t`.repeat(levelnum);
+					//html = `\n\t` + intro + children + `\n\t`;
+					//return namehtml("div", name, null, html);
+					//return namehtml("div", name, null, `\n\t` + intro + `\n\t` + children.replaceAll(`\n`, `\n\t`) + `\n`);
+					let html = intro + (children ? `\n` + children : ``);
+					html = level === "all" ? html : namehtml("div", name, null, html);
+					if(level === "all") {
+						html += `<hr>`;
+						//console.log(html);
+					}
+					return html;
+				}
+				fgml.element("output").innerHTML = createhtml("game menu", fgml.content, "all");
+				fgml.element(tohtmlid("game menu")).onclick = function() {
+					fgml.scene.game = null;
+					fgml.scene.character = null;
+					fgml.refresh();
+				};
+				// the game menu button uses an id, the div uses a name.
+				fgml.element(tohtmlid("full move list")).onclick = function() {
+					fgml.scene.character = null;
+					fgml.refresh();
+				};
+				for(i1 in fgml.content) {
+					if(fgml.content.hasOwnProperty(i1)) {
+						let game_elements = fgml.findelements(["game menu", i1], "output");
+						if(game_elements && game_elements.hasOwnProperty("button")) {
+							let button = game_elements.button;
+							button.onclick = function(e) {
+								fgml.scene.game = fgml.contentobj(fgml.namechain(this), true);
+								fgml.scene.character = null;
+								fgml.refresh();
+							};
+							// if you just use name, it'll give the tohtmlid-ed
+							// version, and it compares this to versions without
+							// that.
+						}
+						else {
+						// means buttons were never made for this game.
+							console.log("this shouldn't happen");
+						};
+						game_elements = fgml.findelements(i1).div;
+						// run it again, since it can only search fgml_game_menu
+						// or fgml_games, not both
+						let chars = fgml.content[i1].chars;
+						for(i2 in chars) {
+							if(chars.hasOwnProperty(i2)) {
+								let button = fgml.findelements(i2, game_elements);
+								if(button && button.hasOwnProperty("button")) {
+									button = button.button;
+									button.onclick = function(e) {
+										fgml.scene.character = fgml.contentobj(fgml.namechain(this), true);
+										fgml.refresh();
+									};
+								}
+								else {
+									console.log("this shouldn't happen");
+								};
+							}
+						}
+					}
+				}
+				// add onclicks for every button to change the scene.
+				fgml.refresh();
+			},
+			refresh: function() {
+			// hides and unhides content based on the scenes, include/exclude,
+			// and hide description checkbox.
+				//console.log([fgml.scene.game, fgml.scene.character]);
+				function cludeconvert(array) {
+					for(let i1 = 0; i1 < array.length; i1++) {
+						array[i1] = array[i1].trim();
+						if(!array[i1]) {
+							array.splice(i1, 1);
+							i1--;
+						};
+					}
+					return array;
+				}
+				const include = cludeconvert(fgml.element("include").value.split("\n"));
+				const exclude = cludeconvert(fgml.element("exclude").value.split("\n"));
+				function evaluate(element) {
+					let i1 = 0;
+					const namechain = fgml.namechain(element);
+					const name = getattribute(element, "name");
+					const level = fgml.levels[namechain.length - 1];
+					const tagname = element.tagName.toLowerCase();
+					if(tagname === "div") {
+						element.hidden = level !== "type" && (
+						// types only get hidden if all moves within are.
+							(
+								level === "all"
+								&&
+								name === (fgml.scene.game === null ? "games" : tohtmlid("game menu"))
+							)
+							// if the scene is the game directory, hide everything
+							// except that. otherwise, hide the game buttons.
+							||
+							(
+								(level === "game" || level === "character")
+								&&
+								fgml.scene[level] !== null
+								&&
+								name !== tohtmlid(fgml.scene[level])
+							)
+							// if the scene is a game's full move list or a
+							// single character's move list, hide all other
+							// games. if the scene is a single character's move
+							// list, hide all other characters.
+						);
+						if(!element.hidden && level === "move") {
+						// move tag include/exclude
+							let includebool = !include.length;
+							// will be turned on if an include string is found, and
+							// if it isn't, the element will be hidden.
+							let move = fgml.contentobj(namechain);
+							let type = fgml.contentobj(namechain.slice(0, -1), true);
+							for(i1 = 0; i1 < include.length; i1++) {
+								if(type === include[i1] || move.input.includes("(" + include[i1] + ")")) {
+									includebool = true;
+									i1 += include.length;
+								}
+							}
+							for(i1 = 0; i1 < exclude.length; i1++) {
+								if(type === exclude[i1] || move.input.includes("(" + exclude[i1] + ")")) {
+									element.hidden = true;
+									i1 += exclude.length;
+								}
+							}
+							if(!includebool) {
+								element.hidden = true;
+							}
+						};
+					}
+					else if(tagname === "ul") {
+						element.hidden = fgml.element(tohtmlid("hide description")).checked;
+					};
+					element.disabled = tagname === "button" && (
+						fgml.scene.game === null
+						?
+						//(level === "all" && name === tohtmlid("game menu"))
+						(
+							element.id === "fgml_" + tohtmlid("game menu")
+							||
+							element.id === "fgml_" + tohtmlid("full move list")
+						)
+						:
+						fgml.scene.character === null
+						?
+						//(level === "all" && name === tohtmlid("full move list"))
+						element.id === "fgml_" + tohtmlid("full move list")
+						:
+						level === "character" && name === tohtmlid(fgml.scene.character)
+					);
+					// disable buttons that lead to places it's already on
+					let visiblechildren = false;
+					for(i1 = 0; i1 < element.children.length; i1++) {
+						evaluate(element.children[i1]);
+						if(element.children[i1].tagName.toLowerCase() === "div" && !element.children[i1].hidden) {
+							visiblechildren = true;
+						}
+						//visiblechildren = visiblechildren || !element.children[i1].hidden;
+					}
+					if(level === "type" && tagname === "div") {
+					// move types are only hidden if all their children are.
+						element.hidden = !visiblechildren;
+					};
+				}
+				evaluate(fgml.element("output"));
+				// "hide descriptions" checkbox
+			},
+			findelements: function(names, start) {
+			// elements tied to games, characters, etc don't have ids. instead
+			// they use names. this sorts through that to give you the elements
+			// you want.
+			// - names should be an array of [game, character, type, move].
+			// - start should be the container that the first name is expected
+			//   be in.
+			// - NOTE: this returns an object indexed by element type. since you
+			//   might associate both a div and a button, or something like
+			//   that.
+			//   - this also means you can't have multiple of the same type and
+			//     name chain without it only returning the first one.
+			// - NOTE: this also only accepts divs as containers, to prevent it
+			//   searching the children of a button or something.
+				let i1 = 0;
+				let i2 = 0;
+				if(typeof start === "string") {
+					start = fgml.element(tohtmlid(start));
+				}
+				start ??= fgml.findelements("games", "output").div;
+				if(typeof names === "string") {
+					names = [names];
+				};
+				let container = start;
+				let final = {};
+				//console.log("===");
+				for(i1 = 0; i1 < names.length; i1++) {
+				// every loop, it finds a div with the right name, and changes
+				// the container to that.
+					let _name = tohtmlid(names[i1]);
+					let children = container.children;
+					let bool = false;
+					// whether it found what it needs. a div by the right name,
+					// or at least one name-matching element if it's the final
+					// i1 iteration.
+					for(i2 = 0; i2 < children.length && !bool; i2++) {
+						let child = children[i2];
+						if(getattribute(child, "name") === _name) {
+							let type = child.tagName.toLowerCase();
+							if(i1 === names.length - 1) {
+								final[type] = child;
+								bool = true;
+								//console.log(names[i1] + " : " + type);
+							}
+							else if(type === "div") {
+							// only accept divs as containers.
+								container = child;
+								bool = true;
+								//console.log(names[i1]);
+							}
+							// exit loop
+						}
+					}
+					if(!bool) {
+					// the game/character/etc combination you're looking for
+					// doesn't exist.
+						return null;
+					}
+				}
+				return final;
+			},
+			namechain: function(element, stem) {
+			// NOTE: this will include "game menu" or "game" at the beginning.
+				stem ??= fgml.element("output");
+				let chain = [];
+				if(element.attributes.length === 0) {
+				// things like description <ul>s and line breaks
+				// - not gonna loop this or anything, that could lead all the
+				//   way to the top or otherwise get stupid
+					element = element.parentElement;
+				};
+				for(; getattribute(element, "name") ;) {
+					chain.splice(0, 0, getattribute(element, "name"));
+					element = element.parentElement;
+				}
+				return chain;
+			},
+			contentobj: function(namechain, returnname) {
+			// returns the fgml.content object associated with a name chain, or
+			// null if the chain is invalid
+			// - returnname: if true, it'll return the un-tohtmlid-ed name
+			//   instead of an object.
+				let obj = fgml.content;
+				for(let i1 = 1; i1 < namechain.length; i1++) {
+				// every iteration, move up one level.
+					// ex: i1 === 2. fgml.levels[i1] is "character". we're
+					// getting the object for the character.
+					let ref = fgml.contentchildren(obj, fgml.levels[i1 - 1]);
+					// ex: fgml.content[game].chars. the - 1 is because
+					// characters are children of the game level
+					let bool = false;
+					for(let i2 in ref) {
+					// iterate through every character until you find one that
+					// tohtmlids to the same thing as the name
+						if(ref.hasOwnProperty(i2) && !bool && tohtmlid(i2) === namechain[i1]) {
+							if(returnname && i1 === namechain.length - 1) {
+								return i2;
+							};
+							obj = ref[i2];
+							bool = true;
+						}
+					}
+					if(!bool) {
+						return null;
+					}
+				}
+				return obj;
+			},
+			contentchildren: (object, level) => (
+			// returns the fgml.content object to search for children.
+			// - for example, if you input the fgml.content for a game, it
+			//   returns the object with the characters.
+			// - DRY things.
+				level === "all" ? object :
+				level === "game" ? object.chars :
+				level === "character" ? object.moves :
+				level === "type" ? object :
+				null
+			),
+		};
+		fgml.initialize();
+		//
+		let leit = {
+		// a leitner box tool.
+		// - ncase.me wrote something about it. it's a memorization device.
+		//   - you have a set of question/answer flashcards, in 7 different
+		//     boxes
+		//   - box 1 is reviewed every day. box 2, every two days. etc.
+		//   - if you get a question right, you move it up one level. in other
+		//     words, you double how many days between reviews there are for
+		//     that question.
+		//   - if you get a question wrong, you reset it to box 1.
+		//   - if you get it right when it's at box 7, you get rid of that
+		//     flashcard.
+		//   - this works better than an unchanging repetition frequency,
+		//     because it better matches the math of how memory fades.
+		// - this is a text tool for storing a calendar and question/answer
+		//   sets.
+			default_settings: {
+			// settings for interpreting the data. data text can change these.
+				max_level: 7,
+				// the level of a question cannot go higher than this. if you
+				// get it right while it's at that level:
+				nullify: false,
+				// if nullify is true, the question will be nullified. if it's
+				// false, it'll just stay at that level.
+				allow_html: false,
+				// if true, it won't do entity replacement on the text.
+			},
+			chars: "xo-",
+			// character for days you missed, days you didn't, and empty days
+			// (like before the first day, or after the current date.)
+			data: null,
+			// object it creates from the textarea, using datafromtext
+			// - null means since the last time the textarea was editted,
+			//   leit.datafromtext hasn't been run.
+			review: null,
+			// stores variables for the reviews
+			textarea_settings: "rows=5 cols=33",
+			default_datatext: null,
+			get datatext() {
+				return leit.element("data").value;
+			},
+			set datatext(value) {
+				leit.element("data").value = value;
+				leit.data = null;
+				let list = leit.todayslist();
+				leit.element("review start").innerHTML = "review" + (
+					list === null
+					?
+					null
+					:
+					list.length === 1
+					?
+					" (" + list.length + " question)"
+					:
+					" (" + list.length + " questions)"
+				);
+			},
+			get iscoded() {
+				return leit.element("rot13").checked;
+			},
+			set iscoded(value) {
+				leit.element("rot13").checked = value;
+			},
+			// boolean for whether the datatext is expected to be rot13'd.
+			confirmdata: function() {
+			// makes sure there's converted data. if not, it creates it from the
+			// textarea. if that fails, it prompts the user and keeps it as
+			// null.
+			// - basically, every time you use leit.data, run this first, and
+			//   quit whatever you're about to do if leit.data is still null
+			//   after.
+				leit.data ??= leit.datafromtext(leit.datatext);
+				if(typeof leit.data === "string") {
+					alert("input error: " + leit.data);
+					leit.data = null;
+				};
+			},
+			element: (name) => document.getElementById("leit_" + tohtmlid(name)),
+			todayslist: function() {
+			// returns the list of applicable questions for the day.
+				leit.confirmdata();
+				if(leit.data === null) {
+					return null;
+				};
+				const day_length = 24*60*60*1000;
+				// number of milliseconds in a day. (Date.valueOf is
+				// measured in ms since the epoch)
+				const today = leit.since_epoch(new Date());
+				let list = [];
+				for(let i1 = 0; i1 < leit.data.questions.length; i1++) {
+				// deduct from questions' until, add the indexes to list
+					let ref = leit.data.questions[i1];
+					let since = leit.since_review(i1);
+					// days since it was reviewed or created
+					if(ref.until - since <= 0) {
+					// it should have been reviewed by now. add it to the
+					// list. (until isn't going to be edited yet, since the
+					// new interval will depend on if they get it wrong or
+					// what.)
+						list[list.length] = i1;
+					}
+				}
+				return list;
+			},
+			hidebuttons: function(except) {
+			// hides all the buttons used in reviews, except the ones specified.
+			// also enables all of them.
+			// - NOTE: this does not include the review start button.
+				except = Array.isArray(except) ? except : typeof except === "string" ? [except] : [];
+				let children = ["show answer", "right", "wrong", "finish"];
+				for(let i1 = 0; i1 < children.length; i1++) {
+					let button = leit.element("review " + children[i1]);
+					button.disabled = false;
+					button.hidden = !except.includes(children[i1]);
+				}
+			},
+			getsetting: function(property) {
+				if(!leit.default_settings.hasOwnProperty(property)) {
+					console.log("invalid property.");
+					return null;
+				};
+				let value = (
+					leit.data === null
+					?
+					null
+					:
+					leit.review && leit.review.curr && leit.data.questions[leit.review.curr.id].hasOwnProperty(property)
+					?
+					leit.data.questions[leit.review.curr.id][property]
+					:
+					(leit.data.settings[property] ?? null)
+				);
+				if(value === null) {
+					console.log("this shouldn't happen");
+					return leit.default_settings[property];
+				};
+				return value;
+			},
+			nextquestion: function() {
+			// loads and displays the next question.
+				//console.log("nextquestion");
+				if(!leit.review) {
+				// means the questions aren't being reviewed now, so what the
+				// hell.
+					console.log("this shouldn't happen");
+					return;
+				};
+				if(!leit.review.questions.length) {
+				// there's no next question, so just show the finish button and
+				// don't change anything else.
+					leit.hidebuttons("finish");
+					return;
+				};
+				leit.review.curr = {
+					id: leit.review.questions[0],
+					text: null,
+				};
+				leit.review.questions.splice(0, 1);
+				leit.review.curr.text = leit.data.questions[leit.review.curr.id].text.split("\n-\n");
+				// edit variables for the current question
+				console.log(leit.review.curr.text);
+				leit.element("review qa").innerHTML = `<hr>`;
+				// empty the div questions and answers are shown in
+				leit.nextpart();
+				// load the first part of the question
+			},
+			nextpart: function() {
+			// displays the next part of the question.
+				//console.log("nextpart");
+				if(!leit.review) {
+					console.log("this shouldn't happen");
+					return;
+				};
+				if(!leit.review.curr.text.length) {
+				// the question's done, so load the next one.
+					leit.nextquestion();
+					return;
+				};
+				let is_answer = !!(leit.review.curr.text.length%2);
+				// - questions should always have an even number of parts, so if
+				//   the amount left is odd, the amount that's loaded should be
+				//   odd too.
+				// - if it loaded an odd number of parts, the last part must
+				//   have been a question, so the new part will be an answer.
+				html = leit.review.curr.text[0];
+				if(!leit.getsetting("allow_html")) {
+				// entity replacement
+					html = entityreplacement(html, true);
+				};
+				html = `<pre>` + html + `</pre>`;
+				let div = leit.element("review qa");
+				let children = div.children;
+				let answers = [];
+				for(let i1 = 0; i1 < children.length; i1++) {
+					if(children[i1].tagName.toLowerCase() === "textarea") {
+						answers[answers.length] = children[i1].value;
+					}
+				}
+				// gotta save these, they get cleared when you add to the div's
+				// innerHTML. (i guess it destroys and recreates the elements
+				// rather than just adding new ones.)
+				let is_right = false;
+				if(is_answer) {
+					leit.hidebuttons(["right", "wrong"]);
+					// show the buttons that let the user grade their answer.
+					if(simplify(answers[answers.length - 1]).includes( simplify(leit.review.curr.text[0]) )) {
+					// if the user's answer includes the correct answer, rule it
+					// as correct automatically.
+						is_right = true;
+					};
+				}
+				else {
+					html += `<textarea ` + leit.textarea_settings + `></textarea>`;
+					// add a textarea for the user to answer in. (doesn't even
+					// need an id since it doesn't need to retrieve it.)
+					leit.hidebuttons("show answer");
+				}
+				leit.review.curr.text.splice(0, 1);
+				// the answer-checking code needs to see this, so it can't be
+				// done right after using [0].
+				leit.element("review qa").innerHTML += html + (is_answer ? `<hr>` : ``);
+				for(let i1 = 0; i1 < children.length; i1++) {
+					if(children[i1].tagName.toLowerCase() === "textarea") {
+						children[i1].readOnly = !!answers.length;
+						// only make it possible to edit if it's one you just
+						// made.
+						if(answers.length) {
+							children[i1].value = answers[0];
+							// restore these
+							answers.splice(0, 1);
+							// this is the easiest way to make sure they all go to
+							// the right places
+						};
+					}
+				}
+				if(is_right) {
+					leit.answered(true);
+				};
+			},
+			answered: function(right) {
+			// reacts to a question being right or wrong by editing its
+			// until/level and running leit.nextpart.
+				//console.log("answered(" + right + ")");
+				if(!leit.review) {
+					console.log("this shouldn't happen");
+					return;
+				};
+				if(leit.review.curr.text.length) {
+				// a multi-part question, and not the last part of it.
+					if(!right) {
+					// run nextpart until the entire question is shown. (that
+					// way, the first click shows everything, but it won't go to
+					// the next question until the second click.)
+						while(leit.review.curr.text.length) {
+							leit.nextpart();
+						}
+						leit.element("review right").disabled = true;
+						// it wouldn't make sense to allow the right button to
+						// be clicked, but it'd be annoying for it to be hidden
+						// since it'd make the wrong button move...
+						// leit.hidebuttons will reverse this.
+						return;
+						// avoid the leit.nextpart() at the bottom.
+					};
+				}
+				else {
+				// the last part. change until/level.
+					let ref = leit.data.questions[leit.review.curr.id];
+					let max = leit.getsetting("max_level");
+					let nullify = leit.getsetting("nullify");
+					if(right) {
+						if(ref.level >= max) {
+							ref.level = max;
+							if(nullify) {
+								// won't appear again unless the user edits the data
+								ref.until = Infinity;
+							}
+						}
+						else {
+							ref.level++;
+						};
+					}
+					else {
+						ref.level = 0;
+					}
+					if(ref.until !== Infinity) {
+						ref.until = 2**ref.level;
+						// the intervals/days would be more consistent if it was +=,
+						// but then missing a few months would mean an endless
+						// backlog for no reason. screw that.
+						// - could fix that with remaindering, but like. why.
+						// - if anything, inconsistency is a good thing. means the
+						//   distribution of questions per day is more even. don't
+						//   gotta answer every single one when it's 128 Day
+					};
+				}
+				leit.nextpart();
+			},
+			review_finish: function() {
+				//console.log("review_finish");
+				leit.confirmdata();
+				if(leit.data === null) {
+					console.log("this shouldn't happen");
+					return;
+				};
+				const since_start = leit.since_epoch(new Date()) - leit.since_epoch(leit.data.start);
+				for(let i1 = leit.data.record.length; i1 < since_start; i1++) {
+					leit.data.record[i1] = false;
+				}
+				if(since_start < 0) {
+				// avoid errors
+					console.log("the data starts in the future. i didn't write code for that because i'm racist against time travlers sorry");
+				}
+				else {
+					leit.data.record[since_start] = true;
+				}
+				leit.datatext = leit.datatotext(leit.data);
+			},
+			initialize: function() {
+				let temp = new Date();
+				temp = [temp.getFullYear(), temp.getMonth(), temp.getDate()];
+				temp = {
+					settings: structuredClone(leit.default_settings),
+					start: temp,
+					record: [false],
+					questions: [],
+				};
+				//temp.start = [2024, 5, 25];
+				//temp.record = [true, false, true, false, false, false, false];
+				leit.default_datatext = leit.datatotext(temp);
+				let html = [
+					`\n` + arraytoul([
+						`nicky case wrote <a href="https://ncase.me/remember">something</a> about it. it's a memorization device.`,
+						`you write question/answer flashcards, and review them regularly`,
+						`if you get it right, you double the amount of days until the next review for that card. if you get it wrong, you reset back to reviewing it after only one day.`,
+						`this better suits the math of how memories fade over time.`,
+						`so, this lets you do that digitally, storing the cards and the days you reviewed as text.`,
+						`i'm skeptical of any methods that get advertised as The Best Smartest Way To Do Things (that no one uses)`,
+						`but any kind of review system would help me a lot.`,
+						`while i'm at it, this also keeps track of what days you did it, and allows multi-part questions.`,
+						[
+							"you write multi-part questions by separating questions with a - instead of a =. it will ask you each question consecutively. you must answer every question correctly to get it right, and if you fail it'll let you read the whole thing before you move on."
+						],
+						"separate questions with a line with nothing but a =, and separate questions from their answers with - lines."
+					]),
+					// heading/intro
+					addhtml("leit", "textarea", "data", "rows=20 cols=33"),
+					// data textarea
+					addhtml("leit", "input", "rot13", 'type="checkbox" checked', null, "encode questions: "),
+					addhtml("leit", "button", "review start", null, "review"),
+					// review button
+					addhtml("leit", "div", "review qa"),
+					// div that contains <pre>s for the questions and answers,
+					// and <textarea>s for the user answers.
+					addhtml("leit", "button", "review show answer", "hidden", "show answer"),
+					addhtml("leit", "button", "review right", "hidden", "right") + " " + addhtml("leit", "button", "review wrong", "hidden", "wrong"),
+					addhtml("leit", "button", "review finish", "hidden", "finish"),
+					// buttons for the review.
+					addhtml("leit_new", "textarea", "questions", leit.textarea_settings),
+					addhtml("leit_new", "button", "button", null, "add questions")
+				].join(`\n<br>`);
+				wrapper.create("leit", html);
+				leit.datatext = leit.default_datatext;
+				//
+				leit.element("data").onchange = function() {
+					leit.datatext = leit.datatext;
+					// surprisingly, this actually does do something. editing
+					// the textarea is like bypassing the datatext setter, so
+					// this fixes that.
+				};
+				leit.element("rot13").onchange = function() {
+				// convert to data, run rot13 on all questions, convert back to
+				// text
+					let data = leit.datafromtext(leit.datatext);
+					for(let i1 = 0; i1 < data.questions.length; i1++) {
+						data.questions[i1].text = leit.rot13( data.questions[i1].text );
+					}
+					leit.datatext = leit.datatotext(data);
+					// if leit.iscoded is true, rot13 will be run three times on
+					// the questions. if it's false, once.
+				};
+				leit.element("new button").onclick = function() {
+				// adds the contents of that textarea to the questions.
+					leit.confirmdata();
+					if(leit.data === null) {
+						leit.datatext = leit.default_datatext;
+						leit.confirmdata();
+						if(leit.data === null) {
+							console.log("this shouldn't happen");
+						}
+					}
+					let questions = leit.element("new questions").value.trim();
+					if(leit.iscoded) {
+					// questions are supposed to be coded
+						questions = leit.rot13(questions);
+					}
+					questions = questions.split("\n=\n");
+					let odd = false;
+					let _datestring = new Date();
+					_datestring = datestring(_datestring.getFullYear(), _datestring.getMonth(), _datestring.getDate());
+					if(
+						_datestring === (
+							!leit.data
+							?
+							null
+							:
+							leit.data.questions.length
+							?
+							leit.data.questions[leit.data.questions.length - 1]
+							// the last question's date
+							:
+							datestring(...leit.data.start)
+							// the start date
+						)
+					) {
+					// if it matches whatever the presumed date already
+					// was, skip it.
+						_datestring = "";
+					};
+					let text = "";
+					for(let i1 = 0; i1 < questions.length; i1++) {
+						if(questions[i1].split("\n-\n").length%2) {
+							odd = true;
+						}
+						else {
+							text += "\n=" + (_datestring && !text ? "\n" + _datestring : "");
+							text += "\n1/2^0";
+							text += "\n" + questions[i1];
+						}
+					}
+					if(odd) {
+						alert("one or more of your questions has no answer.");
+					};
+					if(text) {
+						leit.datatext += text;
+						// the datatext setter will make leit.data null
+					}
+				};
+				leit.element("review start").onclick = function() {
+					let i1 = 0;
+					leit.confirmdata();
+					if(leit.data === null) {
+						return;
+					}
+					leit.review = {
+						curr: null,
+						// {id, text}
+						// - id is the leit.data.questions index, text is the
+						//   .split-ed version of the text
+						// - nextquestion will create this
+						questions: [],
+						// an array of leit.data.questions indexes
+					};
+					let list = leit.todayslist();
+					if(list.length) {
+						for(let i1 = 0; i1 < list.length; i1++) {
+							leit.data.questions[ list[i1] ].until -= leit.since_review(list[i1]);
+						}
+						let _list = leit.review.questions;
+						while(list.length) {
+						// shuffle list, and define it as leit.review.questions
+							let temp = Math.floor(Math.random()*list.length);
+							_list[_list.length] = list[temp];
+							list.splice(temp, 1);
+						}
+						leit.element("data").disabled = true;
+						leit.element("review start").disabled = true;
+						leit.nextquestion();
+					}
+					else {
+						alert("there's no questions today. you have a free period.");
+						leit.review_finish();
+						// may the record show that you did your homework like a
+						// good boy.
+					};
+				};
+				leit.element("review show answer").onclick = function() {
+					leit.nextpart();
+				};
+				leit.element("review right").onclick = function() {
+					leit.answered(true);
+				};
+				leit.element("review wrong").onclick = function() {
+					leit.answered(false);
+				};
+				leit.element("review finish").onclick = function() {
+					leit.review_finish();
+					// edit the record to show you reviewed today, edit text to
+					// reflect all changes to leit.data
+					leit.review = null;
+					leit.element("data").disabled = false;
+					leit.element("review start").disabled = false;
+					leit.element("review qa").innerHTML = "";
+					leit.hidebuttons();
+					// exit review mode
+				};
+			},
+			//isleapyear: (year) => ( !(year%4) && (year%100 || !(year%400)) ),
+			isleapyear: (year) => ( year%100 ? !(year%4) : !(year%400) ),
+			// every four years is a leap year, except if it's a hundred year
+			// but not a four hundred year.
+			monthdays: (month, leap) => (
+				month === 1
+				?
+				((typeof leap === "number" ? leit.isleapyear(leap) : leap) ? 29 : 28)
+				:
+				(month === 3 || month === 5 || month === 8 || month === 10)
+				?
+				30
+				:
+				31
+			),
+			fromstring: function(string, type) {
+				if(type === "string") {
+					return (
+						string.length >= 2 && string.slice(0, 1) === string.slice(-1) && "\"'`".includes(string[0])
+						?
+						string.slice(1, -1)
+						:
+						null
+					);
+				}
+				else if(type === "number") {
+					string = Number(string);
+					return isNaN(string) ? null : string;
+				}
+				else if(type === "boolean") {
+					return string === "true" ? true : string === "false" ? false : null;
+				}
+				else {
+					console.log("this shouldn't happen");
+					return null;
+				};
+			},
+			rot13: function(string) {
+				let _string = "";
+				for(let i1 = 0; i1 < string.length; i1++) {
+					let code = string.charCodeAt(i1);
+					let temp = [code - 65, code - 97];
+					if(temp[0] >= 0 && temp[0] < 26) {
+						_string += String.fromCharCode(65 + ((temp[0] + 13)%26));
+					}
+					else if(temp[1] >= 0 && temp[1] < 26) {
+						_string += String.fromCharCode(97 + ((temp[1] + 13)%26));
+					}
+					else {
+						_string += string[i1];
+					};
+				}
+				return _string;
+			},
+			since_epoch: function(date) {
+			// returns the number of days since the epoch, for all three date
+			// formats i use.
+				if(datechecker(date)) {
+					date = datearray(date);
+				};
+				if(Array.isArray(date)) {
+					date = new Date(...date);
+				};
+				if(date instanceof Date) {
+					return Math.floor(date.valueOf()/(24*60*60*1000));
+				}
+				else {
+					console.log("invalid input.");
+					return null;
+				};
+			},
+			since_review: function(question) {
+			// returns the number of days since the last review.
+			// - question: index of a question. if this is here, it'll think
+			//   about the date that question was created, too.
+			//   - if the days since its creation are less than the days since
+			//     review, or there has never been a review, it'll use that.
+				leit.confirmdata();
+				if(leit.data === null) {
+					return null;
+				};
+				const today = leit.since_epoch(new Date());
+				let since = leit.data.record.lastIndexOf(true);
+				since = since === -1 ? (typeof question === "number" ? null : 0) : since;
+				// number of days between the start day and the last day the
+				// user reviewed on.
+				since = today - (leit.since_epoch(leit.data.start) + since);
+				// number of days since that day.
+				if(typeof question === "number") {
+					let since_creation = today - leit.since_epoch(leit.data.questions[question].date);
+					// days since it was created
+					since = since === null || since > since_creation ? since_creation : since;
+				};
+				return since;
+			},
+			datafromtext: function(input) {
+			// structure:
+			// - start: array of the year, month, and day of the beginning of
+			//   this set of leitner data.
+			// - record: array of booleans for every day since that start date.
+			//   true if the user did their leitner-ing that day.
+			// - questions: array
+			//   - question data:
+			//     - date: the date it was added.
+			//     - until, level: until is how many days there should be until
+			//       the next review of this question. 2^level is how many days
+			//       there are between the next review and the previous. (so
+			//       that, once it's reviewed and the user gets it right, the
+			//       period/until can be set to double what this was before.)
+			//     - text: question/answer text. to avoid spoiling it, these are
+			//       encoded in rot13 while they're text.
+			//     - any of the settings properties: overrides those for that
+			//       question.
+				let i1 = 0;
+				let i2 = 0;
+				let i3 = 0;
+				input = input.split("\n=\n");
+				let temp = false;
+				let settings_text = input[0].split("\n");
+				let ref = leit.default_settings;
+				let settings = structuredClone(ref);
+				for(i1 in ref) {
+					if(ref.hasOwnProperty(i1) && settings_text.length && settings_text[0].startsWith(i1 + ":")) {
+						let string = settings_text[0].slice((i1 + ":").length).trim()
+						let value = JSON.parse(string);
+						if(typeof value !== typeof ref[i1]) {
+							return "invalid " + i1 + " input: " + string;
+						};
+						settings[i1] = value;
+						//
+						temp = true;
+						// there was at least one settings line, so it wasn't
+						// just misinterpreting the calendar. slice it away from
+						// input so it doesn't get used as that.
+						settings_text = settings_text.slice(1);
+						// slice this line
+					}
+				}
+				if(temp) {
+					input = input.slice(1);
+				};
+				let cal = input[0].split("\n");
+				if(cal.length < 1) {
+					return "there's no calendar.";
+				};
+				input = input.slice(1);
+				let startdate = null;
+				let record = [];
+				let year = null;
+				let month = null;
+				let day = null;
+				function nextmonth(year, month) {
+					month++;
+					month %= 12;
+					if(!month) {
+						year++;
+					}
+					return datestring(year, month);
+				};
+				if(cal.length >= 1 && datechecker(cal[0].trimEnd()) === "month") {
+					let line = cal[0].trimEnd();
+					year = datearray(line);
+					month = year[1];
+					year = year[0];
+					day = 0;
+				}
+				else {
+					return "the input doesn't start with a calendar, or the calendar doesn't start with a month.";
+				};
+				for(i1 = 1; i1 < cal.length; i1++) {
+					let line = cal[i1].trimEnd();
+					if(datechecker(line) === "month") {
+						if(line === nextmonth(year, month)) {
+							month++;
+							month %= 12;
+							if(!month) {
+								year++;
+							};
+							day = 0;
+						}
+						else {
+							return datestring(year, month) + " and " + line + " are not consecutive months.";
+						};
+					}
+					else {
+						if(line.replaceAll(" ", "").replaceAll(leit.chars[0], "").replaceAll(leit.chars[1], "").replaceAll(leit.chars[2], "")) {
+							return "the calendar has a line with invalid characters instead of " + leit.chars.slice(0, -1).replaceAll("", ", ") + ", and " + leit.chars.slice(-1) + ".";
+						};
+						if(line.length > 7 || (line.length < 7 && line.startsWith(" "))) {
+							return "the calendar has a line that doesn't fit the calendar week-by-week structure: " + line;
+						};
+						for(i2 = 0; i2 < line.length; i2++) {
+							let char = line[i2];
+							if(char !== " ") {
+								day++;
+								char = leit.chars.indexOf(char);
+								if(char === 0 || char === 1) {
+									record[record.length] = !!char;
+									if(startdate === null) {
+										startdate = [year, month, day];
+									};
+								}
+								else if(char === 2) {
+									if(startdate !== null && new Date(year, month, day).valueOf() <= new Date().valueOf()) {
+										record[record.length] = false;
+									}
+								}
+								else {
+									console.log("this shouldn't happen");
+								}
+							}
+						}
+					}
+				}
+				if(year !== null && month !== null && day !== null && day !== leit.monthdays(month, year)) {
+					return datestring(year, month) + " has " + day + " days.";
+				};
+				let questions = [];
+				let date = datestring(...startdate);
+				for(i1 = 0; i1 < input.length; i1++) {
+					questions[questions.length] = {};
+					let ref = questions[questions.length - 1];
+					let text = input[i1].split("\n");
+					if(datechecker(text[0])) {
+						date = text[0];
+						text = text.slice(1);
+					};
+					ref.date = date;
+					if(text.length === 0) {
+						return "a question has nothing but a date.";
+					};
+					const line = text[0].trim();
+					text = text.slice(1).join("\n").split("\n-\n");
+					let temp = line.indexOf("/2^");
+					if(temp === -1 || line.endsWith("/2^")) {
+						return "a question has no until/period fraction at the beginning.";
+					}
+					temp = [
+						line.slice(0, temp),
+						// until
+						trimspecial(line.slice(temp + "/2^".length))
+						// level, and words after the level
+					];
+					ref.until = Number(temp[0]);
+					ref.level = Number(temp[1][0]);
+					temp = temp[1].slice(1);
+					if((!Number.isInteger(ref.until) && ref.until !== Infinity) || !Number.isInteger(ref.level)) {
+						return "a question's until/period fraction is invalid: " + line;
+					};
+					temp = temp.split(",");
+					for(i2 = 0; i2 < temp.length; i2++) {
+					// settings overrides. (ex: "max_level: 3")
+						let setting = temp[i2].indexOf(":");
+						let value = "";
+						if(setting !== -1) {
+							value = temp[i2].slice(setting + 1).trim();
+							setting = temp[i2].slice(0, setting).trim();
+						}
+						let ds = leit.default_settings;
+						if(ds.hasOwnProperty(setting)) {
+							value = leit.fromstring(value, typeof ds[setting]);
+							if(value !== null) {
+								ref[setting] = value;
+							}
+						}
+					}
+					if(!text.length) {
+						return "a question is empty.";
+					}
+					else if(text.length%2) {
+						return "a question has no answer.";
+					};
+					ref.text = text.join("\n-\n");
+					if(leit.iscoded) {
+					// questions were coded, so reverse that.
+						ref.text = leit.rot13(ref.text);
+					}
+				}
+				return {
+					settings,
+					start: startdate,
+					record,
+					questions,
+				};
+			},
+			datatotext: function(input) {
+				let i1 = 0;
+				let i2 = 0;
+				let string = "";
+				let ref = input.settings;
+				for(i1 in ref) {
+					if(ref.hasOwnProperty(i1) && typeof ref[i1] === typeof leit.default_settings[i1]) {
+						string += (string ? "\n" : "") + i1 + ": " + ref[i1];
+					}
+				}
+				if(string) {
+					string += "\n=";
+				};
+				// write the settings
+				const start_value = new Date(...input.start).valueOf();
+				const day_length = 24*60*60*1000;
+				let end = false;
+				let loop = new Loop("datatotext");
+				for(i1 = 1 - input.start[2]; !end; i1++) {
+				// run for every day in all the months the record covers.
+					loop.tick(1);
+					let slice = string.length;
+					let date = new Date(start_value + i1*day_length);
+					if(date.getDate() === 1) {
+						if(i1 < input.record.length) {
+							string += "\n" + datestring(date.getFullYear(), date.getMonth());
+							string += "\n" + " ".repeat(date.getDay());
+						}
+						else {
+						// end before the first month beginning after the end of
+						// the record
+							end = true;
+						};
+					}
+					else if(!date.getDay()) {
+						string += "\n";
+					};
+					if(!end) {
+						string += leit.chars[(i1 < 0 || i1 >= input.record.length) ? 2 : input.record[i1] ? 1 : 0];
+					}
+					//console.log(datestring(date.getFullYear(), date.getMonth(), date.getDate()) + ": " + string.slice(slice));
+				}
+				loop.end();
+				let date = datestring(...input.start);
+				for(i1 = 0; i1 < input.questions.length; i1++) {
+					let ref = input.questions[i1];
+					string += "\n=";
+					if(ref.date !== date) {
+						date = ref.date;
+						string += "\n" + date;
+					};
+					string += "\n" + ref.until + "/2^" + ref.level;
+					for(i2 in ref) {
+						if(leit.default_settings.hasOwnProperty(i2) && typeof ref[i2] === typeof leit.default_settings[i2]) {
+							string += " " + i2 + ": " + JSON.stringify(ref[i2]);
+						}
+					}
+					string += "\n" + (leit.iscoded ? leit.rot13(ref.text) : ref.text);
+				}
+				return string;
+			},
+		};
+		leit.initialize();
+		//
+		let lic = {
+			element: (name) => document.getElementById("lic_" + tohtmlid(name)),
+			getsetting: (name, caveats) => gethtmlsetting(lic.element(name), caveats),
+			hide: function(elementname, show) {
+			// hides an element, or the label it's in, if applicable
+				let element = lic.element(elementname);
+				let parent = element.parentElement;
+				if(parent && parent.tagName.toLowerCase() === "label") {
+					element = parent;
+				};
+				element.hidden = !show;
+			},
+			show: function(elementname) {
+				lic.hide(elementname, true);
+			},
+			settings: {
+				"delete timer": 10,
+				"delete rate": 16,
+				"session length": 60,
+				"pause duration": 3,
+			},
+			initialize: function() {
+				let html = [];
+				for(i1 in lic.settings) {
+					if(lic.settings.hasOwnProperty(i1)) {
+						html[html.length] = addhtml("lic", "input", i1, `type="number" style="width: 4em" value=` + lic.settings[i1]) + (
+							i1 === "delete timer" ? " seconds" :
+							i1 === "delete rate" ? " characters per second" :
+							(i1 === "session length" || i1 === "pause duration") ? " minutes" :
+							""
+						);
+					}
+				}
+				const bui = false;
+				html[html.length] = addhtml("lic", "button", "start");
+				html = [
+					`a writing tool that starts deleting if you take too long.`,
+					`<br>` + addhtml("lic", "div", "setup", "", "\n\t" + html.join("\n\t<br>") + "\n"),
+					`<br>` + addhtml("lic", "textarea", "text", "rows=20 cols=33"),
+					`<br>` + addhtml("lic", "textarea", "notes", "rows=1 cols=33", null, "reference notes:"),
+					`<br>` + addhtml("lic", "div", "session", null, "\n\t" + [
+						addhtml("lic", "pre", "session timer") + " " + addhtml("lic", "button", "renew"),
+						addhtml("lic", "button", "pause"),
+						`<br>` + addhtml("lic", "button", "reset")
+						+ (bui ? `\n\t` + addhtml("lic", "div", "bui") : ``)
+					].join("\n\t<br>") + "\n"),
+					`<br>` + addhtml("lic", "input", "cols", `type="number" style="width: 3em"`, null, "text width:"),
+					`<br>` + addhtml("lic", "input", "rows", `type="number" style="width: 3em"`, null, "text height:"),
+					`<br>` + addhtml("lic", "input", "notes rows", `type="number" style="width: 3em"`, null, "notes height:"),
+					// type name settings inside label
+				].join("\n");
+				wrapper.create("lic", html);
+				lic.hide("text");
+				lic.hide("session");
+				lic.hide("renew");
+				lic.element("start").onclick = function() {
+					for(i1 in lic.settings) {
+						if(lic.settings.hasOwnProperty(i1)) {
+							let num = Number(lic.element(i1).value);
+							if(!isNaN(num)) {
+								lic.settings[i1] = num;
+							};
+						}
+					}
+					lic.hide("setup");
+					lic.show("text");
+					lic.show("session");
+					lic.start_process();
+					lic.sessionstart = new Date().valueOf();
+					lic.timepaused = 0;
+					lic.lastchange = lic.sessionstart;
+				};
+				lic.element("pause").onclick = function() {
+					if(lic.pausestart === null) {
+					// pause
+						lic.pausestart = new Date().valueOf();
+						lic.hide("text");
+						lic.element("notes").readOnly = false;
+					}
+					else {
+					// unpause
+						lic.timepaused += new Date().valueOf() - lic.pausestart;
+						lic.pausestart = null;
+						lic.lastchange = new Date().valueOf();
+						lic.show("text");
+						lic.element("pause").innerHTML = "pause";
+						lic.element("notes").readOnly = true;
+					}
+				};
+				lic.element("reset").onclick = function() {
+					if(!confirm("clear the text and go back to setup?")) {
+						return;
+					};
+					lic.element("text").value = "";
+					lic.show("setup");
+					lic.hide("text");
+					lic.hide("session");
+					lic.stop_process();
+				};
+				function rowschange(notes) {
+					lic.lastchange = new Date().valueOf();
+					let temp = lic.getsetting((notes ? "notes " : "") + "rows", ["over zero", "integer"]) ?? 0;
+					let element = lic.element(notes ? "notes" : "text");
+					element.rows = Math.min(
+						element.value.split("\n").length,
+						temp ? temp : Infinity
+					);
+				};
+				lic.element("text").onkeyup = function() { rowschange(false) };
+				lic.element("text").onchange = function() { rowschange(false) };
+				lic.element("rows").onchange = function() { rowschange(false) };
+				lic.element("notes").onkeyup = function() { rowschange(true) };
+				lic.element("notes").onchange = function() { rowschange(true) };
+				lic.element("notes rows").onchange = function() { rowschange(true) };
+				lic.element("renew").onclick = function() {
+					lic.hide("renew");
+					lic.start_process();
+					lic.sessionstart = new Date().valueOf();
+					lic.timepaused = 0;
+					lic.lastchange = lic.sessionstart;
+				};
+				lic.element("cols").onchange = function() {
+					const rows = false;
+					let num = Number(lic.element(rows ? "rows" : "cols").value);
+					if(num > 0 && Number.isInteger(num)) {
+						lic.element("text")[rows ? "rows" : "cols"] = num;
+						if(!rows) {
+							lic.element("notes")[rows ? "rows" : "cols"] = num;
+						}
+					}
+				};
+				lic.element("cols").onchange();
+				//lic.element("rows").onchange = function() { dimensionchange(true, false) };
+				if(bui) {
+					lic.bullets_ui = new Bullets.UI(lic.element("text"), lic.element("bui"), "lic_bui");
+				}
+			},
+			bullets_ui: null,
+			fps: 16,
+			interval: null,
+			lastchange: null,
+			sessionstart: null,
+			timepaused: null,
+			pausestart: null,
+			deletion_float: 0,
+			lastprocess: null,
+			colors: ["hsl(0, 100%, 75%)", "hsl(30, 100%, 75%)", "hsl(60, 100%, 87.5%)", "white"],
+			start_process: function() {
+				lic.interval = setInterval(lic.process, 1000/lic.fps);
+				lic.lastchange = new Date().valueOf();
+				lic.element("text").focus({focusVisible: true});
+				lic.element("notes").readOnly = true;
+			},
+			stop_process: function() {
+				clearInterval(lic.interval);
+				lic.interval = null;
+				lic.element("notes").readOnly = false;
+			},
+			process: function() {
+			// deletes text, changes the colors, shows the time left in a pause
+				let time = new Date().valueOf();
+				lic.lastprocess ??= time;
+				const delta = (time - lic.lastprocess)/1000;
+				if(lic.pausestart !== null) {
+					let seconds = (time - lic.pausestart)/1000;
+					// seconds since pausing
+					seconds = lic.settings["pause duration"]*60 - seconds;
+					// seconds left on the timer
+					if(seconds <= 0) {
+					// unpause
+						lic.element("pause").onclick();
+					}
+					else {
+						lic.element("pause").innerHTML = converttime(seconds, true, true, true);
+						return;
+					};
+				}
+				let seconds = lic.settings["session length"]*60;
+				seconds -= (time - (lic.sessionstart + lic.timepaused))/1000;
+				seconds = Math.max(0, seconds);
+				lic.element("session timer").innerHTML = converttime(seconds, true, true, true);
+				if(seconds <= 0) {
+				// session ended. stop processing, show the renew button
+					lic.element("text").style = "";
+					lic.show("renew");
+					lic.stop_process();
+					return;
+				};
+				let status = (time - lic.lastchange)/(1000*lic.settings["delete timer"]);
+				// 0 means you just editted it, 1 means you just passed the timer
+				if(status >= 1) {
+					lic.element("text").style = "background: " + lic.colors[0];
+					let temp = lic.deletion_float + lic.settings["delete rate"]*delta;
+					// "but won't delta always just be 1/lic.fps?" no, because
+					// this way it can account for time spent in another tab or
+					// whatever.
+					let chars = Math.floor(temp);
+					lic.deletion_float = temp - chars;
+					// this seems weird and dumb, but otherwise every frame has
+					// to delete the same number of characters, meaning the true
+					// delete rate is always a multiple of fps.
+					let place = lic.element("text").selectionEnd;
+					// where the cursor was; the end of the deletion
+					let _place = Math.max(0, place - chars);
+					// where the cursor will be; the start of the deletion
+					chars -= place - _place;
+					// how much to delete from the beginning if it deleted
+					// enough for _place to be at 0
+					let string = lic.element("text").value;
+					string = string.slice(0, _place) + string.slice(place);
+					string = string.slice(chars);
+					lic.element("text").value = string;
+					lic.element("text").selectionStart = _place;
+					lic.element("text").selectionEnd = _place;
+					// every time you change the text, the selection is
+					// automatically set to the end. so place it where it should
+					// be.
+				}
+				else {
+				// change colors to reflect how close it is to the end (reserve
+				// [0] for when it runs out.)
+					let color = 1 + Math.floor((1 - status)*(lic.colors.length - 1));
+					lic.element("text").style = "background: " + lic.colors[color];
+				}
+			},
+		};
+		lic.initialize();
+		//
+		let bul = {
+			element: (name) => document.getElementById("bul_" + tohtmlid(name)),
+			getsetting: (name, caveats) => gethtmlsetting(bul.element(name), caveats),
+			bullets: function(random) {
+			// creates a Bullets from the input text. (or returns null if that's
+			// empty.)
+				let input = bul.getsetting("input") ?? null;
+				if(input === null) {
+					return input;
+				};
+				let myformatting = bul.getsetting("myformatting");
+				let allowthese = bul.getsetting("allowthese") ?? "";
+				if(random) {
+				// add the special characters for random bullets, if it's about
+				// to do a random selection
+					for(let i1 = 0; i1 < 3; i1++) {
+						let temp = bul.getsetting(
+							(i1 === 0 ? "random category" :
+							i1 === 0 ? "random includebullet" :
+							i1 === 2 ? "random includecategory" :
+							null),
+							"symbols"
+						) ?? "";
+						for(let i2 = 0; i2 < temp.length; i2++) {
+							if(!allowthese.includes(temp[i2])) {
+								allowthese += temp[i2];
+							}
+						}
+					}
+				}
+				if(!allowthese) {
+					allowthese = "-";
+				}
+				console.log(new Date().valueOf());
+				return new Bullets(input, myformatting, false, allowthese);
+			},
+			run: function(type) {
+				let i1 = 0;
+				let i2 = 0;
+				let bullets = bul.bullets(type === "random");
+				console.log(new Date().valueOf());
+				if(bullets === null) {
+					return;
+				}
+				let length = bullets.length;
+				//
+				if(type === "indent") {
+					let change = bul.getsetting("indent value", "integer") ?? 0;
+					for(i1 = 0; i1 < length; i1++) {
+						bullets[i1].indent = Math.max(0, bullets[i1].indent + change);
+					}
+				}
+				else if(type === "random") {
+					let category = bul.getsetting("random category", "symbols") ?? "";
+					let includebullet = bul.getsetting("random includebullet", "symbols") ?? "";
+					let includecategory = bul.getsetting("random includecategory", "symbols") ?? "";
+					let choices = [];
+					for(i1 = 0; i1 < length; i1++) {
+						let char = bullets[i1].character;
+						if(
+							includecategory.includes(char) || category.includes(char) ? false :
+							(
+								(!includebullet && !includecategory)
+								||
+								includebullet.includes(char)
+								||
+								bullets.anc(i1).some( (element) => includecategory.includes( bullets[element].character ) )
+							)
+						) {
+							choices[choices.length] = i1;
+						};
+					}
+					//
+				}
+				else if(type === "filter") {
+					let keep_anc = bul.getsetting("filter keep anc");
+					let keep_desc = bul.getsetting("filter keep desc");
+					let from = bul.getsetting("filter from", "date");
+					let to = bul.getsetting("filter from", "to");
+					let indexes = bul.getsetting("filter indexes", "index list");
+					let andinclude = bul.getsetting("filter andinclude", "strings");
+					let orinclude = bul.getsetting("filter orinclude", "strings");
+					let andexclude = bul.getsetting("filter andexclude", "strings");
+					let orexclude = bul.getsetting("filter orexclude", "strings");
+					let sandwich = [
+						bul.getsetting("filter sandwich start"),
+						bul.getsetting("filter sandwich end")
+					];
+					sandwich = sandwich[0] === null || sandwich[1] === null ? null : sandwich;
+					let keep = [];
+					for(i1 = 0; i1 < length; i1++) {
+						let bullet = bullets[i1];
+						let text = trimunspecial(bullets[i1].text);
+						let date = bullets.getdate(i1);
+						let include = (
+							(!from || date === null || datecompare(from, date, true) !== -1)
+							&&
+							(!to || to === null || datecompare(date, to, true) !== -1)
+							&&
+							(!indexes || indexes.includes(i1))
+						);
+						if(sandwich) {
+						// include/exclude only applies to the contents of the
+						// sandwich.
+							if(include) {
+								let contents = [];
+								let place = text.indexOf(sandwich[0]);
+								while(place !== -1) {
+									let start = place + sandwich[0].length;
+									let end = text.indexOf(sandwich[1], start);
+									if(end === -1) {
+										place = -1;
+									}
+									else {
+										contents[contents.length] = text.slice(start, end);
+										place = end + sandwich[1].length;
+										place = text.indexOf(sandwich[0], place);
+									}
+								}
+								include = (
+									(!andinclude || content.some(
+									// for at least one of the sandwiches,
+										(a) => andinclude.every(
+										// every andinclude string is
+										// inside.
+											(b) => a.includes(b)
+										)
+									))
+									&&
+									(!orinclude || content.some(
+									// for at least one of the sandwiches,
+										(a) => orinclude.some(
+										// one of the orinclude strings is
+										// inside.
+											(b) => a.includes(b)
+										)
+									))
+									&&
+									(!andexclude || !content.some(
+										(a) => andexclude.every(
+											(b) => a.includes(b)
+										)
+									))
+									&&
+									(!orexclude || !content.some(
+										(a) => orexclude.some(
+											(b) => a.includes(b)
+										)
+									))
+								)
+							}
+						}
+						else {
+							include = (
+								include
+								&&
+								(!andinclude || andinclude.every( (element) => text.includes(element) ))
+								&&
+								(!orinclude || orinclude.some( (element) => text.includes(element) ))
+								&&
+								(!andexclude || !andexclude.every( (element) => text.includes(element) ))
+								&&
+								(!orexclude || !orexclude.some( (element) => text.includes(element) ))
+							);
+						}
+						if(include) {
+							keep[keep.length] = i1;
+						}
+					}
+					bullets = bullets.filter_and_family((bullets, index) => keep.includes(index), !keep_anc, keep_desc).content;
+					bul.element("filter indexes").value = keep.join(" ");
+				}
+				else if(type === "remove") {
+					bullets.remove(bul.getsetting("remove indexes", "index list") ?? [], bul.getsetting("remove flatten"));
+				}
+				else if(type === "intent") {
+					bullets = bullets.intent(bul.getsetting("realizers", "strings"));
+				};
+				//
+				let linewidth = bul.getsetting("linewidth", ["over zero", "integer"]) ?? 33;
+				let output = bullets.string(linewidth, bul.getsetting("myformatting"));
+				if(bul.getsetting("editinput")) {
+					bul.element("input").value = output;
+					bul.element("input").cols = linewidth;
+					bul.element("output").innerHTML = "";
+				}
+				else {
+					bul.element("output").innerHTML = entityreplacement(output, true);
+				}
+			},
+			initialize: function() {
+				let list = [`\n<ul>\n\t<li>`, `</li>\n\t<li>`, `</li>\n</ul>`];
+				let html = [
+					`lets you use various methods of a class i made for my
+					bulleted style of text. they probably aren't useful to
+					anyone but me.`,
+					arraytoul([
+						/*
+						`the "sandwich" section of the filter is used for
+						certain tags. if you specify both a sandwich start and
+						end, it'll search the bullets for that start and end,
+						and apply include/exclude to the contents of the
+						sandwiches instead of the bullet in general.`,
+						`the indexes section of the filter lets you require the
+						bullet to be one of the specified indexes, ex: "0 7"
+						would only show the first and eighth bullet. this is
+						only really meant for making searches accumulate, only
+						allowing things that passed the first search in your
+						second search. it fills automatically whenever you run a
+						filter.`,
+						*/
+						`"intent" is like this complicated as fuck tag system
+						for organizing character notes. it's too obtuse to
+						understand without explanation, but also too obtuse to
+						expect someone to seriously read the explanation`,
+						[
+							`all tags must be used under an ancestor marked as
+							"(center)"`,
+							`(center) or (intent) tags represent something you
+							want to convey, and the "realizers" represent how
+							it's conveyed. ex: through character design, music,
+							story beats`,
+							[
+								`the point is to help with character design and
+								whatever by trimming down a really big concept
+								to key points you want to convey, and what was
+								already done to convey them.`,
+								`systems like this are either brilliant or dumb
+								as hell.`
+							],
+							`by default, they're associated with the closest
+							ancestor that's an intent or center, but you can
+							specify something different by putting a set of
+							brackets right after the tag type. it'll search for
+							an intent under the same center that has that phrase
+							inside it. (if there's multiple matches, it favors
+							the ones that share a closer common ancestor, then
+							the ones that have the lowest indent, then the ones
+							that show up earliest)`,
+							`realizers can also be parented to realizers of the
+							same type, through either of those methods.`,
+							`you can force it to parent to the center by typing
+							empty brackets. (useful if its ancestry would make
+							it parent to something else.)`,
+							`you can make the center/intent/realizer only show
+							part of the bullet's text by writing something like
+							(intent&#60;) or (intent&#62;)`,
+							`&#60; or &#62;s of the same type within the same
+							bullet can limit each other, ex: "a (intent&#62;) b
+							(intent&#60;) c" will create a single intent that
+							says "b", and "a (intent&#62;) b (intent&#62;) c"
+							will create two that say "b" and "c"`,
+							`or you can write entirely new content by putting a
+							colon after the tag type, ex: "a b c (intent: d)"`,
+							`a lot of realizers evoke simple traits like
+							"confident" or "cruel" that would be implied rather
+							than stated, so tags can create intents to parent
+							themselves to. "(desi #confident #cruel >)" would
+							put it under an intent that says "confident,
+							cruel".`,
+							`there can be any number of spaces, indents, etc
+							between stuff like the tag type, hashtags,
+							attachment parentheses, :/&#60;/&#62;/etc. the
+							interpreter will still be able to read it.`
+						]
+					]),
+					addhtml("bul", "textarea", "input", "rows=40 cols=60"),
+					`<br>` + addhtml("bul", "input", "linewidth", `type="number" value=33`, null, "line width:"),
+					`<br>` + addhtml("bul", "input", "myformatting", `type="checkbox" checked`, null, "use my formatting"),
+					`<br>` + addhtml("bul", "input", "allowthese", `type="text" value="-"`, null, "allowed bullet characters:"),
+					`<br>` + addhtml("bul", "input", "editinput", `type="checkbox"`, null, "edit input"),
+					`<br>` + addhtml("bul", "button", "indent", null, "change indent") + list[0] + [
+						addhtml("bul", "input", "indent value", `type="number"`, null, "number")
+					].join(list[1]) + list[2],
+					//`<div hidden>`,
+					addhtml("bul", "button", "random", null, "random bullet") + list[0] + [
+						addhtml("bul", "input", "random category", `type="text" value="*"`, null, "category:"),
+						addhtml("bul", "input", "random includebullet", `type="text" value="@"`, null, "only these bullets:"),
+						addhtml("bul", "input", "random includecategory", `type="text" value="!"`, null, "only these categories:")
+					].join(list[1]) + list[2],
+					addhtml("bul", "button", "filter") + list[0] + [
+						addhtml("bul", "input", "filter keep anc", `type="checkbox" checked`, null, "keep ancestors") + " " + addhtml("bul", "input", "filter keep desc", `type="checkbox"`, null, "keep descendants"),
+						addhtml("bul", "textarea", "filter indexes", null, null, "only these indexes:"),
+						addhtml("bul", "input", "filter from", `type="text"`, null, "from") + " " + addhtml("bul", "input", "filter to", `type="text"`, null, "to"),
+						addhtml("bul", "textarea", "filter andinclude", `rows=5 cols=33`, null, "and include"),
+						addhtml("bul", "textarea", "filter orinclude", `rows=5 cols=33`, null, "or include"),
+						addhtml("bul", "textarea", "filter andexclude", `rows=5 cols=33`, null, "and exclude"),
+						addhtml("bul", "textarea", "filter orexclude", `rows=5 cols=33`, null, "or exclude"),
+						[
+							`<label>sandwich:`,
+							`<input type="text" id="` + tohtmlid("bul filter sandwich start") + `">`,
+							`<input type="text" id="` + tohtmlid("bul filter sandwich end") + `"></label>`
+						].join(" ").replaceAll(`\n`, `\n\t`)
+						/*
+						("sandwich" + list[0] + [
+							addhtml("bul", "input", "filter sandwich start", `type="text"`, null, "start:"),
+							addhtml("bul", "input", "filter sandwich end", `type="text"`, null, "end:")
+						].join(list[1]) + list[2]).replaceAll(`\n`, `\n\t`)
+						//*/
+					].join(list[1]) + list[2],
+					//`</div>`,
+					addhtml("bul", "button", "remove") + list[0] + [
+						addhtml("bul", "input", "remove indexes", `type="text"`, null, "indexes:"),
+						addhtml("bul", "input", "remove flatten", `type="checkbox"`, null, "flatten")
+					].join(list[1]) + list[2],
+					addhtml("bul", "button", "intent") + list[0] + [
+						addhtml("bul", "textarea", "realizers", `rows=12 cols=12`)
+					].join(list[1]) + list[2],
+					addhtml("bul", "pre", "output")
+				].join("\n");
+				wrapper.create("bul", html);
+				bul.element("indent").onclick = function() {
+					bul.run("indent");
+				}
+				bul.element("random").onclick = function() {
+					bul.run("random");
+				}
+				bul.element("filter").onclick = function() {
+					bul.run("filter");
+				}
+				bul.element("remove").onclick = function() {
+					bul.run("remove");
+				}
+				bul.element("intent").onclick = function() {
+					bul.run("intent");
+				}
+			},
+		}
+		bul.initialize();
+		//
+		wrapper.finish();
+		</script>
+	</body>
+</html>

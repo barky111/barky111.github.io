@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html>
+    <script src="script/barky_main.js"></script>
+    <script src="script/barky_strings.js"></script>
+    <script src="script/barky_graphics.js"></script>
+	<script src="script/site.js"></script>
+	<script>
+		document.write(head);
+	</script>
+	<body>
+		<script>
+            document.write(header);
+			let intro = `i'm barky. this website is where i put my web tools.` + arraytoul([
+                `they're usually creative tools, or personal tools.`,
+                `<a href="mailto:barky11111@gmail.com">email</a> me for feature
+                suggestions, bug reports`,
+                `or if you want something made. i charge $15 * however many
+                hours i expect it to take.`,
+                [
+                    `i can make web tools and godot classes.`,
+                    `my specialties:`,
+                    [
+                        `storing/retrieving data from text, creating syntax`,
+                        `user empathy/intuitivity`,
+                        `geometry`,
+                        `tools related to creativity`
+                    ]
+                ]
+			]);
+            document.write(`<main>` + intro + `</main>`);
+            document.querySelector(":root").style = "--padding: 0.5em 3em;";
+            document.write(footer);
+		</script>
+		<style>
+            body {
+                background: #6B3;
+				max-width: 750px;
+                /* change the media query version every time you change this. it
+                was 100px less by default. */
+				margin: 0 auto;
+				/* this centers the entire page */
+			}
+            header {
+                background: #344;
+                padding: var(--padding);
+            }
+			main {
+                /* main content area */
+                background: #BEB;
+                color: gray;
+                padding: var(--padding);
+				flex: 1;
+				order: 2;
+                overflow-x: auto;
+			}
+			footer {
+                background: #344;
+                padding: var(--padding);
+				height: auto;
+				text-align: center;
+			}
+			strong {
+				/* this styles bold text */
+				color: #ED64F5;
+			}
+		</style>
+	</body>
+</html>

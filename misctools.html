@@ -1,0 +1,739 @@
+<!DOCTYPE html>
+<html lang="en">
+	<script src="script/barky_main.js"></script>
+	<script src="script/barky_strings.js"></script>
+	<script src="script/site.js"></script>
+	<script>
+		document.write(head);
+	</script>
+	<head>
+		<title>misc tools</title>
+		<style>
+			body {
+				background: #99e1d9;
+				color: black;
+			}
+		</style>
+	</head>
+	<body>
+		<h1>coffee calculator</h1>
+		<br><label>half-life (in hours. default: caffeine's, 5.7): <input type="number" id="coffee_halflife"></label>
+		<br><label>what time you're drinking (default: the current time.): <input type="time" id="coffee_drinktime"></label>
+		<br><label>bedtime (default: midnight): <input type="time" id="coffee_bedtime"></label>
+		<br><label>% you want by then (default: 25): <input type="number" id="coffee_beddose"></label>
+		<br><button id="coffee_button">calculate</button>
+		<div id="coffee_text"></div>
+		<script>
+		function am_pm_izer(input) {
+			let hours = Number(input.slice(0, input.indexOf(":")));
+			let hoursstring = input.slice(0, input.indexOf(":"));
+			if(isNaN(hours)) {
+				return;
+			}
+			else if(hours === 0) {
+				input += "a";
+				input = input.replace(hoursstring + ":", "12:");
+			}
+			else if(0 < hours && hours < 10) {
+				input = input.replace(hoursstring + ":", hours + ":");
+				input += "a";
+			}
+			else if(10 <= hours && hours < 12) {
+				input += "a";
+			}
+			else if(hours === 12) {
+				input += "p";
+			}
+			else if(12 < hours && hours < 24) {
+				input += "p";
+				input = input.replace(hoursstring + ":", (hours % 12) + ":");
+			}
+			else {
+				return;
+			};
+			return input;
+		}
+		document.getElementById("coffee_button").addEventListener("click", function() {
+			let drinktime = document.getElementById("coffee_drinktime").value;
+			let drinkminutes = 60*Number(drinktime.slice(0, drinktime.indexOf(":"))) + Number(drinktime.slice(drinktime.indexOf(":") + 1));
+			if(!drinkminutes) {
+				let temp = new Date();
+				drinktime = "";
+				if(temp.getHours() < 10) {
+					drinktime += "0";
+				};
+				drinktime += temp.getHours() + ":";
+				if(temp.getMinutes() < 10) {
+					drinktime += "0";
+				};
+				drinktime += temp.getMinutes();
+				drinkminutes = 60*temp.getHours() + temp.getMinutes();
+			};
+			let bedtime = document.getElementById("coffee_bedtime").value;
+			bedtime = bedtime ? bedtime : "00:00";
+			let bedminutes = 60*Number(bedtime.slice(0, bedtime.indexOf(":"))) + Number(bedtime.slice(bedtime.indexOf(":") + 1));
+			let minutesuntilsleep = bedminutes - drinkminutes;
+			if(minutesuntilsleep <= 0) {
+			// if it's negative, that means bedtime is past the midnight of the
+			// current day.
+				minutesuntilsleep += 1440;
+			};
+			let halflife = document.getElementById("coffee_halflife").value;
+			if(!(halflife)) {
+				halflife = 5.7;
+			};
+			let beddose = document.getElementById("coffee_beddose").value;
+			if(!(beddose)) {
+				beddose = 25;
+			};
+			//dose/(2**(hourselapsed/halflife)) = amountinsystem
+			//dose/(2**(minutesuntilsleep/60*halflife)) = beddose/100
+			let correctdose = beddose/100 * 2**(minutesuntilsleep/(60*halflife));
+			correctdose *= 100;
+			correctdose = Math.round(correctdose*100)/100;
+			// round to two decimal places
+			drinktime = am_pm_izer(drinktime);
+			bedtime = am_pm_izer(bedtime);
+			document.getElementById("coffee_text").innerHTML = "<br>drink " + correctdose + "% at " + drinktime + ",<br>have " + beddose + "% in the system by " + bedtime + ".<br>(assuming a " + halflife + " hour half-life.)";
+		});
+		// TODO
+		// - second dose stuff
+		</script>
+		<br><h1>chord progression generator</h1>
+		<br><select id="chopro_mode">
+			<option value="ionian">major (ionian)</option>
+			<option value="dorian">dorian</option>
+			<option value="phrygian">phrygian</option>
+			<option value="lydian">mixolydian</option>
+			<option value="mixolydian">lydian</option>
+			<option value="aeolian">minor (aeolian)</option>
+			<option value="locrian">locrian</option>
+			<option value="random" selected>random</option>
+		</select>
+		<br>generate <label><input type="number" id="chopro_numofchords" value=4> chords</label> with
+		<label><select id="chopro_tonesper">
+			<option value="2">2</option>
+			<option value="3" selected>3</option>
+			<option value="4">4</option>
+			<option value="5">5</option>
+		</select> tones</label>
+		<br><label><input type="checkbox" id="chopro_restrictwidth" title="easier to play." checked> avoid chords wider than one octave</label>
+		<br><label>avoid pitch changes over <input type="number" id="chopro_restrictpitch" title="keeps the pitch from changing too much using inversions, which makes it easier to play a melody over it." value=2> semitones (type 0 to disable)</label>
+		<br><label><input type="checkbox" id="chopro_triadic" title="only uses notes two tones apart." checked> triadic chords only</label>
+		<br><button id="chopro_button">generate</button>
+		<div id="chopro_text"></div>
+		<script>
+		function numofdigits(value) {
+		// returns an array with the number of digits before and after the decimal
+		// point.
+		// =
+		// moved from reusables
+		    value = "" + value;
+		    if(value.includes(".")) {
+		        return [value.indexOf("."), value.length - (value.indexOf(".") + 1)];
+		    }
+		    else {
+		        return [value.length, 0];
+		    };
+		}
+		function numalign(values, skiprightspaces) {
+		// adds spaces to the beginning and/or end of each number so they all line
+		// up.
+		// - values should be an array of numbers.
+		// =
+		// moved from reusables
+		    let i1 = 0;
+		    let maxleftdigits = "x";
+		    let maxrightdigits = "x";
+		    for (i1 = 0; i1 < values.length; i1++) {
+		        if(maxleftdigits === "x" || numofdigits(values[i1])[0] > maxleftdigits) {
+		            maxleftdigits = numofdigits(values[i1])[0];
+		        };
+		        if(maxrightdigits === "x" || numofdigits(values[i1])[1] > maxrightdigits) {
+		            maxrightdigits = numofdigits(values[i1])[1];
+		        };
+		    }
+		    for (i1 = 0; i1 < values.length; i1++) {
+		        if(numofdigits(values[i1])[0] < maxleftdigits) {
+		            values[i1] = " ".repeat(maxleftdigits - numofdigits(values[i1])[0]) + values[i1];
+		        }
+		        else {
+		            values[i1] = "" + values[i1];
+		        };
+		        if(!skiprightspaces && numofdigits(values[i1])[1] < maxrightdigits) {
+		            values[i1] = values[i1] + " ".repeat(maxrightdigits - numofdigits(values[i1])[1]);
+		        };
+		    }
+		    return values;
+		}
+		function randomchopro(mode, numofchords, restrictpitch, restrictwidth, triadic, tonesper) {
+			let i0 = 0;
+			let i1 = 0;
+			let i2 = 0;
+			let i3 = 0;
+			const modelist = ["ionian", "dorian", "phrygian", "lydian", "mixolydian", "aeolian", "locrian"];
+			if(mode === "random") {
+				mode = modelist[Math.floor(Math.random()*modelist.length)];
+			};
+			mode = modelist.includes(mode) ? mode : modelist[0];
+			numofchords = typeof numofchords === "number" && !isNaN(numofchords) ? numofchords : 4;
+			tonesper = typeof tonesper === "number" && tonesper >= 1 && tonesper <= 8 ? tonesper : 3;
+			// you can only fit eight tones within an octave of the root.
+			const stepformula = [2, 2, 1, 2, 2, 2, 1];
+			let majortones = [0];
+			for (i1 = 1; i1 < 14; i1++) {
+				majortones[i1] = majortones[i1 - 1] + stepformula[(modelist.indexOf(mode) + i1 - 1)%stepformula.length];
+			}
+			let chords = [];
+			function chordsort(a, b) {
+				return a - b;
+			};
+			function getaveragepitch(array) {
+				let i1 = 1;
+				// 12**log2((1 + 2**(interval_a/12) + 2**(interval_b/12))/numofvoices)
+				array.sort(chordsort);
+				let returnnum = 1;
+				for(i1 = 1; i1 < array.length; i1++){
+					returnnum += 2**((array[i1] - array[0])/12);
+				}
+				returnnum /= array.length;
+				returnnum = 12*Math.log2(returnnum);
+				returnnum += array[0];
+				return returnnum;
+			}
+			function shiftchord(array, shiftby) {
+			// either moves notes up by major tones, or if it's triadic, moves the
+			// lowest/highest tone up/down an octave however many times you specified
+				let i1 = 1;
+				let _array = structuredClone(array);
+				if(triadic) {
+					let sign = Math.sign(shiftby);
+					if(![-1, 1].includes(sign)) {
+						return array;
+					};
+					shiftby = Math.abs(shiftby);
+					for (i1 = 0; i1 < shiftby; i1++) {
+						if(sign === 1) {
+							_array[0] += 12;
+							if(_array[0] >= 24) {
+								return "out of range";
+							}
+							_array.sort(chordsort);
+						}
+						else if(sign === -1) {
+							_array[_array.length - 1] -= 12;
+							if(_array[_array.length - 1] < 0) {
+								return "out of range";
+							}
+							_array.sort(chordsort);
+						}
+					}
+					return _array;
+				}
+				else {
+					for (i1 = 0; i1 < _array.length; i1++) {
+						_array[i1] = majortones.indexOf(_array[i1]);
+						// convert to a major tones index, ie a number that represents if
+						// it's c, d, e, f, etc and which octave
+						if(_array[i1] === -1) {
+							console.log("this shouldn't happen.");
+							return "invalid";
+						}
+						else if(
+							_array[i1] + shiftby < 0
+							||
+							_array[i1] + shiftby >= majortones.length
+						) {
+							return "out of range";
+						};
+						// if it wasn't in majortones, or shiftby puts it out of range,
+						// return invalid
+						_array[i1] = majortones[_array[i1] + shiftby];
+						// otherwise, convert back to semitones
+					}
+				}
+				return _array;
+			}
+			function getshiftedaverage(array, shiftby) {
+			// measured in major tones.
+				let _array = shiftchord(array, shiftby);
+				if(typeof _array === "string") {
+				// pass on error strings from shiftchord
+					return _array;
+				}
+				return getaveragepitch(_array);
+			}
+			function letterconvert(pitch) {
+				let temp = majortones.indexOf(pitch);
+				if(temp === -1) {
+					console.log("this shouldn't happen: " + pitch);
+				}
+				return "cdefgabCDEFGAB".charAt(temp);
+			}
+			const namedchords = {
+			};
+			if(tonesper === 2) {
+				for (i1 = 1; i1 < 12; i1++) {
+					let temp = [0, 1, 2, 1, 2, 3, 4, 3, 1, 2, 1, 2][i1];
+					temp = ["octave", "minor", "major", "perfect", "tritone"][temp];
+					namedchords[temp + " " + i1] = [i1];
+				}
+			}
+			if(tonesper === 3) {
+				namedchords.major = [4, 3];
+				namedchords.minor = [3, 4];
+				namedchords.diminished = [3, 3];
+				//
+				namedchords.augmented = [4, 4];
+				namedchords.power = [7, 5];
+				namedchords.suspended = [5, 2];
+			}
+			else if(tonesper === 4) {
+				namedchords["major seventh"] = [4, 3, 4];
+				namedchords["minor seventh"] = [3, 4, 3];
+				namedchords["dominant seventh"] = [4, 3, 3];
+				namedchords["half-diminished seventh"] = [3, 3, 4];
+				//
+				namedchords["augmented major seventh"] = [4, 4, 3];
+				namedchords["augmented seventh"] = [4, 4, 2];
+				namedchords["diminished major seventh"] = [3, 3, 5];
+				namedchords["diminished seventh"] = [3, 3, 3];
+				namedchords["minor major seventh"] = [3, 4, 4];
+			};
+			for (i1 in namedchords) {
+				if (namedchords.hasOwnProperty(i1)) {
+				// convert into arrays of integer notation strings, the indexes
+				// after 0 being inversions
+					let sum = 0;
+					let copy = structuredClone(namedchords[i1]);
+					for (i2 = 0; i2 < copy.length; i2++) {
+						sum += copy[i2];
+					}
+					copy[copy.length] = 12*Math.ceil(sum/12) - sum;
+					if(sum < 12) {
+					// anything >= 12 gets complicated. gotta do em manually.
+						namedchords[i1] = [];
+						for (i2 = 0; i2 < copy.length; i2++) {
+							let shuffled = copy.slice(i2).concat(copy.slice(0, i2));
+							let inversion = "0";
+							for (i3 = 0; i3 < shuffled.length; i3++) {
+								if(i3 !== 0) {
+									shuffled[i3] += shuffled[i3 - 1];
+								};
+								if(i3 !== shuffled.length - 1) {
+									inversion += "0123456789te".charAt(shuffled[i3]%12);
+								};
+							}
+							if(!namedchords[i1].includes(inversion)) {
+								namedchords[i1][ namedchords[i1].length ] = inversion;
+							};
+						}
+						if(namedchords[i1].length === 1) {
+							namedchords[i1] = namedchords[i1][0];
+						};
+					}
+				}
+			}
+			if(tonesper === 2) {
+				namedchords.octave = "00";
+			}
+			else if(tonesper === 3) {
+				namedchords.power = ["070", "050"];
+			};
+			for (i1 in namedchords) {
+				if (namedchords.hasOwnProperty(i1) && Array.isArray(namedchords[i1])) {
+					for (i2 = 1; i2 < namedchords[i1].length; i2++) {
+					// for every chord inversion,
+						for (i3 in namedchords) {
+							if (namedchords.hasOwnProperty(i3)) {
+								let chord = Array.isArray(namedchords[i3]) ? namedchords[i3][0] : namedchords[i3];
+								if(namedchords[i1][i2] === chord) {
+								// make it null if another chord's uninverted
+								// form is the same. this way, the chord-naming
+								// won't pick an inversion over a non-inversion.
+								// (i don't wanna splice because that'd fuck up
+								// the numbering.)
+									namedchords[i1][i2] = null;
+								}
+							}
+						}
+					}
+				}
+			}
+			//console.log(namedchords);
+			let keyboardstring = " ".repeat(24);
+			for (i1 = 0; i1 < majortones.length; i1++) {
+				let temp = majortones[i1];
+				keyboardstring = keyboardstring.slice(0, temp) + "." + keyboardstring.slice(temp + 1);
+			}
+			keyboardstring = keyboardstring.trim();
+			keyboardstring = keyboardstring.slice(0, 12) + keyboardstring.slice(12).replaceAll(".", ":");
+			/*
+			console.log(keyboardstring);
+			console.log(" ".repeat(majortones[0]) + "c");
+			console.log(" ".repeat(majortones[1]) + "d");
+			console.log(" ".repeat(majortones[2]) + "e");
+			console.log(" ".repeat(majortones[3]) + "f");
+			console.log(" ".repeat(majortones[4]) + "g");
+			console.log(" ".repeat(majortones[5]) + "a");
+			console.log(" ".repeat(majortones[6]) + "b");
+			//*/
+			let missedtones = "cdefgab";
+			for (i0 = 0; i0 < (numofchords * tonesper >= stepformula.length ? 100 : 1) && missedtones !== ""; i0++) {
+			// run over and over until there's no missed tones.
+			// - skip this bullshit if you don't have enough chords for it, though.
+				missedtones = "cdefgab";
+				for (i1 = 0; i1 < numofchords; i1++) {
+					chords[i1] = {
+						pitch: [],
+					};
+					if(triadic) {
+						let temp = Math.floor(Math.random()*7);
+						chords[i1].pitch = [];
+						for (i2 = 0; i2 < tonesper; i2++) {
+							chords[i1].pitch[i2] = majortones[temp + 2*i2];
+						}
+					}
+					else {
+						let temp1 = structuredClone(majortones);
+						// copy it so i can splice out tones to avoid repeats
+						let temp2 = Math.floor(Math.random()*7);
+						// random index (it's in the first octave to guarantee the lowest tone
+						// will be in the first octave. at least, barring adjustments made for
+						// restrictpitch)
+						chords[i1].pitch[0] = temp1[temp2];
+						temp1.splice(temp2, 1);
+						if(restrictwidth) {
+							temp1.splice(0, temp2);
+							temp1 = temp1.slice(0, 7);
+							// make sure all the tones are after the first tone and less then or
+							// equal to one octave away
+						};
+						for (i2 = 1; i2 < tonesper; i2++) {
+							temp2 = Math.floor(Math.random()*temp1.length);
+							chords[i1].pitch[i2] = temp1[temp2];
+							temp1.splice(temp2, 1);
+						}
+						chords[i1].pitch.sort(chordsort);
+					};
+					chords[i1].average = getaveragepitch(chords[i1].pitch);
+					let diff = i1 === 0 ? null : chords[i1].average - chords[i1 - 1].average;
+					// change in average pitch, compared to the previous chord
+					if(restrictpitch && i1 > 0 && Math.abs(diff) > restrictpitch) {
+						// shift one major tone at a time, moving towards the previous
+						// chord's pitch, and check what average that creates. if the
+						// difference goes below 2, success.
+						let loopexit = false;
+						for (i2 = -Math.sign(diff); !loopexit; i2 += -Math.sign(diff)) {
+							let temp = getshiftedaverage(chords[i1].pitch, i2);
+							if(temp === "invalid") {
+								// this shouldn't happen, but no amount of shifting will fix it.
+								loopexit = true;
+							}
+							else if(Math.abs(temp - chords[i1 - 1].average) <= restrictpitch) {
+								// it's a success, so apply this shift
+								chords[i1].pitch = shiftchord(chords[i1].pitch, i2);
+								loopexit = true;
+							}
+							else if(temp === "out of range") {
+								// it's probably like, the previous chord was a c chord or
+								// something and you can't get within two semitones without
+								// moving the root into the previous octave. so go back a step,
+								// that's as close as you're gonna get.
+								chords[i1].pitch = shiftchord(chords[i1].pitch, i2 + Math.sign(diff));
+								loopexit = true;
+							}
+						}
+						chords[i1].average = getaveragepitch(chords[i1].pitch);
+					}
+					chords[i1].intervals = [];
+					for (i2 = 0; i2 < chords[i1].pitch.length; i2++) {
+						for (i3 = i2 + 1; i3 < chords[i1].pitch.length; i3++) {
+						// round robin that shit
+							chords[i1].intervals[ chords[i1].intervals.length ] = (chords[i1].pitch[i3] - chords[i1].pitch[i2])%12;
+						}
+					}
+					chords[i1].strings = {
+						notes: "",
+						// "c/e/g"
+						name: letterconvert(chords[i1].pitch[0]) + "/",
+						// "c/047 (major)"
+						keyboard: keyboardstring,
+						// "c . e. g . .. . .. . . ."
+						qualities: "",
+						// "MPm"
+					};
+					let ref = chords[i1].strings;
+					for (i2 = 0; i2 < chords[i1].pitch.length; i2++) {
+						let letter = letterconvert(chords[i1].pitch[i2]);
+						missedtones = missedtones.replace(letter.toLowerCase(), "");
+						ref.notes += (ref.notes ? "/" : "") + letter;
+						ref.name += "0123456789te".charAt((chords[i1].pitch[i2] - chords[i1].pitch[0])%12),
+						ref.keyboard = ref.keyboard.slice(0, chords[i1].pitch[i2]) + letter + ref.keyboard.slice(chords[i1].pitch[i2] + 1);
+					}
+					for (i2 in namedchords) {
+						if (namedchords.hasOwnProperty(i2)) {
+						// label named chords
+							if(Array.isArray(namedchords[i2])) {
+								for (i3 = 0; i3 < namedchords[i2].length; i3++) {
+									if(ref.name.endsWith("/" + namedchords[i2][i3])) {
+										ref.name += " (" + i2;
+										if(i3 !== 0) {
+											ref.name += " inversion";
+											if(namedchords[i2].length > 2) {
+												ref.name += " " + i3;
+											};
+										}
+										ref.name += ")";
+									}
+								}
+							}
+							else if(ref.name.endsWith("/" + namedchords[i2])) {
+								ref.name += " (" + i2 + ")";
+							}
+						};
+					}
+					for (i2 = 0; i2 < chords[i1].intervals.length; i2++) {
+						ref.qualities += "OmMmMPTPmMmM".charAt(chords[i1].intervals[i2]);
+					}
+				}
+			}
+			let text = [
+				"",
+				"",
+				"",
+				"",
+				"",
+				[]
+			];
+			for (i1 = 0; i1 < chords.length; i1++) {
+				text[1] += String.fromCharCode(10) + chords[i1].strings.notes;
+				text[2] += String.fromCharCode(10) + chords[i1].strings.name;
+				text[3] += String.fromCharCode(10) + chords[i1].strings.keyboard;
+				text[4] += String.fromCharCode(10) + chords[i1].strings.qualities;
+				text[5][text[5].length] = Math.floor(chords[i1].average*1000)/1000;
+			}
+			text[0] = mode;
+			text[5] = String.fromCharCode(10) + numalign(text[5]).join(String.fromCharCode(10));
+			if(missedtones) {
+				text[6] = String.fromCharCode(10) + "MISSED TONES: " + missedtones;
+			}
+			text = text.join(String.fromCharCode(10) + "-");
+			return missedtones && numofchords * tonesper >= stepformula.length ? "" : text;
+			// don't print anything if it somehow failed after 100 attempts.
+		}
+		document.getElementById("chopro_button").addEventListener("click", function() {
+			document.getElementById("chopro_text").innerHTML = "<pre>" + randomchopro(
+				document.getElementById("chopro_mode").value,
+				Number(document.getElementById("chopro_numofchords").value),
+				Number(document.getElementById("chopro_restrictpitch").value),
+				document.getElementById("chopro_restrictwidth").checked,
+				document.getElementById("chopro_triadic").checked,
+				Number(document.getElementById("chopro_tonesper").value),
+			).replaceAll(String.fromCharCode(10), "<br>") + "</pre>";
+		});
+		</script>
+		capital letters mean the tone is on the next octave.
+		<br>
+		<br>the pitch numbers are relative to the lowest c. (they're
+		averages of all the chords' frequencies, converted back to semitones. if
+		the difference between two adjacent chords is too much, the progression
+		sounds too prominent.)
+		<br>
+		<br>it uses every tone, to reinforce the mode.
+		<h1>music time converter</h1>
+		<br><input type='num' id='mtc_bpm' value=120> bpm
+		<br><input type='text' id='mtc_notelength'> note length
+		<br><input type='text' id='mtc_timesig'> time signature
+		<br><input type='num' id='mtc_fps'> frames per second
+		<br><button id='mtc_button'>button</button><div id='mtc_text'></div>
+		<br>one of those things i always think is a pain in the ass for some
+		reason. useful for mickey mousing. you can type fractions for note
+		lengths, but if it isn't a fraction it'll assume you mean 1/n. (ie "4"
+		is read as a 1/4 note)
+    <script>
+    document.getElementById("mtc_button").addEventListener('click', function() {
+		let bpm = document.getElementById("mtc_bpm").value;
+		let timesigstring = document.getElementById("mtc_timesig").value;
+		let timesignumer = Number(timesigstring.slice(0, timesigstring.indexOf("/")));
+		let timesigdenom = Number(timesigstring.slice(timesigstring.indexOf("/") + 1));
+		if(!timesignumer || !timesigdenom) {
+			timesignumer = 4;
+			timesigdenom = 4;
+		};
+		let notestring = document.getElementById("mtc_notelength").value;
+		let notenumer = null;
+		let notedenom = null;
+		if(!notestring.includes("/") && Number(notestring)) {
+			notenumer = 1;
+			notedenom = Number(notestring);
+		}
+		else {
+			notenumer = Number(notestring.slice(0, notestring.indexOf("/")));
+			notedenom = Number(notestring.slice(notestring.indexOf("/") + 1));
+		};
+		if(!notenumer || !notedenom) {
+			notenumer = 1;
+			notedenom = timesigdenom;
+		};
+		let fps = document.getElementById("mtc_fps").value;
+		//let length = ((60/bpm) * (notenumer/notedenom) * timesigdenom * (fps ? fps : 1));
+		let length = [
+			0,
+			(60 * notenumer * timesigdenom * (fps ? fps : 1)),
+			(bpm * notedenom)
+		];
+		if(length[1] >= length[2]) {
+		// improper fraction
+			length[0] = Math.floor(length[1]/length[2]);
+			length[1] -= length[0] * length[2];
+		}
+		if(length[1] === 0) {
+			length = length[0];
+		}
+		else {
+			for(let i1 = length[1]; i1 >= 2; i1--) {
+				if(length[1]%i1 === 0 && length[2]%i1 === 0) {
+					length[1] /= i1;
+					length[2] /= i1;
+				};
+			}
+			length = (length[0] === 0 ? "" : length[0] + " ") + length.slice(1).join("/");
+		};
+		document.getElementById("mtc_text").innerHTML = "at " + timesignumer + "/" + timesigdenom + " and " + bpm + " bpm, a " + notenumer + "/" + notedenom + " note/rest lasts " + length + (fps ? " frames." : " seconds.");
+		// (60/bpm) * notelength * timesigdenom * fps
+    });
+	let trig = {
+		element: (suffix) => document.getElementById("trig_" + suffix),
+		initialize: function() {
+			let html = `<h1>trig speed calculator</h1>\n` + arraytoul([
+				`type in two dimensions and the hypotenuse the third should
+				create, and it'll give you the third dimension. meant to be
+				used quickly, for character animation.`,
+				`the length can be multiple numbers separated by commas.
+				it'll use the hypotenuse of those.`,
+				`the "parts" stuff lets you input multiple lengths,
+				selectable through a dropdown.`,
+				`you could use it for more than three dimensions, or less.
+				why not.`
+			]);
+			html += `\n<br>` + [
+				`<label>length: <input type="text" id="trig_length" value="7"></label>`,
+				`<label>dimensions: <input type="text" id="trig_dimensions" value="2, 3"></label>`,
+				`<label>answer: <strong id="trig_answer" style="font-size: 1.5em"></strong>`,
+				`<br><details><summary>part editor</summary> <textarea id="trig_partsinput" rows="1" cols="30"></textarea> </details>`,
+				`<div id="trig_partsarea"></div>`
+			].join(`\n<br>`);
+			document.write(`\n<div id="trig_div">\n` + html + `\n</div>`);
+			trig.element("partsinput").value = [
+				`torso: 0, -7, 0.5`,
+				` neckbase: 0, -6, -0.5`,
+				`  headbase: 0, -4, 0`,
+				`   head: 0, -8, 0`,
+				` manubrium: 0, -3, 2.5`,
+				`  shoulder: 6, 3, -3`,
+				`   elbow: 2, 8, -1`,
+				`    wrist: 1.5, 7.5, -1.5`,
+				`     hand: 0, 2.5, 0.5`,
+				`hip: -3, 2, 1`,
+				` knee: -0.5, 10.5, -0.5`,
+				`  ankle: -0.5, 10.5, -0.5`,
+				`   toe: -0.5, 0.5, 4.5`
+			].join(`\n`);
+			let events = ["input", "change", "keyup"];
+			let elements = ["length", "dimensions"];
+			for(let i1 = 0; i1 < events.length; i1++) {
+				trig.element("partsinput")["on" + events[i1]] = trig.parts_refresh;
+				for(let i2 = 0; i2 < elements.length; i2++) {
+					trig.element(elements[i2])["on" + events[i1]] = trig.refresh;
+				}
+			}
+			trig.refresh();
+			trig.parts_refresh();
+		},
+		refresh: function() {
+		// reevaluates the answer based on length and dimensions, and prints it.
+			let diff2 = 0;
+			// 2 as in ^2.
+			for(let i0 = 0; i0 < 2; i0++) {
+				let value = trig.element(i0 ? "dimensions" : "length").value.split(",");
+				let num = 0;
+				for(let i1 = 0; i1 < value.length; i1++) {
+					let _num = Number(value[i1]);
+					num += isNaN(_num) ? 0 : _num**2;
+				}
+				diff2 += (i0 ? -1 : 1)*num;
+			}
+			trig.element("answer").innerHTML = (
+				diff2 < 0
+				?
+				"dimensions are " + Math.sqrt(Math.abs(diff2)) + " too long."
+				:
+				Math.sqrt(diff2)
+			);
+		},
+		parts_refresh: function() {
+		// generates the parts buttons when the parts textarea changes.
+			let i1 = 0;
+			let i2 = 0;
+			let ref = trig.element("partsinput");
+			let array = ref.value.split("\n");
+			ref.rows = array.length;
+			// make the rows increase/decrease to fit the text.
+			let parts = [];
+			for(i1 = 0; i1 < array.length; i1++) {
+			// collect the names, values, and indent of each valid part
+				let line = array[i1];
+				let temp = line.indexOf(":");
+				if(temp !== -1) {
+					let value = line.slice(temp + 1).trim();
+					temp = line.slice(0, temp).trimEnd();
+					let name = temp.trimStart();
+					let indent = temp.length - name.length;
+					parts[parts.length] = {name, value, indent};
+				}
+			}
+			let indent = 0;
+			let html = [];
+			for(i1 = 0; i1 <= parts.length; i1++) {
+				let _indent = (i1 < parts.length ? parts[i1].indent + 1 : 0);
+				let diff = _indent - indent;
+				for(i2 = indent; i2 < _indent; i2++) {
+				// open <ul>s to match the indent
+					html[html.length] = "\t".repeat(i2) + "<ul>";
+				}
+				for(i2 = indent; i2 > _indent; i2--) {
+				// close <ul>s
+					html[html.length] = "\t".repeat(i2 - 1) + "</ul>";
+				}
+				indent = _indent
+				if(i1 < parts.length) {
+				// create button
+					html[html.length] = (diff ? `` : `<br>`) + `\t`.repeat(_indent) + `<label><button id="trig_partbutton_` + i1 + `">` + parts[i1].name + `</button> ` + parts[i1].value + `</label>`;
+				}
+			}
+			trig.element("partsarea").innerHTML = "\n" + html.join("\n") + "\n";
+			for(i1 = 0; i1 < parts.length; i1++) {
+				trig.element("partbutton_" + i1).onclick = function(e) {
+					trig.element("length").value = e.target.parentElement.innerText.replace(e.target.innerText, "").trim();
+					// e.target is the button, .parentElement is the label it's
+					// in, .innerText is the name and value, .replace.trim gets
+					// rid of the name
+					trig.refresh();
+					// changing the value with scripting doesn't create an
+					// Event, so refresh it manually.
+				}
+			}
+		},
+	};
+	trig.initialize();
+	</script>
+	<br>
+	<br>
+	<br>
+	<br>
+	<br>
+	<br>
+	<br>
+	</body>
+</html>
