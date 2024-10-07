@@ -1,0 +1,53 @@
+@font-face {
+	font-family: "cutivemono";
+	src: local("cutivemono"),
+		url("../font/CutiveMono-Regular.ttf") format("truetype");
+}
+@font-face {
+	font-family: "archivoblack";
+	src: local("archivoblack"),
+		url("../font/ArchivoBlack-Regular.ttf") format("truetype");
+}
+@font-face {
+	font-family: "fomp2";
+	src: local("fomp2"),
+		url("../font/fomp2.ttf") format("truetype");
+}
+@font-face {
+	font-family: "thick 4x4";
+	src: local("thick 4x4"),
+		url("../font/thick_4x4.ttf") format("truetype");
+}
+@font-face {
+	font-family: "trixietext";
+	src: local("trixietext"),
+		url("../font/trixie text.ttf") format("truetype");
+}
+:root {
+	font-family: cutivemono;
+}
+body {
+	background: #df3737;
+	color: white;
+	width: 960px;
+}
+h1 {
+	font-size: 40px;
+	font-family: archivoblack;
+}
+title {
+	font-size: 40px;
+	font-family: archivoblack;
+}
+a {
+	color: #7AC;
+}
+pre {
+/*this bit of code is taken from https://stackoverflow.com/users/1213296/ketan on https://stackoverflow.com/questions/34939772/how-to-wrap-text-in-pre-tag-in-html*/
+	white-space: -moz-pre-wrap; /* Mozilla, supported since 1999 */
+	white-space: -pre-wrap; /* Opera */
+	white-space: -o-pre-wrap; /* Opera */
+	white-space: pre-wrap; /* CSS3 - Text module (Candidate Recommendation) http://www.w3.org/TR/css3-text/#white-space */
+	word-wrap: break-word; /* IE 5.5+ */
+	border-radius: 0 !important;
+}
