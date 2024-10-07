@@ -1,7 +1,6 @@
 const info = {
 // important text info used in automatic rss creation and stuff.
-    url: "file:///C:/My Stuff/programming",
-    //url: "barky.github.com",
+    url: "barky.github.io",
     site_name: "barky's web tool repository",
     user_name: "barky",
     language: "en-us",
