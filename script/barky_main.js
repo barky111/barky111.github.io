@@ -933,6 +933,23 @@ function randexponent(factor, allownegative) {
 }
 
 
+function arraytoul(array, indent) {
+// technically this is a string thing, but i use it too often. lets me avoid
+// loading the whole strings script.
+    let i1 = 0;
+    indent ??= 0;
+    let html = ``;
+    html += `<ul>`;
+    for(i1 = 0; i1 < array.length; i1++) {
+        html += (
+            typeof array[i1] === "string" ? `\n\t<li>\n\t\t` + array[i1].replaceAll(`\t`, ``).replaceAll(`\n`, ` `) + `\n\t</li>` :
+            Array.isArray(array[i1]) ? `\n\t` + arraytoul(array[i1], indent).replaceAll(`\n`, `\n\t`) :
+            ``
+        );
+    }
+    html += `\n</ul>`;
+    return html;
+}
 
 
 

@@ -1,6 +1,7 @@
 const info = {
 // important text info used in automatic rss creation and stuff.
-    url: "https://barky111.github.io",
+    url: "file:///C:/My Stuff/programming",
+    //url: "barky.github.io",
     site_name: "barky's web tool repository",
     user_name: "barky",
     language: "en-us",
@@ -10,6 +11,7 @@ const info = {
 
 const head = `<head>
     <meta charset="UTF-8" name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>` + info.site_name + `</title>
     <link href="script/style.css" rel="stylesheet" type="text/css" media="all"/>
 </head>`;
 const header = `<header>

@@ -25,11 +25,12 @@
 }
 :root {
 	font-family: cutivemono;
+	--padding: 0.5em 3em;
 }
 body {
 	background: #df3737;
 	color: white;
-	width: 960px;
+	width: 640px;
 }
 h1 {
 	font-size: 40px;
@@ -50,4 +51,13 @@ pre {
 	white-space: pre-wrap; /* CSS3 - Text module (Candidate Recommendation) http://www.w3.org/TR/css3-text/#white-space */
 	word-wrap: break-word; /* IE 5.5+ */
 	border-radius: 0 !important;
+}
+header {
+	padding: var(--padding);
+}
+main {
+	padding: var(--padding);
+}
+footer {
+	text-align: center;
 }

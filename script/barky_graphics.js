@@ -6737,7 +6737,7 @@ l_knee:
         }
     },
     Color: class {
-    // class for storing data
+    // class for storing colors for armature-related drawings
         constructor() {
             Object.assign(this, AAX.Color.template)
         }
