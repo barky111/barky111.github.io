@@ -8038,28 +8038,29 @@
 				};
 			}
 			this.misc = structuredClone(bodysettings);
-			this.misc.abdomen_y = this.misc.body_h*2;
-			this.misc.elbowdiff = 0*this.misc.jointdiff;
+			let misc = this.misc;
+			misc.abdomen_y = misc.body_h*2;
+			misc.elbowdiff = 0*misc.jointdiff;
 			// this is a holdover from the desmos version. i'm keeping it,
 			// makes it easier to modify.
-			this.misc.wristdiff = 1*this.misc.jointdiff;
-			this.misc.handdiff = -1*this.misc.jointdiff;
-			this.misc.kneediff = 1*this.misc.jointdiff;
-			this.misc.anklediff = 1*this.misc.jointdiff;
-			this.misc.toediff = -1*this.misc.jointdiff;
-			this.misc.forearmfat = this.misc.fatlevel/2;
-			this.misc.lowerlegfat = this.misc.fatlevel/8;
-			this.misc.footfat = this.misc.lowerlegfat/4;
-			this.misc.shoulder_x = this.misc.torso_w/2;
+			misc.wristdiff = 1*misc.jointdiff;
+			misc.handdiff = -1*misc.jointdiff;
+			misc.kneediff = 1*misc.jointdiff;
+			misc.anklediff = 1*misc.jointdiff;
+			misc.toediff = -1*misc.jointdiff;
+			misc.forearmfat = misc.fatlevel/2;
+			misc.lowerlegfat = misc.fatlevel/8;
+			misc.footfat = misc.lowerlegfat/4;
+			misc.shoulder_x = misc.torso_w/2;
 			// half of the x spacing between the inner edges of the
 			// shoulders
-			this.misc.legjoint_y = 3*this.misc.body_h,
+			misc.legjoint_y = 3*misc.body_h,
 			// spacing between leg joints, from the bottom of one joint to the
 			// bottom of the next.
 			//
 			// a lot of this probably sounds redundant. it sort of is, it
 			// was written before i made bodysettings. it might be cleaner
-			// to replace all references of this.misc.body_w with
+			// to replace all references of misc.body_w with
 			// bodysettings.body_w, but it might be useful to be able to
 			// reference the settings a body was created with.
 			/*
@@ -8080,8 +8081,8 @@
 				// - this used to the pelvis, actually. but there isn't much point when
 				//   there's hip joints. (i guess it makes the body model look more
 				//   complete though.)
-				w: 2*(5/6)*this.misc.body_w,
-				h: 2*(2/3)*this.misc.body_w,
+				w: 2*(5/6)*misc.body_w,
+				h: 2*(2/3)*misc.body_w,
 				d: 0,//
 				anchor: "standpoint",
 				x: 0,
@@ -8090,15 +8091,15 @@
 				// back edge coincides with torso
 				color: 0,
 				fat: {
-					w: 4*this.misc.fatlevel,
-					h: 2*this.misc.fatlevel,
-					d: 2*this.misc.fatlevel,
+					w: 4*misc.fatlevel,
+					h: 2*misc.fatlevel,
+					d: 2*misc.fatlevel,
 					direction: ["up", "front"],
 				},
 			};
 			this.torso = {
-				w: this.misc.torso_w,
-				h: this.misc.torso_h,
+				w: misc.torso_w,
+				h: misc.torso_h,
 				d: 0,//
 				anchor: "stomach",
 				x: 0,
@@ -8106,14 +8107,14 @@
 				z: 0,//
 				//color: 0,
 				fat: {
-					w: 2*this.misc.fatlevel,
+					w: 2*misc.fatlevel,
 				},
 				absolutetilt: true,
 			};
 			this.torso.d = (2/3)*this.torso.w;
 			this.stomach.d = (7/8)*this.torso.d;
-			this.stomach.y = -(2*this.misc.legjoint_y + this.stomach.h/2)
-			this.torso.y = this.stomach.h/2 - this.misc.abdomen_y - this.torso.h/2;
+			this.stomach.y = -(2*misc.legjoint_y + this.stomach.h/2)
+			this.torso.y = this.stomach.h/2 - misc.abdomen_y - this.torso.h/2;
 			this.stomach.z = -this.torso.d/2 + this.stomach.d/2;
 			this.torso.z = -this.stomach.z/2;
 			// the torso's back coincides with the stomach, the torso is
@@ -8142,7 +8143,7 @@
 				anchor: "torso",
 				x: 0,
 				y: -this.torso.h/2,
-				z: -this.torso.d/2 + this.misc.body_w/2,
+				z: -this.torso.d/2 + misc.body_w/2,
 				//color: 1,
 				immovable: true,
 			};
@@ -8155,13 +8156,13 @@
 				d: 0,
 				anchor: "neckbase",
 				x: 0,
-				y: -this.misc.neck_y,
+				y: -misc.neck_y,
 				z: 0,
 				absolutetilt: true,
 				//color: 1,
 			};
 			this.head = {
-				r: this.misc.head_w/2,
+				r: misc.head_w/2,
 				anchor: "headbase",
 				x: 0,
 				y: 0,// NOTE this is done later.
@@ -8176,67 +8177,67 @@
 				r: 0,
 				anchor: "head",
 				x: 0,
-				y: this.misc.head_h - 2*(this.head.r) + this.head.r,
+				y: misc.head_h - 2*(this.head.r) + this.head.r,
 				z: this.head.r,
 				//color: 1,
 			};
 			this.l_shoulder = {
-				r: this.misc.body_w/3,
+				r: misc.body_w/3,
 				anchor: "manubrium",
 				x: 0,//
 				y: -this.manubrium.y,
 				z: 0,//
 				color: 2,
 				fat: {
-					r: this.misc.fatlevel,
+					r: misc.fatlevel,
 					direction: "down",
 				},
 			};
-			this.l_shoulder.x = -(this.misc.shoulder_x + this.l_shoulder.r);
+			this.l_shoulder.x = -(misc.shoulder_x + this.l_shoulder.r);
 			this.l_shoulder.z = -this.manubrium.z - this.torso.d/2 + this.l_shoulder.r;
 			// back edge of this and the torso coincide
 			this.manubrium.x -= this.neckbase.x;
 			this.manubrium.y -= this.neckbase.y;
 			this.manubrium.z -= this.neckbase.z;
 			//
-			this.misc.armjoint_y = 2*(this.misc.body_h - this.l_shoulder.r);
+			misc.armjoint_y = 2*(misc.body_h - this.l_shoulder.r);
 			// spacing between arm joints, between the closest edges.
 			this.l_elbow = {
-				r: this.l_shoulder.r - this.misc.elbowdiff,
+				r: this.l_shoulder.r - misc.elbowdiff,
 				anchor: "l_shoulder",
 				x: 0,//
 				y: 0,//
 				z: 0,//
 				//color: 3,
 				fat: {
-					r: this.misc.forearmfat,
+					r: misc.forearmfat,
 					direction: ["out", "down", "back"],
 				},
 			};
 			this.l_elbow.x = -(this.l_shoulder.r - this.l_elbow.r);
-			this.l_elbow.y = this.l_shoulder.r + this.misc.armjoint_y + this.l_elbow.r;
+			this.l_elbow.y = this.l_shoulder.r + misc.armjoint_y + this.l_elbow.r;
 			// shoulder radius + spacing + elbow radius
 			this.l_elbow.z = this.l_shoulder.r - this.l_elbow.r;
 			// front and outward edges coincide with the shoulders
 			this.l_wrist = {
-				r: this.l_elbow.r - this.misc.wristdiff,
+				r: this.l_elbow.r - misc.wristdiff,
 				anchor: "l_elbow",
 				x: 0,//
 				y: 0,//
 				z: 0,//
 				//color: 2,
 				fat: {
-					r: this.misc.forearmfat,
+					r: misc.forearmfat,
 					direction: ["out", "down", "back"],
 				},
 			};
 			this.l_wrist.x = -(this.l_elbow.r - this.l_wrist.r);
-			this.l_wrist.y = this.l_elbow.r + this.misc.armjoint_y + this.l_wrist.r;
+			this.l_wrist.y = this.l_elbow.r + misc.armjoint_y + this.l_wrist.r;
 			// elbow radius + spacing + wrist radius
 			this.l_wrist.z = this.l_elbow.r - this.l_wrist.r;
 			// share the outer and front edge with the elbow
 			this.l_hand = {
-				w: 2*(this.l_wrist.r - this.misc.handdiff),
+				w: 2*(this.l_wrist.r - misc.handdiff),
 				// times two since it's not a radius and therefore won't be
 				// doubled
 				h: 0,//
@@ -8247,11 +8248,11 @@
 				z: 0,//
 				//color: 3,
 				fat: {
-					r: this.misc.forearmfat,
+					r: misc.forearmfat,
 					direction: ["out", "down", "back"],
 				},
 			};
-			this.l_hand.h = this.l_hand.w * this.misc.hand_hwratio;
+			this.l_hand.h = this.l_hand.w * misc.hand_hwratio;
 			this.l_hand.d = this.l_hand.w;
 			this.l_hand.x = -this.l_wrist.r + this.l_hand.w/2;
 			this.l_hand.y = -this.l_wrist.r + this.l_hand.h/2;
@@ -8261,14 +8262,14 @@
 			// home stretch. just the stomach and all the leg joints, now. god am i
 			// bored out of my mind.
 			this.l_hip = {
-				r: this.misc.hip_r,
+				r: misc.hip_r,
 				anchor: "stomach",
 				x: 0,//
 				y: 0,//
 				z: 0,
 				//color: 0,
 				fat: {
-					r: this.misc.fatlevel/2,
+					r: misc.fatlevel/2,
 					direction: ["out", "down", "front"],
 				},
 				immovable: true,
@@ -8278,51 +8279,51 @@
 			this.l_hip.z = -this.stomach.z;
 			// the z center should line up with the torso
 			this.l_knee = {
-				r: this.l_hip.r - this.misc.kneediff,
+				r: this.l_hip.r - misc.kneediff,
 				anchor: "l_hip",
 				x: 0,//
 				y: 0,//
 				z: 0,//
 				//color: 1,
 				fat: {
-					r: this.misc.lowerlegfat/2,
+					r: misc.lowerlegfat/2,
 					direction: ["out", "down", "front"],
 				},
 			};
 			this.l_knee.x = -(this.l_hip.r - this.l_knee.r);
-			this.l_knee.y = this.l_hip.r + this.misc.legjoint_y - this.l_knee.r;
+			this.l_knee.y = this.l_hip.r + misc.legjoint_y - this.l_knee.r;
 			this.l_knee.z = -this.l_hip.r + this.l_knee.r;
 			this.l_ankle = {
-				r: this.l_knee.r - this.misc.anklediff,
+				r: this.l_knee.r - misc.anklediff,
 				anchor: "l_knee",
 				x: 0,//
 				y: 0,//
 				z: 0,//
 				//color: 0,
 				fat: {
-					r: this.misc.footfat/2,
+					r: misc.footfat/2,
 					direction: ["out", "up", "front"],
 				},
 			};
 			this.l_ankle.x = -(-this.l_knee.r + this.l_ankle.r);
-			this.l_ankle.y = this.l_knee.r + this.misc.legjoint_y - this.l_ankle.r;
+			this.l_ankle.y = this.l_knee.r + misc.legjoint_y - this.l_ankle.r;
 			this.l_ankle.z = -this.l_knee.r + this.l_ankle.r;
 			this.l_toe = {
-				w: 2*(this.l_ankle.r - this.misc.toediff),
+				w: 2*(this.l_ankle.r - misc.toediff),
 				// *2 because radius to non radius dimensions, etc
 				h: 0,//
 				d: 0,//
 				anchor: "l_ankle",
 				x: 0,//
 				y: 0,//
-				z: this.misc.foot_z,
+				z: misc.foot_z,
 				//color: 1,
 				fat: {
-					r: this.misc.footfat/2,
+					r: misc.footfat/2,
 					direction: ["out", "up"],
 				},
 			};
-			this.l_toe.h = this.l_toe.w * this.misc.toe_hwratio;
+			this.l_toe.h = this.l_toe.w * misc.toe_hwratio;
 			this.l_toe.d = this.l_toe.h;
 			this.l_toe.x = this.l_ankle.r - this.l_toe.w/2;
 			this.l_toe.y = this.l_ankle.r - this.l_toe.h/2;
@@ -23529,7 +23530,10 @@
 			coor: null,
 			datatext: null,
 		},
-		version: "v1.0",
+		version_history: "v1.0 v1.01".split(" "),
+		get version() {
+			return aa.version_history[aa.version_history.length - 1];
+		},
 		partinfo_is_default: function(part, view, suffix) {
 			let _default = false;
 			if(["connection", "silhouette", "shape"].includes(suffix)) {
@@ -24208,7 +24212,7 @@
 									ref[suffix] ? "out" : "in"
 								) :
 								suffix === "create" ? "create inbetweens".split(" ") :
-								suffix === "apply" ? "apply inbetweening".split(" ") :
+								suffix === "apply" ? "apply tweening".split(" ") :
 								""
 							);
 							if(!text && suffix !== "visual" && suffix !== "easeB") {
@@ -25398,8 +25402,10 @@
 					};
 				}
 				else if(prefix === "color") {
+					let prompttext = "";
+					let addendum = "\n\nenter a blank string to reset it to the default color.";
 					if(["grid", "parts", "silhouette"].includes(suffix)) {
-						let prompttext = "enter the colors for the ";
+						prompttext = "enter the colors for the ";
 						if(suffix === "grid") {
 							prompttext += "grids";
 						}
@@ -25414,21 +25420,31 @@
 						let temp = " ";
 						temp = " (current:" + temp + aa.color[suffix].join(" *" + temp) + ")";
 						prompttext += String.fromCharCode(10).repeat(2) + temp;
+						prompttext += addendum;
 						let input = prompt(prompttext);
 						if(typeof input === "string") {
-							input = input.split("*");
-							for(i1 = 0; i1 < input.length; i1++) {
-								loop.tick(1);
-								input[i1] = input[i1].trim();
-								// this is unnecessary but it bothers me.
-							};
-							loop.end();
-							aa.color[suffix] = structuredClone(input);
+							if(input.trim()) {
+								input = input.split("*");
+								for(i1 = 0; i1 < input.length; i1++) {
+									loop.tick(1);
+									input[i1] = input[i1].trim();
+									// this is unnecessary but it bothers me.
+								};
+								loop.end();
+								aa.color[suffix] = structuredClone(input);
+							}
+							else {
+								aa.color[suffix] = structuredClone(AAX.Color.template[suffix]);
+							}
+						}
+						else {
+							no_refresh = true;
 						};
 					}
 					else {
-						let prompttext = "enter the";
+						prompttext = "enter the";
 						let place = aa.color;
+						let _place = AAX.Color.template;
 						let name = suffix;
 						if(["interface_0", "interface_1", "interface_2", "buttons_0", "buttons_1", "buttons_2"].includes(suffix)) {
 							let temp = suffix.split("_");
@@ -25437,6 +25453,7 @@
 								temp[temp.length - 1]
 							];
 							place = place[temp[0]];
+							_place = _place[temp[0]];
 							name = temp[1];
 							prompttext += " " + ["primary", "secondary", "tertiary"][temp[1]] + " color for the";
 							if(temp[0] === "interface") {
@@ -25465,9 +25482,18 @@
 							// perspective
 						};
 						prompttext += " (current: " + place[name] + ")";
+						prompttext += addendum;
 						let color = prompt(prompttext);
 						if(typeof color === "string") {
-							place[name] = color;
+							if(color.trim()) {
+								place[name] = color;
+							}
+							else {
+								place[name] = _place[name];
+							};
+						}
+						else {
+							no_refresh = true;
 						};
 					}
 				}
@@ -25582,7 +25608,7 @@
 						const apply = suffix === "apply";
 						let values = aa.control.inbetween.values;
 						if(apply && aa.frames.length < values.length + 2) {
-							prompt(`not counting the start and end frame, there's ` + (aa.frames - 2) + `frames, but you're trying to apply inbetweening to ` + values.length + ` frames.`);
+							alert(`not counting the start and end frame, there's ` + (aa.frames.length - 2) + ` frames, but you're trying to apply tweening to ` + values.length + ` frames.`);
 							no_refresh = true;
 						}
 						else {
@@ -25595,7 +25621,7 @@
 						no_refresh = true;
 					}
 				}
-				else if(i1 === "projectname") {
+				else if(button === "projectname") {
 					let name = prompt(`enter a name for the project.`);
 					if(name === null) {
 						no_refresh = true;
@@ -26736,7 +26762,7 @@
 			//console.log(aa.body);
 			// make sure a body exists
 			//
-			let string = ``;
+			let string = `a character animation system that's featured out the ass.`;
 			string += `<div id="aa_editmodetrue">`;
 			string += `<div id="aa_editmodetrue_active">`;
 			let ref = aa.pa.ctx;
@@ -30206,8 +30232,8 @@
 			`if a part's name starts with "l_", a symmetrical duplicate will be created. (type no_mirror() in the third bodytext field to avoid this.) symmetrical duplicates have x-mirrored coordinates and images, and will parent to the symmetrical duplicate of the parent if applicable. the silhouette subgroup will also be set as l and r respectively, unless the silhouette group was 0. (the assumption is that if it's 0, you didn't want these limbs differentiated from the rest of the body anyway.)`,
 			`if you type a negative number for the inbetween curve factor, the positions will be somewhat random.`,
 			`the [0, 0, 0] grid lines move while in perspective mode, but that only represents where a [0, 0, 0] point would be perspectived to. it's not like it changes which pixels are what coordinates or anything.`,
-			`"create inbetweens" creates new frames between the current frame and the next frame that act as a bridge between the two. "apply inbetweening" modifies existing frames instead. (ex: if you're on frame 2 and you "create" 5 inbetweens, it'll insert 5 inbetweens that start like frame 2 and end like frame 3. if you "apply" instead, existing frames 3-7 will be made into inbetweens for frames 2 and 8.)`,
-			`when you use create or apply inbetweening, it doesn't do anything for parts that are hidden on the starting pose. for "create", those parts will stay like how they are in the starting pose the whole way through. for "apply", they'll stay how they were before. this is what makes "apply" inbetweening useful: you can keep the poses mostly the same while only inbetweening one character, one limb, etc.`
+			`"create inbetweens" creates new frames between the current frame and the next frame that act as a bridge between the two. "apply tweening" modifies existing frames instead. (ex: if you're on frame 2 and you "create" 5 inbetweens, it'll insert 5 inbetweens that start like frame 2 and end like frame 3. if you "apply" instead, existing frames 3-7 will be made into inbetweens for frames 2 and 8.)`,
+			`when you use create or apply tweening, it doesn't do anything for parts that are hidden on the starting pose. for "create", those parts will stay like how they are in the starting pose the whole way through. for "apply", they'll stay how they were before. this is what makes "apply" tweening useful: you can keep the poses mostly the same while only tweening one character, one limb, etc.`
 		],
 		"sprite arranger": [
 			"the most useful thing here is the import increment system. it's sorta hard to explain, but each pair of numbers is a grid arrangement. 1, 2, 3, 2 will import 1x2x3x2 blocks at once, and paste them as 1x2 pieces in a 3x2 formation. if you can figure out the right pattern, it'll save tons of time."

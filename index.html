@@ -1,8 +1,6 @@
 <!DOCTYPE html>
 <html>
     <script src="script/barky_main.js"></script>
-    <script src="script/barky_strings.js"></script>
-    <script src="script/barky_graphics.js"></script>
 	<script src="script/site.js"></script>
 	<script>
 		document.write(head);
@@ -20,7 +18,8 @@
                     `i can make web tools and godot classes.`,
                     `my specialties:`,
                     [
-                        `storing/retrieving data from text, creating syntax`,
+                        `storing/retrieving data from text`,
+                        `efficient syntax`,
                         `user empathy/intuitivity`,
                         `geometry`,
                         `tools related to creativity`
@@ -28,15 +27,11 @@
                 ]
 			]);
             document.write(`<main>` + intro + `</main>`);
-            document.querySelector(":root").style = "--padding: 0.5em 3em;";
             document.write(footer);
 		</script>
 		<style>
             body {
                 background: #6B3;
-				max-width: 750px;
-                /* change the media query version every time you change this. it
-                was 100px less by default. */
 				margin: 0 auto;
 				/* this centers the entire page */
 			}
