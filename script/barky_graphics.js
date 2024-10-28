@@ -462,15 +462,7 @@ let _2dPoly = {
         );
         let _points = [];
         for(i1 = 0; i1 < points.length; i1++) {
-            _points[i1] = [
-                offset[0] + points[i1][0],
-                offset[1] + points[i1][1],
-                offset[2] + (points[i1][2] ?? 0)
-            ];
-        }
-        //console.log(_points);
-        let center = [0, 0];
-        for(i1 = 0; i1 < _points.length; i1++) {
+            _points[i1] = Points.add(offset, [points[i1][0], points[i1][1], (points[i1][2] ?? 0)]);
             _points[i1] = (
                 viewer
                 ?
@@ -478,81 +470,80 @@ let _2dPoly = {
                 :
                 _points[i1]
             ).slice(0, 2);
-            center[0] += _points[i1][0];
-            center[1] += _points[i1][1];
         }
-        center[0] /= _points.length;
-        center[1] /= _points.length;
         if(_points.length <= 3) {
             return _points;
         };
+        let center = Points.centroid(_points);
         let dist = null;
         let furthest = null;
         // a _points index
+        let taken = [];
+        // array of booleans for which points are already in the outline
         for (i1 = 0; i1 < _points.length; i1++) {
-            let temp = Math.hypot(_points[i1][0] - center[0], _points[i1][1] - center[1]);
-            if(furthest === null || temp > dist) {
+            taken[i1] = false;
+            let _dist = Math.hypot(...Points.subtract(_points[i1], center));
+            if(furthest === null || _dist > dist) {
                 furthest = i1;
-                dist = temp;
-            }
+                dist = _dist;
+            };
         };
-        if(isNaN(dist) || typeof dist !== "number") {
+        if(!dist && dist !== 0) {
             console.log("this shouldn't happen");
             return [];
         };
         let outline = [];
         outline[0] = furthest;
         // for now, it's an array of indexes
+        taken[furthest] = true;
         let loopexit = false;
         for (i1 = 0; !loopexit; i1++) {
             let currindex = outline[outline.length - 1];
             let currpoint = _points[currindex];
-            let idealangle = null;
-            if(outline.length < 2) {
-                idealangle = [
-                    currpoint[0] - center[0],
-                    currpoint[1] - center[1]
-                ];
-                idealangle = (get2dangle(...idealangle, true) + Math.PI/2)%(2*Math.PI);
+            let idealangle = (
+                outline.length >= 2
+                ?
+                get2dangle(...Points.subtract(currpoint, _points[ outline[outline.length - 2] ]), true)
+                // the angle of the most recent line segment.
+                :
+                (get2dangle(...Points.subtract(currpoint, center), true) + Math.PI/2)%(2*Math.PI)
                 // an angle perpendicular to the angle from the center to the
                 // current point.
-            }
-            else {
-                idealangle = [
-                    currpoint[0] - _points[ outline[outline.length - 2] ][0],
-                    currpoint[1] - _points[ outline[outline.length - 2] ][1]
-                ];
-                idealangle = get2dangle(...idealangle, true);
-                // the angle of the most recent line segment.
-            };
+            );
             // it judges which point should be the next by getting the angle
             // from the current point to that one and subtracting the
             // idealangle. (and posmoding it) lower is better.
             let lowestangle = null;
             let nextpoint = null;
             for (i2 = 0; i2 < _points.length; i2++) {
-                let temp = [
-                    _points[i2][0] - currpoint[0],
-                    _points[i2][1] - currpoint[1]
-                ];
-                if(typeof temp[0] !== "number" || typeof temp[1] !== "number") {
-                    console.log(temp);
-                }
-                temp = get2dangle(...temp, true);
-                if(typeof temp !== "string") {
-                    //temp = Math.abs(temp - idealangle);
-                    temp = posmod(temp - idealangle, 2*Math.PI);
-                    if(temp < lowestangle || lowestangle === null) {
-                        nextpoint = i2;
-                        lowestangle = temp;
-                    };
-                }
+                if(!taken[i2] || i2 === outline[0]) {
+                    let temp = Points.subtract(_points[i2], currpoint);
+                    let angle = get2dangle(...temp, true);
+                    if(angle !== null) {
+                        angle = posmod(angle - idealangle, 2*Math.PI);
+                        if(
+                            lowestangle === null || angle < lowestangle
+                            ||
+                            (
+                                angle === lowestangle
+                                &&
+                                Math.hypot(...temp) > Math.hypot(...Points.subtract(_points[nextpoint], currpoint))
+                                // if the angle matches perfectly, choose whichever
+                                // is further.
+                            )
+                        ) {
+                            nextpoint = i2;
+                            lowestangle = angle;
+                        };
+                    }
+                };
             }
             if(nextpoint === outline[0] || nextpoint === null) {
                 loopexit = true;
             }
             else if(!compareobject(currpoint, _points[nextpoint])) {
-                outline[outline.length] = nextpoint;
+                outline.push(nextpoint);
+                taken[nextpoint] = true;
             };
             if(outline.length > _points.length) {
             // then clearly something screwed up, so log it and let's escape
@@ -870,6 +861,17 @@ let Color = {
         }
         return rgb;
     },
+    fromnum: (r, g, b, a) => Color.from255(...Points.round(Points.multiply(typeof a === "number" ? [r, g, b, a] : [r, g, b], 255))),
+    from255: function(r, g, b, a) {
+        const digits = "0123456789abcdef";
+        return (
+            "#"
+            + digits[Math.floor(r/16)] + digits[r%16]
+            + digits[Math.floor(g/16)] + digits[g%16]
+            + digits[Math.floor(b/16)] + digits[b%16]
+            + (typeof a === "number" ? digits[Math.floor(a/16)] + digits[a%16] : "")
+        );
+    },
     random: function(amount, dark, light) {
     // dark, light: booleans for whether it should add an especially
     // dark or light color to the mix.
@@ -976,11 +978,40 @@ let Color = {
             multiply(a, a), multiply(b, b), multiply(c, c), multiply(skin, skin)
         ];
     },
+    absencemultiply: (r1, g1, b1, r2, g2, b2) => [
+        1 - (1 - r1)*(1 - r2),
+        1 - (1 - g1)*(1 - g2),
+        1 - (1 - b1)*(1 - b2)
+    ],
+    // useful for making color 1 brighter than it is, using color 2. expects 0
+    // to 1 numbers.
+    // - if 1 is gray, and 2 is orange...
+    // - 1 - (1 - .5)*(1 - 1) | 1 - (1 - .5)*(1 - .5) | 1 - (1 - .5)*(1 - 0)
+    // - 1 - .5*0 | 1 - .5*.5 | 1 - .5*1
+    // - 1 | .75 | .5
 };
 const Raster = {
 // pseudoclass for an array that represents an image. each value is the color of
 // a pixel.
 // - used in aa.
+    fullellipse: function(w, h) {
+    // generates an ellipse image.
+        let _this = [];
+        let rect = Rect.new(0, 0, w, h);
+        for(let i1 = 0; i1 < w*h; i1++) {
+            let coor = Raster.indextocoord(i1, rect);
+            _this[i1] = Number(Math.hypot(
+                2*Math.abs((coor[0] + .5)/w - .5),
+                2*Math.abs((coor[1] + .5)/h - .5)
+            ) < 1);
+            // - x, y
+            // - make it the center of the pixel: += .5
+            // - make them 0 to 1 numbers: /= dim
+            // - make them 0 if they're at the center, 1 if they're at the edge:
+            //   -= .5, abs, *= 2
+        }
+        return _this;
+    },
     redimension: function(_this, w, new_w, new_h) {
         let i1 = 0;
         if(_this.length === 0) {
@@ -1410,7 +1441,7 @@ const Raster = {
                 text += "%";
             }
             else {
-                text += "-%*"[_this[i1]];
+                text += "-%*"[Number(_this[i1])];
             };
         };
         return text;
@@ -1451,6 +1482,10 @@ const Raster = {
             rect.y + Math.floor(index/rect.w)
         ];
     },
+    findcoor: (_this, rect, x, y) => (
+        (x < Rect.l(rect) || x >= Rect.r(rect) || y < Rect.u(rect) || y >= Rect.d(rect)) ? null :
+        _this[rect.w*(y - rect.y) + (x - rect.x)]
+    ),
     _2dPoly: function(_this, rect, multiple) {
     // converts a raster into a series of points forming a closed shape
     // - multiple: by default, it only returns a single shape, even if
@@ -2118,15 +2153,77 @@ let Points = {
     floor: (point) => Points.applyfunc(point, Math.floor),
     ceil: (point) => Points.applyfunc(point, Math.ceil),
     trunc: (point) => Points.applyfunc(point, Math.trunc),
+    round: (point) => Points.applyfunc(point, Math.round),
+    rand: function(range, snap) {
+        range ??= 1;
+        let point = [];
+        for(let i1 = 0; i1 < 3; i1++) {
+            point[i1] = Math.random()*(range + (snap ? 1 : 0));
+            if(snap) {
+                point[i1] = Math.trunc(point[i1]);
+            }
+        }
+        return point;
+    },
+    centroid: function(points) {
+        let center = [];
+        for(let i1 = 0; i1 < points.length; i1++) {
+            if(i1 && points[i1].length !== center.length) {
+                console.log("inconsistent number of coordinates.");
+                return;
+            };
+            for(let i2 = 0; i2 < points[i1].length; i2++) {
+                center[i2] = (center[i2] ?? 0) + points[i1][i2];
+            }
+        }
+        return Points.divide(center, points.length);
+    },
 };
+let Point2 = {
+// stores operations that only make sense for 2d points.
+    rotate: function(point, angle, center) {
+        center ??= [0, 0];
+        let _point = Points.subtract(point, center);
+        let cos = Math.cos(angle);
+        let sin = Math.sin(angle);
+        if(angle%(Math.PI/2) === 0) {
+            cos = Math.round(cos);
+            sin = Math.round(sin);
+        };
+        _point = [
+            cos*_point[0] - sin*_point[1],
+            cos*_point[1] + sin*_point[0],
+        ];
+        // (cos + sin*i)*(x + y*i) = new point (turn
+        // the real number into the first axis coordinate and the i into
+        // the second)
+        // - i^2 = -1, so [cos*x - sin*y, cos*y + sin*x]
+        // - this is called the "complex number" method of rotation.
+        return Points.add(_point, center);
+    },
+    stretch: (point, angle, num, center) => Point2.rotate(
+        Points.multiply(
+            Point2.rotate(point, -angle, center),
+            [num, 1]
+        ),
+        angle, center
+    ),
+    // stretches it along the specified angle.
+    // - inverse rotate so the angle aligns with 0
+    // - multiply x
+    // - rotate back
+}
 class Viewer {
 // a class for applying perspective.
-// - ratio: how many pixels there are per degree.
+// - range: the number of pixels from a point 0 degrees from the vanishing
+//   point, to 180 degrees.
+//   - this used to be "ratio", a number of pixels per degree. ...if that shows
+//     up anywhere, remember that that would be equivalent to this.range/180.
 // - x, y: the position of the vanishing point onscreen.
 // - z: how far away the viewer is
 // - disabled: obvious
-    constructor(ratio, x, y, z, disabled) {
-        this.ratio = typeof ratio === "number" ? ratio : .8;
+    constructor(range, x, y, z, disabled) {
+        this.range = typeof range === "number" ? range : 180;
         this.x = typeof x === "number" ? x : 0;
         this.y = typeof y === "number" ? y : 0;
         this.z = typeof z === "number" ? z : 0;
@@ -2136,7 +2233,7 @@ class Viewer {
         return (
             typeof obj === "object"
             ?
-            new Viewer(obj.ratio ?? null, obj.x ?? null, obj.y ?? null, obj.z ?? null, obj.disabled ?? null)
+            new Viewer(obj.range ?? null, obj.x ?? null, obj.y ?? null, obj.z ?? null, obj.disabled ?? null)
             :
             new Viewer(null, null, null, null, true)
         );
@@ -2158,7 +2255,7 @@ class Viewer {
             // know is how far away it is, and the direction.
                 num -= 2*Math.PI;
             }
-            num = num*(180/Math.PI)*this.ratio + vp;
+            num = num*(this.range/Math.PI) + vp;
     		// convert to degrees, use the ratio to convert to pixels, add the
     		// viewer x again
             //
@@ -2182,8 +2279,8 @@ class Viewer {
 		// viewer.
 		x -= this.x;
 		y -= this.y;
-		x /= (180/Math.PI)*this.ratio;
-		y /= (180/Math.PI)*this.ratio;
+		x /= this.range/Math.PI;
+		y /= this.range/Math.PI;
 		// get the screen x distance and y distance it has from the viewer, divide
 		// by the degreeratio. this is what the xz angle or yz angle was. how many
 		// degrees the viewer would have to turn to focus on the 3d coordinates
@@ -2250,9 +2347,8 @@ class Viewer {
 		//   make a right triangle. since we know both sides, it can be figured
 		//   out with atan
 		// - then multiply it by four to combine all four right triangles.
-		temp *= 180/Math.PI;
+		temp *= this.range/Math.PI;
 		// convert to degrees
-		temp *= this.ratio;
 		// degrees * (pixels/degrees ratio) = pixels
 		//
 		// this is how many pixels wide a sphere with a diameter of 1 would be
@@ -2264,7 +2360,7 @@ class Viewer {
     // dimensions.
     // - this.z_size(this.central_z) should equal 1.
 		//let target = ((1/this.ratio)/360)*2*Math.PI;
-		let target = (1/this.ratio)*Math.PI/180;
+		let target = Math.PI/this.range;
 		// degrees per pixel, converted to radians. our calculations will
 		// revolve around a sphere of 1 diameter, that's at 0 z. the amount of
 		// radians it takes up in our vision has to equal its actual width, and
@@ -2444,6 +2540,228 @@ class Line {
         }
         // subtract anglenum, multiply it, add it back
         return _point;
+    }
+    cone_intersect(tip, basis, xr, yr, h) {
+    // finds the intersections of a line and a double-cone, if they exist.
+    // - basis' z axis is used to find the tip-to-base direction, and the x/y
+    //   axes are the perpendicular directions that xr and yr apply to.
+    //   - xr/yr stand for "x/y radius".
+    //   - NOTE: basis is assumed to be "perfect", with each axis having a
+    //     hypotenuse of 1 and being perpendicular to the other axes. use a
+    //     quaternion and Quat.basis.
+    //     - the only reason it isn't a quaternion is so i can invert axes.
+    // - this does not return an array of points, but objects.
+    //   - point: coordinates of the intersection
+    //   - angle: the point's 2d angle on the basis' xy plane.
+    //   - line_place: where it is on the line
+    //     - 0 if it's right at the line origin
+    //     - 1 if it's one away in direction of the angle
+    //     - -1 if it's one away in the opposite direction
+    //   - cone_place: where it is on the cone's central line, 0 being the tip
+    //     and 1 being 1 unit up along the z axis.
+    //   - exit: whether the intersection is from the inside out. (it assumes
+    //     the line is like a bullet fired in the line.angle and the opposite
+    //     angle, from the line origin.)
+    	let line = this;
+    	let start = Points.convert(line);
+    	start = Points.subtract(start, tip);
+    	// make it relative to the cone tip, so we don't have to account for
+    	// that in the cone equation (doing that isn't impossible, but it's
+    	// annoying.)
+    	let inverse = Basis.invert(basis);
+    	start = Basis.apply(inverse, start);
+    	let vect = Angle.numbers(line.angle);
+    	vect = Basis.apply(inverse, vect);
+    	// orientation makes things too complicated. it's easier to pretend it's
+        // totally unrotated, and apply the orientation to the intersections at
+        // the end... but what matters is where the line's position and angle is
+        // relative to the cone. ignoring orientation is like subtracting it...
+        // so we subtract it from the line too.
+    	// =
+    	// the equation of a cone is x^2 + y^2 = z^2.
+    	// - then if you replace each axis letter with like, ((x - tip[0])/xr),
+    	//   (use h for z.)
+    	// - the tip will be where it should be, and the cone will be
+    	//   dimensioned so that h away from the tip, the x/y radii will be
+    	//   xr/yr.
+    	// =
+    	// if you think of a line as a parametric equation, it'd be x = start[0]
+        // + place*vect[0].
+    	// - rinse and repeat for y, z
+    	// - if you use those expressions in place of the axis variables in the
+        //   cone equation, you can simplify it into an expression of 0 =
+    	//   a*place^2 + b*place + c.
+    	// - so, a quadratic expression you can use to solve for "place": two
+        //   numbers for how many units of vect the intersections are from
+    	//   start.
+    	// =
+    	/*
+    	((vect*place + start)/dim)^2
+    	(
+    		((vect/dim)^2)*(place^2)
+    		+
+    		(2*start*vect/(dim^2))*place
+    		+
+    		(start/dim)^2
+    	)
+    	(
+    		a = (vect/dim)^2
+    		b = 2*start*vect/(dim^2)
+    		c = (start/dim)^2
+    	)
+    	*/
+    	let a = 0;
+    	let b = 0;
+    	let c = 0;
+    	for(let i1 = 0; i1 < 3; i1++) {
+    		let dim = i1 === 0 ? xr : i1 === 1 ? yr : i1 === 2 ? h : NaN;
+    		let sign = i1 === 2 ? -1 : 1;
+    		a += sign*(vect[i1]/dim)**2;
+    		b += sign*2*start*vect/(dim**2);
+    		c += sign*(start[i1]/dim)**2;
+    	}
+    	// - x stuff + y stuff = z stuff
+    	// - but we want the right side to be zero so it can be solved. make it
+    	//   x + y - z.
+    	let qf = b**2 - 4*a*c;
+    	if(qf < 0) {
+    		return [];
+    	};
+    	qf = [
+    		-b,
+    		Math.sqrt(qf),
+    		2*a
+    	];
+    	let place = [
+    		(qf[0] - qf[1])/qf[2],
+    		(qf[0] + qf[1])/qf[2]
+    	];
+    	// quadratic formula.
+    	// - if b^2 - 4ac is negative, there's no intersections.
+    	// - they played us this lame ass song in math class to help us memorize
+        //   it.
+    	// - god bless the people that made that song, i have never failed to
+        //   remember it since.
+        let intersect = [];
+    	for(let i1 = 0; i1 < 2; i1++) {
+    		let point = Points.multiply(vect, place[i1]);
+    		point = Points.add(start, point);
+    		// convert the line place to a real point
+            let angle = get2dangle(point[0]/xr, point[1]/yr, true);
+    		let cone_place = point[2];
+    		point = Basis.apply(basis, point);
+    		// apply orientation (do it before adding tip, so tip is the
+            // fulcrum.)
+    		point = Points.add(tip, point);
+    		// the coordinates are relative to the tip, fix that.
+    		intersect[i1] = {
+    			point,
+                angle,
+    			line_place: place[i1],
+    			cone_place,
+                exit: false,
+    		};
+    	}
+        if(place[0] && Math.sign(place[0]) === -Math.sign(place[1])) {
+        // if one place is negative and the other is positive, that means either
+        // they're both exits, or both entries.
+            intersect[0].exit = (
+                Math.hypot(
+                    start[0]/xr,
+                    start[1]/yr
+                )
+                <
+                Math.abs(start[2]/h)
+            );
+            // this will be true if it's inside the cone.
+            // - the start is already relative to the cone tip, and the cone's
+            //   orientation is already cancelled out. so cancel out the
+            //   dimensions to turn it into a textbook x^2 + y^2 <= z^2 cone.
+            intersect[1].exit = intersect[0].exit;
+        }
+        else {
+        // otherwise, the one with a higher absolute value is an exit.
+            let temp = Math.abs(intersect[1].line_place) > Math.abs(intersect[0].line_place);
+            intersect[Number(temp)].exit = true;
+        };
+    	return intersect;
+    }
+    cyl_intersect(top, basis, xr, yr) {
+    // read the comments for cone_intersect. this is almost the same process.
+    	let line = this;
+    	let start = Points.convert(line);
+    	start = Points.subtract(start, top);
+    	// make it relative to top, so we don't have to account for that later
+    	let inverse = Basis.invert(basis);
+    	start = Basis.apply(inverse, start);
+    	let vect = Angle.numbers(line.angle);
+    	vect = Basis.apply(inverse, vect);
+    	// cancel out orientation
+    	// =
+    	// the equation of a cylinder is (x/xr)^2 + (y/yr)^2 = 1.
+    	// - then, do the same stuff we did in cone_intersect.
+    	// - a = (vect/dim)^2
+    	// - b = 2*start*vect/(dim^2)
+    	// - c = (start/dim)^2
+    	let a = 0;
+    	let b = 0;
+    	let c = -1;
+    	for(let i1 = 0; i1 < 2; i1++) {
+    		let dim = i1 === 0 ? xr : i1 === 1 ? yr : NaN;
+    		a += (vect[i1]/dim)**2;
+    		b += 2*start*vect/(dim**2);
+    		c += (start[i1]/dim)**2;
+    	}
+    	// - x stuff + y stuff = 1
+    	// - set it equal to zero by subtracting 1 from c
+    	let qf = b**2 - 4*a*c;
+    	if(qf < 0) {
+    		return [];
+    	};
+    	qf = [
+    		-b,
+    		Math.sqrt(qf),
+    		2*a
+    	];
+    	let place = [
+    		(qf[0] - qf[1])/qf[2],
+    		(qf[0] + qf[1])/qf[2]
+    	];
+    	// quadratic formula.
+        let intersect = [];
+    	for(let i1 = 0; i1 < 2; i1++) {
+    		let point = Points.multiply(vect, place[i1]);
+    		point = Points.add(start, point);
+    		// convert the line place to a real point
+            let angle = get2dangle(point[0]/xr, point[1]/yr, true);
+    		let cyl_place = point[2];
+    		point = Basis.apply(basis, point);
+    		// apply orientation (do it before adding top, so top is the
+            // fulcrum.)
+    		point = Points.add(top, point);
+    		// the coordinates are relative to the top, fix that.
+    		intersect[i1] = {
+    			point,
+                angle,
+    			line_place: place[i1],
+    			cyl_place,
+                exit: false,
+    		};
+    	}
+        if(place[0] && Math.sign(place[0]) === -Math.sign(place[1])) {
+        // if the signs are negative and positive, they're both exits.
+        // - cone_intersect deals with a double-cone, which is concave. for a
+        //   totally convex shape, it's impossible to intersect it twice from
+        //   opposite directions from outside.
+            intersect[0].exit = true;
+            intersect[1].exit = true;
+        }
+        else {
+        // otherwise, the higher absolute value is the exit.
+            let temp = Math.abs(intersect[1].line_place) > Math.abs(intersect[0].line_place);
+            intersect[Number(temp)].exit = true;
+        };
+    	return intersect;
     }
 }
 class Plane {
@@ -2828,14 +3146,10 @@ let Angle = {
             };
         }
         let angle = [
-            get2dangle(x, y, true),
+            get2dangle(x, y, true) ?? 0,
             get2dangle(Math.hypot(x, y), z, true),
         ];
-        if(typeof angle[0] !== "number") {
-        // happens if x and y are zero
-            angle[0] = 0;
-        };
-        if(typeof angle[1] !== "number") {
+        if(angle[1] === null) {
         // happens if all three are zero
             if(shush) {
                 return null;
@@ -3084,6 +3398,52 @@ let Angle = {
         return Angle.get(...Quat.apply(quat, Angle.numbers(angle1)));
     },
 };
+let Basis = {
+// pseudoclass. look up what a basis is if you don't know.
+// - *remembers what happened every time i tried to look up math concepts i
+//   never learned about* or email me if you don't know,
+    new: () => [
+        [1, 0, 0],
+        [0, 1, 0],
+        [0, 0, 1]
+    ],
+    apply: (_this, point) => [
+        point[0]*_this[0][0] + point[1]*_this[1][0] + point[2]*_this[2][0],
+        point[0]*_this[0][1] + point[1]*_this[1][1] + point[2]*_this[2][1],
+        point[0]*_this[0][2] + point[1]*_this[1][2] + point[2]*_this[2][2]
+    ],
+    check: function(_this) {
+    // checks if all three are 90 degrees from each other.
+        let i1 = 0;
+        let angles = [];
+        let errors = [];
+        for(i1 = 0; i1 < 3; i1++) {
+            angles[i1] = Angle.get(..._this[i1]);
+            let hypot = Math.hypot(..._this[i1]);
+            if(roundspecial(hypot - 1)) {
+                errors[errors.length] = "invalid " + "xyz"[i1] + " length: " + hypot;
+            };
+        }
+        for(i1 = 0; i1 < 3; i1++) {
+            let compare = Angle.compare(angles[i1], angles[(i1 + 1)%3]);
+            if(roundspecial(compare - Math.PI/2)) {
+                errors[errors.length] = "invalid " + "xyz"[i1]  + "/" + "xyz"[(i1 + 1)%3] + " angle: " + compare;
+            }
+            angles[i1] = Angle.get(..._this[i1]);
+        }
+        return errors.join("\n");
+    },
+    invert: (_this) => [
+    // if you apply a basis to a point, applying an inverse of that basis will
+    // revert it.
+    // xx xy xz
+    // yx yy yz
+    // zx zy zz
+        [_this[0][0], _this[1][0], _this[2][0]],
+        [_this[0][1], _this[1][1], _this[2][1]],
+        [_this[0][2], _this[1][2], _this[2][2]]
+    ],
+};
 let Quat = {
 // quaternion pseudoclass. don't bother looking too hard into this,
 // quaternions are super fucked up!
@@ -3209,7 +3569,7 @@ let Quat = {
         let basis = Quat.basis(_this);
         let _points = [];
         for(i1 = 0; i1 < points.length; i1++) {
-            _points[i1] = apply_basis(basis, points[i1]);
+            _points[i1] = Basis.apply(basis, points[i1]);
         }
         return _points;
     },
@@ -3266,6 +3626,7 @@ let Quat = {
     dot: (quat1, quat2) => quat1.w*quat2.w + quat1.x*quat2.x + quat1.y*quat2.y + quat1.z*quat2.z,
     slerp: function(quat1, quat2, num) {
     // 0 makes something like quat1, 1 makes something like quat2.
+    // - NOTE: remember to normalize it.
         let dot = Quat.dot(quat1, quat2);
         let quat = structuredClone(dot < 0 ? Quat.invert(quat2) : quat2);
         dot = Math.abs(dot);
@@ -3284,51 +3645,10 @@ let Quat = {
             z: scale1*quat1.z + scale2*quat.z,
         };
     },
+    rand: () => Quat.new(Angle.rand(), 2*Math.PI*Math.random()),
 };
 
-class Rect {
-// not sure if i'll use this, but.
-    constructor(x, y, w, h) {
-        this.x = typeof x === "number" ? x : 0;
-        this.y = typeof y === "number" ? y : 0;
-        this.w = typeof w === "number" ? w : 0;
-        this.h = typeof h === "number" ? h : 0;
-    }
-    get l() {
-        return Math.min(this.x, this.x + this.w);
-    }
-    get r() {
-        return Math.max(this.x, this.x + this.w);
-    }
-    get u() {
-        return Math.min(this.y, this.y + this.h);
-    }
-    get d() {
-        return Math.max(this.y, this.y + this.h);
-    }
-    setedge(edge, value) {
-        if(typeof edge === "string" && "lrud".includes(edge) && edge.length === 1 && typeof value === "number") {
-            let num = "lrud".indexOf(edge);
-            let edge = this[edge];
-            let other = this["rldu"[num]];
-            let axis = Math.floor(edge/2);
-            this["xy"[axis]] += value - edge;
-            this["wh"[axis]] = Math.abs(value - other) * (this["wh"[axis]] < 0 ? -1 : 1);
-        }
-    }
-    set l(value) {
-        this.setedge("l", value);
-    }
-    set r(value) {
-        this.setedge("r", value);
-    }
-    set u(value) {
-        this.setedge("u", value);
-    }
-    set d(value) {
-        this.setedge("d", value);
-    }
-}
+
 //
 function diamondsquare(context, x, y, size, modfunc, drawfunc) {
 /*
@@ -5357,7 +5677,7 @@ l_knee:
                 this.widen = this.widen + num*(widen - this.widen);
             };
             if(Quat.valid(orient)) {
-                this.orient = Quat.slerp(this.orient, orient, num);
+                this.orient = Quat.normalized( Quat.slerp(this.orient, orient, num) );
             };
         }
         getwithoutredirects(property, placeandname, bodyref) {
@@ -5867,7 +6187,7 @@ l_knee:
                     _point[2] *= widen;
                 };
                 // scale
-                _point = apply_basis(basis, _point).concat(point.slice(3));
+                _point = Basis.apply(basis, _point).concat(point.slice(3));
                 // orient coordinates
                 if(_point.length >= 6) {
                 // orient orient. (apply view rotation, part orientation.)
@@ -6637,7 +6957,7 @@ l_knee:
                 y: 0,
             },
             // vanishing point
-            ratio: 4/5,
+            range: 180,
             camera: {
                 xz: 0,//2*Math.PI/8,
                 yz: 0,
@@ -6679,7 +6999,7 @@ l_knee:
         }
         get viewer() {
             return new Viewer(
-                this.ratio,
+                this.range,
                 this.vp.x - this.standpoint.x,
                 this.vp.y - this.standpoint.y,
                 // since the coordinates autoperspective converts are
@@ -6716,7 +7036,7 @@ l_knee:
         //       i don't want. the more complicated a system is, the easier it
         //       is to accidentally break something.
             let _point = AAX.camerarotations(point, view, this.camera.xz, this.camera.yz);
-            if(this.ratio !== "none") {
+            if(this.range !== "none") {
                 let viewer = this.viewer;
                 let central_z = viewer.central_z;
                 _point[2] += central_z;
@@ -7251,7 +7571,7 @@ l_knee:
                 if(temp !== null) {
                     ctx.fillStyle = getcolor(temp);
                     let coor = AAX.coortocanvas(cell, ref.standpoint, [0, 0, 0], view, true);
-                    if(perspectived) {
+                    if(perspectived && ref.range !== "none") {
                     // if it's in perspective mode, apply perspective to the
                     // standpoint.
                         let temp = [0, 0, ref.viewer.central_z];
@@ -7646,7 +7966,7 @@ l_knee:
     valid: {
     // stores arrays for which values are accepted, whether to check for
     // validity or iterate through them. mostly for drawsettings.
-        posetools: ["move", "deform", "rotate", "tilt", "perspective"],
+        posetools: ["move", "deform", "tilt", "rotate", "perspective"],
         // pose tool names. used to create the buttons, and cycle through
         // them.
         background: ["gridless", "grid", "blank"],
@@ -8336,4 +8656,1594 @@ class WalkerSet extends Array {
 
 function mound(input) {
     return (Math.cos(Math.PI*Math.min(Math.abs(input), 1)) + 1)/2;
+}
+
+function circcirctangent(x1, y1, r1, x2, y2, r2) {
+// NOTE: this returns ANGLES, not points. it also returns null if one circle is
+// entirely inside the other.
+// - an array of two.
+// - get the angle from circle 1 to circle 2
+// - circle 1 tangents at that plus [0] of the return, and that minus [0] of the
+//   return.
+// - circle 2, at that +- [1].
+	if(r1 === r2) {
+		return [Math.PI/2, Math.PI/2];
+	};
+	let invert = r1 > r2;
+	// the logic will assume r1 is smaller.
+	if(invert) {
+		let temp = r1;
+		r1 = r2;
+		r2 = temp;
+	};
+	let values = [null, null];
+	let dist = [x2 - x1, y2 - y1];
+	let angle = (dist[0] || dist[1]) ? get2dangle(...dist) : null;
+	dist = Math.hypot(...dist);
+    if(dist + r1 <= r2) {
+    // smaller one is entirely inside the bigger one
+        return null;
+    }
+	else if(!r1) {
+	// point/circle tangent
+		values = [
+			0,
+			Math.PI - Math.asin(r2/dist)
+		];
+		// the point, circle, and tangent form a right triangle, with the
+        // tangent being the right angle
+		// - two triangles if you include the other tangent. but who cares
+		// - the angle we want is the one at the point, so that means...
+		// - opp = r2
+		// - hyp = dist
+		// - sin(angle) = opp/hyp
+		// - angle = asin(opp/hyp)
+		// - subtract it from pi, since this is supposed to be the angle
+        //   difference between the tangent angle and the 1 to 2 angle
+	}
+	else {
+		let temp = (r2 - r1)/dist;
+		// rate of change
+		temp = r1/temp;
+		temp = [
+			x1 - Math.cos(angle)*temp,
+			y1 - Math.sin(angle)*temp,
+			0
+		];
+		values[0] = circcirctangent(...temp, x1, x1, r1)[1];
+		values[1] = circcirctangent(...temp, x2, x2, r2)[1];
+	};
+	return (
+		invert
+		?
+		// don't just switch the order. subtract them from pi, since the 1 to 2
+        // angle is the opposite of what i thought it was.
+		[
+			Math.PI - values[1],
+			Math.PI - values[0]
+		]
+		:
+		values
+	);
+}
+
+class Round3D {
+// a class for infinitely round 3d shapes.
+// - x, y, z
+// - orient: the basis for this is often used for texture directions and the
+//   like
+// - texture: can be a color, or an ImageData of any positive dimensions
+// - repeat_x, repeat_y: the texture is multiplied by this much, ex: 2 and 3
+//   would make it a 2 x 3 grid.
+// - doublesided
+	constructor() {
+		this.x = 0;
+		this.y = 0;
+		this.z = 0;
+		this.orient = Quat.new();
+		this.settexturecolor(191, 191, 191);
+		this.repeat_x = 1;
+		this.repeat_y = 1;
+		this.doublesided = false;
+	}
+    settexturecolor(r, g, b, a) {
+    // makes the texture a single pixel of this color.
+        let array = new Uint8ClampedArray(4);
+        array[0] = r ?? 255;
+        array[1] = g ?? 255;
+        array[2] = b ?? 255;
+        array[3] = a ?? 255;
+        this.texture = new ImageData(array, 1);
+    }
+	get basis() {
+	// vectors for the x, y, and z axis of the shape, considering its
+	// orientation.
+		return Quat.basis(this.orient);
+	}
+    translate(point) {
+    // translates a point relative to this shape's position/orientation to
+    // absolute space.
+        return Points.add(this, Quat.apply(this.orient, point));
+    }
+    revolve(axis, magnitude, center) {
+        center ??= [0, 0, 0];
+        let quat = Quat.new(axis, magnitude);
+        Points.apply(
+            Points.add(this, Quat.apply( Points.subtract(this, center) ) ),
+        this);
+        this.orient = Quat.multiply(this.orient, quat);
+    }
+	rotate(axis, magnitude) {
+		this.orient = Quat.rotate(this.orient, axis, magnitude);
+	}
+	local_rotate(axis, magnitude) {
+		this.orient = Quat.local_rotate(this.orient, axis, magnitude);
+	}
+    texturecolor(x, y) {
+    // x and y should be 0 to 1 numbers. it will return an array of 0-255
+    // numbers.
+        if(this.repeat_x) {
+        // 0 is the only invalid number
+            x = posmod(x*Math.abs(this.repeat_x), 1);
+            if(this.repeat_x < 0) {
+                x = posmod(1 - x, 1);
+            };
+        };
+        if(this.repeat_y) {
+            y = posmod(y*Math.abs(this.repeat_y), 1);
+            if(this.repeat_y < 0) {
+                y = posmod(1 - y, 1);
+            };
+        };
+        x = Math.floor(x*this.texture.width);
+        y = Math.floor(y*this.texture.height);
+        let num = this.texture.width*y + x;
+        return this.texture.data.slice(4*num, 4*(num + 1));
+    }
+    static ellipse_data(angles, factors) {
+    // a function that returns the equation and maximum radius of a stretched
+    // ellipse.
+    // - use this with ellipse_coverage.
+    // - the angles and factors are used in Point2.stretch.
+        let i1 = 0;
+        let i2 = 0;
+        if(!Array.isArray(angles) || !Array.isArray(factors) || angles.length !== factors.length) {
+            console.log("invalid input.");
+        }
+        let xx = 1;
+        let xy = 0;
+        let yx = 0;
+        let yy = 1;
+        // calculating whether a pixel is inside will be easier if we have the
+        // equation of the circle.
+        // - for a normal circle, the equation is x2 + y2 = r2.
+        // - x2 = r2 - y2
+        // - x can equal sqrt(r2 - y2) or -sqrt(r2 - y2), because squaring either
+        //   will give you r2 - y2.
+        // - the equation of a stretched ellipse is much more complex, but it can
+        //   still be simplified to how much of x2 and how much of y2 you have.
+        // - the equation is (xx*x + xy*y)^2 + (yx*x + yy*y)^2 = r2. xx, xy, etc are
+        //   constants, and x/y can only be figured out once those four numbers are
+        //   figured out.
+        // - using imaginary number rotation, (and desmos) you can get this equation
+        //   for an ellipse that can be stretched in both directions.
+        //   - ((cos*x - sin*y)/factor)^2 + (sin*x + cos*y)^2 = r^2
+        // - so for each stretch, that's what we'll do to these.
+        // - for now, we're ignoring x, y, and r, since they can be applied at the
+        //   end.
+        for(i1 = 0; i1 < angles.length; i1++) {
+            let cos = Math.cos(angles[i1]);
+            let sin = Math.sin(angles[i1]);
+            // - xx = cos/factor, xy = -sin/factor, yx = sin, yy = cos.
+            // - but the thing is, every stretch is cumulative of the previous one.
+            //   that doesn't mean something simple like multiplying.
+            // - (xx*x + xy*y) replaces the x of the old x2 + y2 equation. so, we
+            //   need to substitute that.
+            // - ((cos*x - sin*y)/factor)^2 + (sin*x + cos*y)^2
+            // - ((cos*(xx*x + xy*y) - sin*(yx*x + yy*y))/factor)^2 + (sin*(xx*x + xy*y) + cos*(yx*x + yy*y))^2
+            // - ((cos*xx*x + cos*xy*y - sin*yx*x - sin*yy*y)/factor)^2 + (sin*xx*x + sin*xy*y + cos*yx*x + cos*yy*y)^2
+            // - (( (cos*xx - sin*yx)*x + (cos*xy - sin*yy)*y )/factor)^2 + ( (sin*xx + cos*yx)*x + (sin*xy + cos*yy)*y )^2
+            xx = (cos*xx - sin*yx)/factors[i1];
+            xy = (cos*xy - sin*yy)/factors[i1];
+            yx = sin*xx + cos*yx;
+            yy = sin*xy + cos*yy;
+        }
+        // if (xx*x + xy*y)^2 + (yx*x + yy*y)^2 <= r^2, it's inside.
+        let temp = Points.multiply([0, 1, 2, 3], Math.PI/2).concat(angles);
+        let r = 1;
+        for(i1 = 0; i1 < temp.length; i1++) {
+            let angle = temp[i1];
+            if(i1 >= 4 && factors[i1 - 4] < 0) {
+                angle = posmod(angle + Math.PI, 2*Math.PI);
+            };
+            let point = [Math.cos(angle), Math.sin(angle)];
+            for(i2 = 0; i2 < angles.length; i2++) {
+                point = Point2.stretch(point, angles[i2], factors[i2]);
+            }
+            r = Math.max(r, Math.hypot(...point));
+        }
+        // i don't know enough to be able to calculate the smallest rectangle the
+        // ellipse fits inside. so instead, get the highest radius.
+        // - the angle with the highest radius has to be one of the cardinals or one
+        //   of the stretch angles. (or their inversion, if the factor was
+        //   negative.) get the hypotenuse of that.
+        return {xx, xy, yx, yy, r};
+    }
+    static ellipse_coverage(data, x, y, r) {
+    // data: an ellipse_data object.
+        let _r = data.r*r;
+        let rect = Rect.fromedges(
+            Math.floor(x - _r),
+            Math.ceil(x + _r),
+            Math.floor(y - _r),
+            Math.ceil(y + _r)
+        );
+        let within = [];
+        for(let i1 = 0; i1 < rect.w*rect.h; i1++) {
+            let point = Raster.indextocoord(i1, rect);
+            let _x = point[0] + .5 - x;
+            let _y = point[1] + .5 - y;
+            within[i1] = (data.xx*_x + data.xy*_y)^2 + (data.yx*_x + data.yy*_y)^2 <= r^2;
+        }
+        return {rect, within};
+    }
+    scale(num) {
+        if(this instanceof RoundTube) {
+            this.startsize *= num;
+            for(let i1 = 0; i1 < this.lathe.length; i1++) {
+                this.lathe[i1].size *= num;
+                this.lathe[i1].h *= num;
+            }
+        };
+        if(this instanceof RoundRect) {
+            this.w *= num;
+            this.h *= num;
+        };
+        if(this instanceof RoundDisc) {
+            this.xr *= num;
+            this.yr *= num;
+        };
+    }
+}
+class RoundTube extends Round3D {
+// a class for cylinder-like shapes.
+// - the catch is that the width can vary. it can be a cone, a saucer, something
+//   more complicated...
+// - it does NOT have a top or bottom surface.
+// - position represents the center of one of the ends.
+// - the x axis of the texture represents angle, y is where it is from start to
+//   end
+// - the x and y axes of the basis are used for xr/yr and the texture angle.
+// - the z axis is which direction the end is in.
+// =
+// - xr, yr: x/y radius
+// - startsize, lathe
+//   - lathe is an array of {size, h} objects, each representing one segment.
+//   - h is how long the segment is, size is a scaler for the end of that
+//     segment. startsize is a scaler for the beginning of the first segment.
+// - h: getter/setter for the total height of all segments.
+// - gap: a 0 to 1 number for how much is missing.
+//   - the texture is scaled so all of it still displays, it's just compressed
+//     to avoid this area.
+// - roll: lets the texture start at a different angle than 0. shifts the gap,
+//   too.
+//   - a 0 to 1 number, NOT an angle.
+//   - if you just rotate the shape, you can't choose where the gap and texture
+//     are relative to the x/y scaling.
+//   - if there's a gap, this represents the center of the gap.
+	constructor() {
+        super();
+		this.xr = 1;
+		this.yr = 1;
+        this.startsize = 1;
+		this.lathe = [];
+        this.h = 1;
+		this.gap = 0;
+		this.roll = 0;
+	}
+    fixlathe() {
+    // makes sure lathe is formatted correctly.
+        for(let i1 = 0; i1 < this.lathe.length; i1++) {
+            if(typeof this.lathe[i1] === "object") {
+                this.lathe[i1] = {};
+            }
+            this.lathe[i1] = {
+                size: typeof this.lathe[i1].size === "number" ? this.lathe[i1].size : 1,
+                h: typeof this.lathe[i1].h === "number" ? this.lathe[i1].h : 1,
+            };
+        }
+    }
+    get h() {
+        this.fixlathe();
+        let h = 0;
+        for(let i1 = 0; i1 < this.lathe.length; i1++) {
+            h += this.lathe[i1].h;
+        }
+        return h;
+    }
+    set h(value) {
+        if(typeof value !== "number") {
+            return;
+        };
+        if(this.lathe.length) {
+            let _h = this.h;
+            if(_h) {
+                let mod = value/_h;
+                for(let i1 = 0; i1 < this.lathe.length; i1++) {
+                    this.lathe[i1].h *= mod;
+                }
+            }
+            else {
+                for(let i1 = 0; i1 < this.lathe.length; i1++) {
+                    this.lathe[i1].h = value/this.lathe.length;
+                }
+            }
+        }
+        else {
+            this.lathe[0] = {size: this.startsize, h: value};
+        };
+    }
+    get center() {
+        return Points.add(this, Quat.apply(this.orient, [0, 0, this.h/2]));
+    }
+    get cache() {
+    // various things that should be reused and not recalculated.
+        let basis = this.basis;
+        let _basis = structuredClone(basis);
+        _basis[2] = Points.invert(_basis[2]);
+        // used for cones that point the opposite way.
+        this.fixlathe();
+        let lathe = this.lathe;
+        let rings = [Points.convert(this)];
+        let tube_place = [0];
+        // positions and line places of the centers of each ring.
+        let slant = [0];
+        // important for texturing.
+        // - if you texture by z distance, things get weird and stretched if the
+        //   lathe size is like, [0, 30, 10] or whatever
+        // - so these are 0 to 1 numbers for where the ring is from top to
+        //   bottom, but based on surface distance.
+        let cone_tip = [];
+        let cone_h = [];
+        // the tips and heights of each segment's cone. (null if it's a
+        // cylinder.)
+        for(let i1 = 0; i1 < lathe.length; i1++) {
+        // i1 = start of segment
+        // i1 + 1 = end of segment
+            tube_place[i1 + 1] = tube_place[i1] + lathe[i1].h;
+            rings[i1 + 1] = Points.add(
+                rings[i1],
+                Points.multiply(basis[2], lathe[i1].h)
+            );
+            let prevsize = i1 ? lathe[i1].size : this.startsize;
+            let diff = lathe[i1].size - prevsize;
+            slant[i1 + 1] = slant[i1] + Math.hypot(lathe[i1].h, Math.abs(diff));
+            if(diff) {
+                // x is the tube_place of the cone tip relative to the previous
+                // ring, y is the size.
+                // y = prevsize + (diff/h)x
+                // 0 = prevsize + (diff/h)x
+                // -prevsize = (diff/h)x
+                // x = -prevsize*h/diff
+                let num = -prevsize*lathe[i1].h/diff;
+                cone_tip[i1] = Points.add(
+                    rings[i1],
+                    Points.multiply(basis[2], num)
+                );
+                cone_h[i1] = Math.abs(num - tube_place[i1 + (diff >= 0)]);
+            }
+            else {
+                cone_tip[i1] = null;
+                cone_h[i1] = null;
+            }
+        };
+        for(let i1 = 0; i1 < slant.length; i1++) {
+            slant[i1] /= slant[slant.length - 1];
+        }
+        return {
+            basis, _basis,
+            rings, slant,
+            cone_tip, cone_h
+        };
+    }
+    coverage(index, cache) {
+	// an array of 2d pixels the shape could be shown in.
+        let r1 = index ? this.lathe[index - 1].size : this.startsize;
+        let r2 = this.lathe[index].size;
+        // scalings of both ends
+        if(!this.xr || !this.yr || !this.lathe[index].h || (!r1 && !r2)) {
+            return null;
+        };
+        let i1 = 0;
+        let i2 = 0;
+		let basis = this.basis;
+		let x = basis[0];
+		let y = basis[1];
+		let z = basis[2];
+        cache ??= this.cache;
+        let ref = cache;
+        let lathe = this.lathe;
+        let x1 = ref.rings[index][0];
+        let y1 = ref.rings[index][1];
+        let x2 = ref.rings[index + 1][0];
+        let y2 = ref.rings[index + 1][1];
+        // positions of both ends.
+        let data = {
+            side1: null,
+            side2: null,
+            tube: null,
+        };
+        let angles = [
+            get2dangle(x[0], x[1], true),
+            get2dangle(y[0], y[1], true),
+            get2dangle(z[0], z[1], true)
+        ];
+        if(angles[0] !== null && angles[1] !== null) {
+            let temp = Round3D.ellipse_data(angles, [this.xr, this.yr, Math.sin(Math.acos(Math.hypot(z[0], z[1])))]);
+            data.side1 = Round3D.ellipse_coverage(temp, x1, y1, r1);
+            data.side2 = Round3D.ellipse_coverage(temp, x2, y2, r2);
+        };
+        let tangent = circcirctangent(x1, y1, r1, x2, y2, r2);
+        if(tangent) {
+        // circ1 + r1*cos_sin(angle - tangent[0])
+        // circ2 + r2*cos_sin(angle - tangent[1])
+        // circ2 + r2*cos_sin(angle + tangent[1])
+        // circ1 + r1*cos_sin(angle + tangent[0])
+            let angle = get2dangle(x2 - x1, y2 - y1);
+            let points = [];
+            for(i1 = 0; i1 < 4; i1++) {
+                let temp = [(i1 === 1 || i1 === 2), (i1 === 0 || i1 === 1)];
+                let point = Points.multiply(
+                    temp[0] ? r2 : r1,
+                    [
+                        Math.cos(angle + (temp[1] ? -1 : 1)*tangent[Number(temp[0])]),
+                        Math.sin(angle + (temp[1] ? -1 : 1)*tangent[Number(temp[0])])
+                    ]
+                );
+                for(i2 = 0; i2 < 3; i2++) {
+                // scale it by the xr and yr, and foreshorten
+                    if(basis[i2][0] || basis[i2][1]) {
+                        let _angle = get2dangle(basis[i2][0], basis[i2][1]);
+                        point = Point2.stretch(
+                            point, _angle,
+                            i2 === 0 ? this.xr : i2 === 1 ? this.yr : Math.hypot(basis[i2][0], basis[i2][1])
+                        );
+                    }
+                }
+                points[i1] = Points.add(temp[0] ? [x2, y2] : [x1, y1], point);
+            }
+            data.tube = _2dPoly.getdata(points, true, Points.divide([x1 + x2, y1 + y2], 2));
+        };
+        if(!data.side1 && !data.side2 && !data.tube) {
+            return null;
+        };
+        let rect = null;
+        for(i1 in data) {
+            if(data.hasOwnProperty(i1) && data[i1]) {
+                rect = rect ? Rect.contain(rect, data[i1].rect) : structuredClone(data[i1].rect);
+            }
+        }
+        if(!rect) {
+            return null;
+        }
+        let within = [];
+        let closer = Math.sign(ref.rings[index + 1][2] - ref.rings[index][2]);
+        closer = closer === 1 ? 2 : closer === -1 ? 1 : 0;
+        for(i1 = 0; i1 < rect.w*rect.h; i1++) {
+            let coor = Raster.indextocoord(i1, rect);
+            let temp = [
+                data.tube ? Raster.findcoor(data.tube.within, data.tube.rect, ...coor) : false,
+                data.side1 ? Raster.findcoor(data.side1.within, data.side1.rect, ...coor) : false,
+                data.side2 ? Raster.findcoor(data.side2.within, data.side2.rect, ...coor) : false
+            ];
+            // any pixel that's within one of the two circles or their tangent area
+            // should be checked for intersections, except:
+            within[i1] = !!(
+                (temp[0] || temp[1] || temp[2])
+                &&
+                (!temp[1] || !temp[2])
+                // if it's within the overlap of both circles
+                &&
+                (this.doublesided || !closer || !data[closer])
+                // if it's onesided, and within the closer end.
+            );
+        }
+        return {rect, within};
+	}
+    intersect(index, line, cache) {
+    // returns an object storing information about the point the line intersects
+    // at, or null if it doesn't intersect it.
+    // - return structure:
+    //   - point
+    //   - line_place
+    //   - color: an array of 0-255 numbers.
+    //   - normal
+    // - index: which segment you're checking. omit it to have it check
+    //   everything and return the intersection with the closest line_place.
+    // - cache: save time by storing a this.cache and using it here, so it
+    //   doesn't run that crap every time.
+    // - intersections are discarded if they're from following the opposite
+    //   direction of the line, or if doublesided is off and it only intersected
+    //   the invalid side.
+        let r1 = index ? this.lathe[index - 1].size : this.startsize;
+        let r2 = this.lathe[index].size;
+        // scalings of both ends
+        if(!this.xr || !this.yr || !this.lathe[index].h || (!r1 && !r2)) {
+            return null;
+        };
+        if(!Number.isInteger(index)) {
+            let record = null;
+            for(let i1 = 0; i1 < Math.max(1, this.lathe.length); i1++) {
+                let temp = this.intersect(line, i1);
+                if(temp && (!record || temp.line_place < record.line_place)) {
+                    record = temp;
+                };
+            }
+            return record;
+        }
+        cache ??= this.cache;
+        let ref = cache;
+        //
+        let start = ref.rings[index];
+        let end = ref.rings[index + 1];
+        let intersect = [];
+        if(r1 === r2) {
+            intersect = line.cyl_intersect(start, ref.basis, r1*this.xr, r1*this.yr);
+        }
+        else {
+            let inverse = r1 > r2;
+            intersect = line.cone_intersect(
+                ref.cone_tip[index], inverse ? ref._basis : ref.basis,
+                (inverse ? r1 : r2)*this.xr, (inverse ? r1 : r2)*this.yr,
+                ref.cone_h[index]
+            );
+        }
+        for(let i1 = 0; i1 < intersect.length; i1++) {
+            if(
+                intersect[i1].line_place < 0
+                // it's a ray intersect, not a line intersect
+                ||
+                (intersect[i1].exit && !this.doublesided)
+                // inside to outside intersections are invalid without
+                // doublesided
+                ||
+                (
+                    ref.cone_tip[index]
+                    ?
+                    (
+                        intersect[i1].cone_place < ref.cone_h[index] - this.lathe[index].h
+                        ||
+                        intersect[i1].cone_place >= ref.cone_h[index]
+                    )
+                    :
+                    (
+                        intersect[i1].cyl_place < 0
+                        ||
+                        intersect[i1].cyl_place >= this.lathe[index].h
+                    )
+                )
+                // not within the partial-cone area
+            ) {
+                intersect.splice(i1, 1);
+                i1--;
+            }
+        }
+        if(intersect.length === 2) {
+            let temp = intersect[1].line_place < intersect[0].line_place;
+            intersect = intersect[Number(temp)];
+            // point, angle, line_place, cone_place/cyl_place, exit
+            // point, line_place, color, normal
+            let normal = (
+                intersect.angle === null ? [0, Math.PI/2] :
+                // right on the central line. a zero-radius cylinder, or the
+                // point of a cone. point it directly at the camera.
+                ref.cone_tip[index] === null ? Angle.get(...Points.apply(ref.basis, [
+                    Math.cos(intersect.angle),
+                    Math.sin(intersect.angle),
+                    0
+                ])) :
+                // cylinder: the angle is always relative to whatever point on
+                // the center line is at the same z. so z is zero.
+                Angle.get(...Point.cross(
+                    Quat.apply(this.orient, [Math.cos(intersect.angle + Math.PI/2), Math.sin(intersect.angle + Math.PI/2), 0]),
+                    // vector that's like... i don't know, if you were swinging
+                    // something around circularly and let go. the direction
+                    // it'd fly.
+                    Points.subtract(intersect.point, ref.cone_tip[index])
+                    // vector from the intersection to the tip
+                ))
+                // cone: cross products are perpendicular. i don't even think i
+                // have to make sure it isn't inverted.
+            );
+            let color = null;
+            let x = intersect.angle/(2*Math.PI) - (this.roll + this.gap/2);
+            // - intersect angle is the 2d angle
+            // - roll + gap/2 is how much to offset that by
+            x /= 1 - this.gap;
+            // scale so that the texture ends at the gap instead of the gap
+            // hiding part of the texture
+            if(x < 0 || x >= 1) {
+            // inside the gap
+                return null;
+            }
+            else {
+                let y = (
+                    ref.cone_tip[index] === null
+                    ?
+                    intersect.cyl_place/this.lathe[index].h
+                    // cylinder
+                    :
+                    //y = (intersect.cone_place - (ref.cone_h[index] - this.lathe[index].h))/this.lathe[index].h;
+                    (intersect.cone_place - ref.cone_h[index])/this.lathe[index].h + 1
+                    // cone
+                );
+                y = slant[i1] + y*(slant[i1 + 1] - slant[i1]);
+                color = this.texturecolor(x, y);
+            }
+            return {
+                point: intersect.point,
+                line_place: line_place,
+                color,
+                normal,
+            };
+        }
+        else {
+            return null;
+        }
+    }
+}
+class RoundRect extends Round3D {
+// - w, h
+// =
+// - position is a corner of the rectangle.
+// - x/y axes are vectors for w/h and texture x/y. (position is the top left
+//   corner of the texture, position + width * basis[0] is the corner that
+//   matches the top right corner of the texture, etc.)
+// - z basis is the direction it faces
+// =
+// - ...rectangles aren't round, but consistency is a bitch. this isn't even a
+//   shape that needs Infinite Fidelity...
+	constructor() {
+        super();
+		this.w = 1;
+		this.h = 1;
+	}
+    coverage() {
+	// an array of 2d pixels the shape could be shown in.
+        let i1 = 0;
+        let i2 = 0;
+		let basis = this.basis;
+		let x = basis[0];
+		let y = basis[1];
+		let z = basis[2];
+		if(
+			!z[2]
+			// seen entirely from the side, it'd just be an infintesimally
+            // thin line
+			||
+			(!this.doublesided && z[2] < 0)
+			// one-sided and facing away
+		) {
+			return null;
+		};
+    }
+    get center() {
+        return Points.add(
+            Points.convert(this),
+            Points.add(
+                Quat.apply(this.orient, [this.w/2, 0, 0]),
+                Quat.apply(this.orient, [0, this.h/2, 0])
+            )
+        );
+    }
+}
+class RoundDisc extends Round3D {
+// a flat circle/ellipse shape.
+// - xr, yr
+// =
+// - position is the center of the disc
+// - texture x is angle, texture y is where it is from center to edges
+	constructor() {
+        super();
+		this.xr = 1;
+		this.yr = 1;
+	}
+    coverage() {
+	// an array of 2d pixels the shape could be shown in.
+        let i1 = 0;
+        let i2 = 0;
+		let basis = this.basis;
+		let x = basis[0];
+		let y = basis[1];
+		let z = basis[2];
+		if(
+			!z[2]
+			// seen entirely from the side, it'd just be an infintesimally
+            // thin line
+			||
+			(!this.doublesided && z[2] < 0)
+			// one-sided and facing away
+		) {
+			return null;
+		};
+    }
+}
+class TriLamp {
+// lighting object. it's meant to cast surfaces in a high level of light, mid
+// level, or low level.
+// - generally, low level means the surface is facing away, and high level means
+//   light is shining almost directly on it.
+// - r, g, b: the color of the light. these should be 0 to 1 numbers.
+// - hi_threshold, lo_threshold: the directness of the light is something like
+//   Math.cos(Angle.compare(angle to the lamp, surface normal)). that gives you
+//   a -1 to 1 number... if it's higher than hi_threshold, it'll be high level.
+//   lower than lo_threshold, low level.
+// - hi_factor, lo_factor: each light level has its own color. hi_color is
+//   [r^hi_factor, g^hi_factor, b^hi_factor]. etc.
+    constructor(x, y, z, r, g, b, hi_threshold, lo_threshold, hi_factor, lo_factor) {
+        this.x = x ?? 0;
+        this.y = y ?? 0;
+        this.z = z ?? 0;
+        this.r = r ?? 1;
+        this.g = g ?? 1;
+        this.b = b ?? 1;
+        this.hi_threshold = hi_threshold ?? Math.sqrt(3)/2;
+        this.lo_threshold = lo_threshold ?? 0;
+        this.hi_factor = hi_factor ?? 1/4;
+        this.lo_factor = lo_factor ?? 4;
+        this.intensity = 1;
+    }
+    get hi_color() {
+        return [
+            this.r**this.hi_factor,
+            this.g**this.hi_factor,
+            this.b**this.hi_factor
+        ];
+    }
+    get md_color() {
+        return [
+            this.r,
+            this.g,
+            this.b
+        ];
+    }
+    get lo_color() {
+        return [
+            this.r**this.lo_factor,
+            this.g**this.lo_factor,
+            this.b**this.lo_factor
+        ];
+    }
+    static getintensities(lamps, x, y, z) {
+        let intensities = [];
+        for(let i1 = 0; i1 < lamps.length; i1++) {
+            intensities[i1] = 1/( Math.hypot(...Points.subtract(Points.convert(lamps[i1]), [x, y, z])) **2);
+        }
+        return intensities;
+    }
+    static colorcalc(lamps, x, y, z, r, g, b, normal, intensities) {
+        let i1 = 0;
+        r /= 255;
+        g /= 255;
+        b /= 255;
+        let null_intensities = !Array.isArray(intensities) || intensities.length !== lamps.length;
+        if(null_intensities) {
+            intensities = [];
+        }
+        let groups = {hi: [], md: [], lo: []};
+        // lamp indexes, sorted by how direct the angle is
+        intensity_total = {hi: 0, md: 0, lo: 0};
+        let sign = [];
+        for(i1 = 0; i1 < lamps.length; i1++) {
+            if(lamps[i1] instanceof TriLamp) {
+                let vect = Points.subtract(Points.convert(lamps[i1]), [x, y, z]);
+                let distance = Math.hypot(...vect);
+                let num = distance ? Math.cos(Angle.compare(Angle.get(...vect), normal)) : 1;
+                let group = num >= lamps[i1].hi_threshold ? "hi" : num <= lamps[i1].lo_threshold ? "lo" : "md";
+                groups[group][ groups[group].length ] = i1;
+                if(null_intensities) {
+                    intensities[i1] = 1/(distance**2);
+                }
+                intensity_total[group] += intensities[i1];
+            }
+            else {
+                intensities[i1] = null;
+            }
+        }
+        let color = null;
+        if(groups.md.length || groups.hi.length) {
+            color = [r, g, b];
+            // if it's in the mid range of at least one lamp, it should be the
+            // color you expect.
+            if(groups.md.length) {
+            // but if those lamps are tinted, that should limit the values. (ie,
+            // a white object looks orange if it's only within mid range of an
+            // orange lamp.)
+                let _color = [0, 0, 0];
+                for(i1 = 0; i1 < groups.md.length; i1++) {
+                // use a weighted system, where closer lamps' tint shows more
+                    let __color = lamps[ groups.md[i1] ].md_color;
+                    _color += intensities[ groups.md[i1] ]/intensity_total.md;
+                }
+                color[0] *= 1 - _color[0];
+                color[1] *= 1 - _color[1];
+                color[2] *= 1 - _color[2];
+            };
+            if(groups.hi.length) {
+                let _color = [0, 0, 0];
+                for(i1 = 0; i1 < groups.hi.length; i1++) {
+                    color = Color.absencemultiply(...color, ...lamps[ groups.hi[i1] ].hi_color);
+                }
+            };
+        }
+        else if(groups.lo.length) {
+            color = [0, 0, 0];
+            for(i1 = 0; i1 < groups.lo.length; i1++) {
+                color = Color.absencemultiply(...color, ...lamps[ groups.lo[i1] ].lo_color);
+            }
+            color[0] *= r;
+            color[1] *= g;
+            color[2] *= b;
+            // decrease the absence of the "true" color by multiplying it.
+        }
+        else {
+            color = [r, g, b];
+        };
+        for(i1 = 0; i1 < 3; i1++) {
+            color[i1] = Math.round(255*(1 - color[i1]));
+        }
+        return color;
+    }
+}
+class RoundScene {
+    constructor(rounds, lamps) {
+        this.rounds = rounds ?? [];
+        this.lamps = lamps ?? [];
+        this.pan_x = 0;
+        this.pan_y = 0;
+    }
+    render(ctx) {
+    // draws the rounds onto the canvas.
+    // - NOTE: this does not clear the canvas.
+        let i1 = 0;
+        let i2 = 0;
+        let i3 = 0;
+        let rect = [ctx.canvas.width, ctx.canvas.height];
+        rect = {
+            x: Math.floor(-rect[0]/2 + this.pan_x),
+            y: Math.floor(-rect[1]/2 + this.pan_y),
+            w: rect[0],
+            h: rect[1],
+        };
+        let intensities = [];
+        // the way TriLamp works, the intensity of lighting effects depends on
+        // how close it is. but i want that to be a flat effect, so have every
+        // spot's lamp effects match the intensity they have on the shape
+        // center.
+        let intersects = {};
+        // - [x coordinates]
+        //   - [y coordinates]: arrays of intersections
+        for(i1 = 0; i1 < this.rounds.length; i1++) {
+            let ref = this.rounds[i1];
+            if(ref instanceof RoundTube) {
+                intensities[i1] = [];
+                let cache = ref.cache;
+                // reusable information
+                for(i2 = 0; i2 < ref.lathe.length; i2++) {
+                    intensities[i1][i2] = TriLamp.getintensities(this.lamps, ...Points.centroid(ref.cache.rings.slice(i2, i2 + 2)));
+                    let coverage = ref.coverage(i2, cache);
+                    // pixels it could be on
+                    if(coverage) {
+                        for(i3 = 0; i3 < coverage.within.length; i3++) {
+                            if(coverage.within[i3]) {
+                                let coor = Raster.indextocoord(i3, coverage.rect);
+                                if(Rect.inside(rect, ...coor)) {
+                                    let obj = ref.intersect(i2, new Line(coor[0] + .5, coor[1] + .5, 0, [0, -Math.PI/2]), cache)
+                                    // {point, line_place, color, normal}
+                                    if(obj) {
+                                        intersects[coor[0]] ??= {};
+                                        intersects[coor[0]][coor[1]] ??= [];
+                                        intersects[coor[0]][coor[1]].push({
+                                            obj: structuredClone(obj),
+                                            round: i1, segment: i2,
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            else if(ref instanceof RoundRect) {
+                intensities[i1] = TriLamp.getintensities(this.lamps, ...ref.center);
+            }
+            else if(ref instanceof Round3D) {
+                intensities[i1] = TriLamp.getintensities(this.lamps, this.x, this.y, this.z);
+            }
+            else {
+                console.log(".rounds should only have Round3Ds in it.");
+            };
+        }
+        for(i1 = 0; i1 < rect.w; i1++) {
+            for(i2 = 0; i2 < rect.h; i2++) {
+                let x = rect.x + i1;
+                let y = rect.y + i2;
+                if(x in intersects && y in intersects[x]) {
+                    intersects[x][y].sort((a, b) => a.obj.line_place - b.obj.line_place);
+                    let array = intersects[x][y];
+                    let obj = array[0];
+                    let colors = [];
+                    for(i3 = 0; i3 < array.length; i3++) {
+                        let truecolor = array[i3].obj.color;
+                        colors[i3] = TriLamp.colorcalc(
+                            this.lamps,
+                            // lamps
+                            ...array[i3].obj.point,
+                            // x, y, z
+                            ...array[i3].obj.color.slice(0, 3),
+                            // r, g, b
+                            array[i3].obj.normal,
+                            // normal
+                            ("segment" in array[i3] ? intensities[array[i3].round][array[i3].segment] : intensities[array[i3].round])
+                            // intensities
+                        );
+                        colors[i3].push(array[i3].obj.color[3]);
+                        if(colors[i3][3] >= 255) {
+                            i3 += array.length;
+                        }
+                    }
+                    for(i3 = colors.length - 1; i3 >= 0; i3--) {
+                        colors[i3][3] /= 255;
+                        ctx.fillStyle = "rgba(" + colors[i3].join() + ")";
+                        ctx.fillRect(i1, i2, 1, 1);
+                    }
+                }
+            }
+        }
+    }
+    static shirt(scale) {
+        let i1 = 0;
+        scale ??= 1;
+        let shirt = new RoundScene();
+        shirt.rounds.push(new RoundTube());
+        shirt.rounds.push(new RoundTube());
+        shirt.rounds.push(new RoundTube());
+        let torso = shirt.rounds[0];
+        torso.rotate("yz", 3*Math.PI/2);
+        torso.yr = .5;
+        torso.startsize = .5;
+        torso.lathe = [
+            {size: 1 + 1/2, h: 1/2},
+            {size: 1, h: 3/4},
+            {size: 1 + 1/4, h: 1 + 3/4},
+        ];
+        torso.scale(scale);
+        // multiply all this by half the torso width
+        let point = torso.center;
+        Points.apply(Points.subtract(torso, torso.center), torso);
+        for(i1 = 0; i1 < 2; i1++) {
+            let sign = i1 ? 1 : -1;
+            let sleeve = shirt.rounds[1 + i1];
+            sleeve.yr = .5;
+            sleeve.rotate("yz", 3*Math.PI/2);
+            sleeve.rotate("xz", i1*Math.PI);
+            sleeve.rotate("xy", sign*Math.atan(1/2));
+            sleeve.scale(scale);
+            let point = Points.subtract(torso.translate([-torso.xr*torso.lathe[0].size, 0, torso.lathe[0].h]), sleeve.translate([-sleeve.xr, 0, 0]));
+            sleeve.x += point[0];
+            sleeve.y += point[1];
+            sleeve.z += point[2];
+            // make their -x edges line up.
+        }
+        return shirt;
+    }
+}
+
+let PreSuf = {
+// functions related to my ui system of prefixes and suffixes.
+    fullname: (prefix, suffix) => (prefix ?? "") + (prefix && suffix ? "_" : "") + (suffix ?? ""),
+    get: function(fullname) {
+        fullname = fullname.split("_");
+        return [fullname[0], fullname.slice(1).join("_")];
+    },
+};
+let Rect = {
+// pseudoclass for rectangle objects. used in ui a lot.
+    new: function(x, y, w, h) {
+        return {
+            x: x ?? 0,
+            y: y ?? 0,
+            w: w ?? 0,
+            h: h ?? 0,
+        };
+    },
+    fromedges: function(l, r, u, d) {
+        let rect = {
+            x: l ?? 0,
+            y: u ?? 0,
+            w: r ?? 0,
+            h: d ?? 0,
+        };
+        rect.w -= rect.x;
+        rect.h -= rect.y;
+        return rect;
+    },
+    divide: function(rect, target, prefix, suffixes, horizontal) {
+    // divides up the given rect and defines them as properties of target, named
+    // with the prefix and suffixes.
+        const axis = horizontal ? 0 : 1;
+        const coor1 = "xy"[axis];
+        const coor2 = "xy"[posmod(axis + 1, 2)];
+        const dim1 = "wh"[axis];
+        const dim2 = "wh"[posmod(axis + 1, 2)];
+        prefix ??= "";
+        for(let i1 = 0; i1 < suffixes.length; i1++) {
+            if(typeof suffixes[i1] === "string") {
+                const position = [
+                    rect[coor1] + rect[dim1]*i1/suffixes.length,
+                    rect[coor1] + rect[dim1]*(i1 + 1)/suffixes.length
+                ];
+                target[PreSuf.fullname(prefix, suffixes[i1])] = {
+                    [coor1]: position[0],
+                    [coor2]: rect[coor2],
+                    [dim1]: position[1] - position[0],
+                    [dim2]: rect[dim2],
+                };
+            }
+        }
+    },
+    fromslice(rect, direction, dimension, target, prefix, suffix) {
+    // slices away some of an edge, and optionally, makes a button from that
+    // edge.
+    // - if suffix is an array, it'll use divide.
+    // - whether a button is created or not, it will return the rect it makes
+    //   from the slice.
+        let axis = direction === "u" || direction === "d" ? 1 : 0;
+        let negative = direction === "r" || direction === "d";
+        let _rect = structuredClone(rect);
+        _rect["wh"[axis]] = dimension;
+        if(negative) {
+            _rect["xy"[axis]] += rect["wh"[axis]] - dimension;
+        }
+        if(typeof prefix === "string") {
+            if(typeof suffix === "string") {
+                target[PreSuf.fullname(prefix, suffix)] = structuredClone(_rect);
+            }
+            else if(Array.isArray(suffix)) {
+                Rect.divide(_rect, target, prefix, suffix, !!axis);
+            }
+        }
+        rect["wh"[axis]] -= dimension;
+        if(!negative) {
+            rect["xy"[axis]] += dimension;
+        };
+        return _rect;
+    },
+    expanded: function(rect, direction, amount) {
+    // moves one edge.
+        let _rect = structuredClone(rect);
+        if(direction === "l" || direction === "r") {
+            _rect.w += amount;
+            if(direction === "l") {
+                _rect.x -= amount;
+            };
+        }
+        else if(direction === "u" || direction === "d") {
+            _rect.h += amount;
+            if(direction === "u") {
+                _rect.y -= amount;
+            };
+        };
+        return _rect;
+    },
+    neighbor: function(rect, direction, w, h) {
+        let _rect = structuredClone(rect);
+        _rect.w = w ?? _rect.w;
+        _rect.h = h ?? _rect.h;
+        _rect.x += direction === "l" ? -_rect.w : direction === "r" ? rect.w : 0;
+        _rect.y += direction === "u" ? -_rect.h : direction === "d" ? rect.h : 0;
+        return _rect;
+    },
+    contain: function(rect1, rect2) {
+    // makes a rect that contains both specified rects.
+        let x = [
+            rect1.x, rect1.x + rect1.w,
+            rect2.x, rect2.x + rect2.w
+        ];
+        let y = [
+            rect1.y, rect1.y + rect1.h,
+            rect2.y, rect2.y + rect2.h
+        ];
+        let _x = Math.max(...x);
+        let _y = Math.max(...y);
+        x = Math.min(...x);
+        y = Math.min(...y);
+        return {
+            x: x,
+            y: y,
+            w: _x - x,
+            h: _y - y,
+        };
+    },
+    reach: function(rect, x, y) {
+        let _rect = structuredClone(rect);
+        if(typeof x === "number") {
+            let l = Math.min(Rect.l(_rect), x);
+            let r = Math.max(Rect.r(_rect), x);
+            _rect.x = l;
+            _rect.w = r - l;
+        };
+        if(typeof y === "number") {
+            let u = Math.min(Rect.u(_rect), y);
+            let d = Math.max(Rect.d(_rect), y);
+            _rect.y = u;
+            _rect.w = d - u;
+        };
+        return _rect;
+    },
+    l: (rect) => rect.x,
+    r: (rect) => rect.x + rect.w,
+    u: (rect) => rect.y,
+    d: (rect) => rect.y + rect.h,
+    ui: function(areas, omit) {
+    // a very meaty function that creates an entire ui at once.
+    // - that is, an object of rects, each representing a button, and named with
+    //   a prefix and suffix.
+    // - the omit argument lets you omit buttons.
+    //   - an object of suffix arrays, indexed by prefix.
+    //   - or if a property is just true, that entire prefix will be omitted.
+    // - the point is not just to create ui quickly, but to allow it to be
+    //   *modular.* for example, i'm using this on DrawApp so i can hide drawing
+    //   tools that aren't especially relevant to whatever i'm putting DrawApp
+    //   in.
+    // - areas is an array. each item represents one area of a ui, ex "the area
+    //   with all the settings buttons".
+    //   - prefix: the prefix all buttons of this area have.
+    //   - previous: the index of the area its position is relative to.
+    //     - it must be an index lower than this item's index.
+    //     - -1 is interpreted as "the index 1 before this index", -2 is 2
+    //       before, etc
+    //   - direction: letter for whether it should be a right neighbor, left
+    //     neighbor, what
+    //   - gap: 1 means a gap 1 wide between it and the previous area, 0 means
+    //     no gap, -1 means overlap, etc.
+    //   - adjust: how many units to move it in the opposite axis.
+    //   - if any of those are omitted, it'll assume -1 for previous, 1 for gap,
+    //     and 0 for adjust.
+    //     - direction will be whatever the previous' direction was, or "r" if
+    //       it's the first area.
+    //       - previous as in "area it's positioned relative to", i mean.
+    //   - and of course, none of this has any meaning for the first area.
+    //   - first (explained later)
+    //     - suffix
+    //     - w, h
+    //     - horizontal
+    //   - actions: an array of button-creating actions.
+    //     - the buttons of an area are created by starting with a rectangle,
+    //       and modifying it. by the end, this rectangle will represent the
+    //       space all the buttons are within.
+    //     - don't think too hard about x/y coordinates right now. it'll be
+    //       adjusted later so that areas only overlap as much as you wanted
+    //       with your gap/adjustment values. if gap is 1 or 0, it won't overlap
+    //       with its previous no matter what.
+    //     - first, the "first" property is used to create the first
+    //       buttons.
+    //       - suffix, w, and h are self-explanatory
+    //       - suffix can be an array instead of one suffix. it'll create
+    //         creates and h represent the dimensions of *one* of these
+    //         buttons. it'll make a column, or if horizontal exists and is
+    //         true, a row.
+    //       - the area rectangle will then represent this button, column, or
+    //         row.
+    //     - from there, there are four main function-like actions.
+    //       - ["row"/"column", suffixes, direction, w, h]
+    //         - this creates a row or column of buttons, and expands the area
+    //           to fit them.
+    //         - this expands the area, and creates buttons from it.
+    //         - direction is which side it uses
+    //         - w and h are the dimensions of one button.
+    //       - ["expand", suffix, direction, amount, horizontal]
+    //         - expands the area by moving an edge. if suffix is valid, it will
+    //           create button(s) from the expansion.
+    //         - useful for making gaps between buttons.
+    //         - cannot be used to shrink it. just order your actions better,
+    //           scrub.
+    //         - what makes this distinct from row/column is that one dimension
+    //           is whatever the area's dimensions currently are. depending on
+    //           what buttons are omitted, it might be better to use row/column
+    //           so the dimensions are the same no matter what.
+    //       - ["subtract", suffix, direction, amount]: subtracts from the edges
+    //         of an already-created button.
+    //         - you cannot use this to expand buttons.
+    //       - ["align", suffix, direction]: this is used to create buttons that
+    //         span the entire ui. after the button-creation phase is over and
+    //         it figures out all the coordinates of the buttons, this button
+    //         will be expanded so its right edge aligns with the further right
+    //         edge of all the buttons, or its left edge, or whatever.
+    //   - heading: if this exists, it'll make a heading button after all the
+    //     actions. it should be a number, for the height.
+    // - simplified:
+    //   - prefix
+    //   - previous, direction, gap, adjust
+    //   - first
+    //     - suffix
+    //     - w, h
+    //     - horizontal
+    //   - actions
+    //     - ["row"/"column", suffixes, direction, w, h]
+    //     - ["expand", suffix, direction, amount, horizontal]
+    //     - ["subtract", suffix, direction, amount]
+    //     - ["align", suffix, direction]
+    //   - heading
+        let i1 = 0;
+        let i2 = 0;
+        let i3 = 0;
+        omit = (
+            typeof omit === "string" ? {[omit]: true} :
+            Array.isArray(omit) ? {"": omit} :
+            typeof omit === "object" ? omit :
+            {}
+        );
+        for(i1 in omit) {
+            if(omit.hasOwnProperty(i1)) {
+                if(omit[i1] === true) {
+                    for(i2 = 0; i2 < areas.length; i2++) {
+                        if((areas[i2].prefix ?? null) === i1) {
+                            areas.splice(i2, 1);
+                            i2--;
+                        }
+                    }
+                }
+            }
+        }
+        let isdirection = (direction) => typeof direction === "string" && direction.length === 1 && "lrud".includes(direction);
+        let omitsuffixes = function(omit_array, suffix_array) {
+            for(let i1 = 0; i1 < suffix_array.length; i1++) {
+                if(omit_array.includes(suffix_array[i1])) {
+                    suffix_array.splice(i1, 1);
+                    i1--;
+                }
+            }
+        };
+        for(i1 = 0; i1 < areas.length; i1++) {
+            let input = structuredClone(areas[i1]);
+            areas[i1] = {
+                prefix: input.prefix ?? "",
+                x: null,
+                y: null,
+                w: null,
+                h: null,
+                previous: typeof input.previous && Number.isInteger(input.previous) && input.previous < i1 && i1 + input.previous >= 0 ? input.previous : -1,
+                // - non-integers are invalid.
+                // - numbers higher than the current index are invalid.
+                // - numbers that create a negative number if combined with the
+                //   current index are invalid
+                // - use -1 if it's invalid.
+                direction: null,
+                gap: typeof input.gap === "number" ? input.gap : 1,
+                adjust: typeof input.adjust === "number" ? input.adjust : 0,
+                buttons: {},
+            };
+            let obj = areas[i1];
+            let _omit = omit[obj.prefix] ?? [];
+            obj.previous = obj.previous < 0 ? i1 + obj.previous : obj.previous;
+            // if it's negative, count backwards from the current index.
+            // - it's possible for it to be -1 after this if this is area 0 and
+            //   input.previous was -1 or invalid. but input.previous is ignored
+            //   for area 0 anyway.
+            obj.direction = isdirection(input.direction) ? input.direction : obj.previous >= 0 ? areas[obj.previous].direction : "r";
+            let rect = {x: 0, y: 0, w: 0, h: 0};
+            if(input.hasOwnProperty("first")) {
+                rect.w = input.first.w ?? rect.w;
+                rect.h = input.first.h ?? rect.h;
+                if(typeof input.first.suffix === "string") {
+                // one button
+                    obj.buttons[input.first.suffix] = structuredClone(rect);
+                }
+                else if(Array.isArray(input.first.suffix)) {
+                // row/column of buttons
+                    let suffix = input.first.suffix;
+                    let axis = input.first.horizontal ? 0 : 1;
+                    omitsuffixes(_omit, suffix);
+                    for(i2 = 0; i2 < suffix.length; i2++) {
+                        if(typeof suffix[i2] === "string") {
+                            let _rect = structuredClone(rect);
+                            _rect["xy"[axis]] += i2*_rect["wh"[axis]];
+                            obj.buttons[suffix[i2]] = structuredClone(_rect);
+                        }
+                    }
+                    rect["wh"[axis]] *= suffix.length;
+                }
+            };
+            if(!rect.w || !rect.h) {
+                //console.log("either there is no first button for " + (obj.prefix ? "the " + obj.prefix + " area" : "area " + i1) + ", or one of the dimensions is missing/zero, or the first button(s) have been omitted. whatever it is, that's probably why it looks weird or buttons are missing.");
+                // there's a good chance of this being intentional... since
+                // first doesn't fit very well into the omit system.
+            };
+            if(!Array.isArray(input.actions)) {
+                input.actions = [];
+            };
+            if(typeof input.heading === "number" && input.heading > 0) {
+                input.actions[ input.actions.length ] = ["expand", "heading", "u", input.heading];
+            };
+            //console.log(obj.prefix);
+            for(i2 = 0; i2 < input.actions.length; i2++) {
+                let array = input.actions[i2];
+                let error = "invalid action: area " + i1 + " action " + i2 + ".";
+                if(!array.length) {
+                    console.log(error);
+                }
+                else if(array[0] === "row" || array[0] === "column") {
+                // suffixes, direction, w, h
+                    let axis = Number(array[0] === "column");
+                    let suffixes = typeof array[1] === "string" ? [array[1]] : Array.isArray(array[1]) ? structuredClone(array[1]) : null;
+                    let direction = isdirection(array[2]) ? array[2] : null;
+                    let w = typeof array[3] === "number" ? array[3] : null;
+                    let h = typeof array[4] === "number" ? array[4] : null;
+                    if(suffixes === null || direction === null || w === null || h === null) {
+                        console.log(error);
+                    }
+                    else {
+                        let _rect = Rect.neighbor(rect, direction, w, h);
+                        omitsuffixes(_omit, suffixes);
+                        for(i3 = 0; i3 < suffixes.length; i3++) {
+                            if(typeof suffixes[i3] === "string") {
+                                let __rect = structuredClone(_rect);
+                                obj.buttons[suffixes[i3]] = structuredClone(_rect);
+                                obj.buttons[suffixes[i3]]["xy"[axis]] += _rect["wh"[axis]]*i3;
+                            }
+                        }
+                        _rect["wh"[axis]] *= suffixes.length;
+                        rect = Rect.contain(rect, _rect);
+                    };
+                }
+                else if(array[0] === "expand") {
+                // suffix, direction, amount, horizontal
+                    let direction = isdirection(array[2]) ? array[2] : null;
+                    let amount = array[3] ?? 1;
+                    if(direction && amount >= 0) {
+                        let suffix = typeof array[1] === "string" ? [array[1]] : Array.isArray(array[1]) ? structuredClone(array[1]) : null;
+                        let horizontal = !!array[4];
+                        if(suffix !== null) {
+                            omitsuffixes(_omit, suffix);
+                            if(suffix.length) {
+                                let _rect = [null, null];
+                                _rect[(direction === "u" || direction === "d") ? 1 : 0] = amount;
+                                _rect = Rect.neighbor(rect, direction, ..._rect);
+                                Rect.divide(_rect, obj.buttons, "", suffix, horizontal);
+                            };
+                        };
+                        if(suffix === null || suffix.length) {
+                        // only omit the expansion entirely if there were
+                        // buttons, but all of them were omitted.
+                            rect = Rect.expanded(rect, direction, amount);
+                        };
+                    }
+                    else {
+                        console.log(error + " (negative and non-number amounts are invalid.)");
+                    };
+                }
+                else if(array[0] === "subtract") {
+                // suffix, direction, amount
+                    let amount = array[3] ?? 1;
+                    if(amount >= 0) {
+                        if(obj.buttons.hasOwnProperty(array[1] ?? null)) {
+                            obj.buttons[array[1]] = Rect.expanded(obj.buttons[array[1]], array[2] ?? null, -amount);
+                        }
+                        else {
+                            console.log(error);
+                        }
+                    }
+                    else {
+                        console.log(error + " (negative and non-number amounts are invalid.)");
+                    }
+                }
+                else if(array[0] === "align") {
+                // suffix, direction
+                    if(isdirection(array[2]) && obj.buttons.hasOwnProperty(array[1] ?? null)) {
+                        obj.buttons[array[1]].align ??= "";
+                        obj.buttons[array[1]].align += array[2];
+                    }
+                }
+            }
+            // all the buttons should be made now.
+            for(i2 in obj.buttons) {
+                if(obj.buttons.hasOwnProperty(i2)) {
+                // make it so none of their positions are negative.
+                    obj.buttons[i2].x -= rect.x;
+                    obj.buttons[i2].y -= rect.y;
+                    obj.buttons[i2].align ??= "";
+                    if(
+                        Rect.l(obj.buttons[i2]) < 0
+                        ||
+                        Rect.r(obj.buttons[i2]) > rect.w
+                        ||
+                        Rect.u(obj.buttons[i2]) < 0
+                        ||
+                        Rect.d(obj.buttons[i2]) > rect.h
+                    ) {
+                        console.log("this shouldn't happen");
+                    }
+                };
+            }
+            obj.w = rect.w;
+            obj.h = rect.h;
+        }
+        let buttons = {};
+        let range = {l: 0, r: 0, u: 0, d: 0};
+        for(i1 = 0; i1 < areas.length; i1++) {
+        // create buttons from the areas
+            let obj = areas[i1];
+            if(i1) {
+            // position it
+                let previous = areas[obj.previous];
+                let direction = obj.direction;
+                let temp = Rect.neighbor(previous, direction, obj.w, obj.h);
+                obj.x = temp.x + (direction === "l" ? -1 : direction === "r" ? 1 : 0)*obj.gap;
+                obj.y = temp.y + (direction === "u" ? -1 : direction === "d" ? 1 : 0)*obj.gap;
+                obj["xy"[Number(direction === "l" || direction === "r")]] += obj.adjust;
+            }
+            else {
+                obj.x = 0;
+                obj.y = 0;
+            }
+            for(i2 in obj.buttons) {
+                if(obj.buttons.hasOwnProperty(i2)) {
+                    let name = PreSuf.fullname(obj.prefix, i2);
+                    buttons[name] = structuredClone(obj.buttons[i2]);
+                    buttons[name].x += obj.x;
+                    buttons[name].y += obj.y;
+                    range.l = Math.min(range.l, Rect.l(buttons[name]));
+                    range.r = Math.max(range.r, Rect.r(buttons[name]));
+                    range.u = Math.min(range.u, Rect.u(buttons[name]));
+                    range.d = Math.max(range.d, Rect.d(buttons[name]));
+                }
+            }
+        }
+        range = {
+            x: range.l,
+            y: range.u,
+            w: range.r - range.l,
+            h: range.d - range.u,
+        };
+        for(i1 in buttons) {
+            if(buttons.hasOwnProperty(i1)) {
+                buttons[i1].x -= range.x;
+                buttons[i1].y -= range.y;
+                // make sure the minimum x/y is 0
+                let align = buttons[i1].align;
+                delete buttons[i1].align;
+                if(align.includes("l")) {
+                    buttons[i1] = Rect.reach(buttons[i1], 0);
+                };
+                if(align.includes("r")) {
+                    buttons[i1] = Rect.reach(buttons[i1], range.w);
+                };
+                if(align.includes("u")) {
+                    buttons[i1] = Rect.reach(buttons[i1], null, 0);
+                };
+                if(align.includes("d")) {
+                    buttons[i1] = Rect.reach(buttons[i1], null, range.h);
+                };
+                // align
+            }
+        }
+        return buttons;
+    },
+    inside: (rect, x, y, alledges) => (
+        x >= Rect.l(rect) && (alledges ? x <= Rect.r(rect) : x < Rect.r(rect))
+        &&
+        y >= Rect.u(rect) && (alledges ? y <= Rect.d(rect) : y < Rect.d(rect))
+    ),
+    inside_multi: function(obj, x, y, alledges) {
+    // checks a whole object of rectangles for which one the coordinates are
+    // inside. used in ui.
+        for(let i1 in obj) {
+            if(obj.hasOwnProperty(i1) && Rect.inside(obj[i1], x, y, alledges)) {
+                return i1;
+            }
+        }
+        return null;
+    },
+    center: (rect) => [rect.x + rect.w/2, rect.y + rect.h/2],
+    fauxstroke: function(rect, ctx) {
+        let temp = ctx.fillStyle;
+        ctx.fillStyle = ctx.strokeStyle;
+        ctx.fillRect(rect.x, rect.y, rect.w + 1, 1);
+        ctx.fillRect(rect.x, rect.y, 1, rect.h + 1);
+        ctx.fillRect(rect.x, rect.y + rect.h, rect.w + 1, 1);
+        ctx.fillRect(rect.x + rect.w, rect.y, 1, rect.h + 1);
+        ctx.fillStyle = temp;
+    },
+}
+class DrawApp {
+// used to create drawing apps, for use in various tools.
+// - the DrawApp object attaches itself to existing canvases, manages variables,
+//   reacts to clicks, draws ui, etc.
+    constructor(canvas, ui_canvas, focusname) {
+    // - canvas, ui_canvas: <canvas> elements
+    // - focusname: used in the global userfocus variable, which is necessary
+    //   for knowing which tool key presses should be used in.
+        if(canvas instanceof HTMLCanvasElement && ui_canvas instanceof HTMLCanvasElement && typeof focusname === "string") {
+        }
+        else {
+            console.log("do not skip arguments in the DrawApp class. (the variables might be the wrong type, too.)");
+        };
+        this._ctx = canvas.getContext("2d");
+        this._ui_ctx = ui_canvas.getContext("2d");
+    }
+    get ctx() {
+        return this._ctx;
+    }
+    get ui_ctx() {
+        return this._ui_ctx;
+    }
+    // no setters, because you aren't supposed to change these.
+    static block = 8
+    // unit of measurement in ui creation.
+    static buttons_template = {
+
+    }
+    ui_create() {
+
+    }
+}
+
+function buttontext(settings, ctx, rect, text, right_text, centering) {
+    let old_fill = ctx.fillStyle;
+    let old_align = ctx.textAlign;
+    //
+    ctx.fillStyle = ctx.strokeStyle;
+    let align = centering ? "center" : "left";
+    ctx.textAlign = align;
+    let center = Rect.center(rect);
+    settings ??= {};
+    const char_w = settings.char_w ?? 4;
+    const char_h = settings.char_h ?? 8;
+    const margin_x = settings.margin_x ?? 2;
+    const margin_y = settings.margin_y ?? 1;
+    let text_x = (rect, align, text) => Math.floor(rect.x + (
+        align === "center" ? rect.w/2 :
+        align === "right" ? rect.w - margin_x :
+        margin_x
+    )) + (align === "center" && !((text.length*(char_w + 1) - 1)%2) ? .5 : 0);
+    //
+    if(Array.isArray(text)) {
+        const start_y = Math.floor(center[1] - char_h*(text.length - 1)/2 + margin_y);
+        for(i2 = 0; i2 < text.length; i2++) {
+            const start_x = text_x(rect, align, text[i2]);
+            const coor = [
+                start_x,
+                start_y + i2*char_h
+            ];
+            ctx.fillText(
+                text[i2],
+                ...coor
+            );
+            if(right_text || right_text === 0) {
+                const right_edge = text_x(rect, "right", right_text[i2]);
+                ctx.textAlign = "right";
+                ctx.fillText(
+                    right_text[i2],
+                    right_edge,
+                    coor[1]
+                );
+                ctx.textAlign = align;
+            };
+        };
+    }
+    else {
+        ctx.fillText(text, text_x(rect, align, text), center[1] + margin_y);
+        if(right_text || right_text === 0) {
+            ctx.textAlign = "right";
+            ctx.fillText(
+                right_text,
+                text_x(rect, "right", right_text),
+                center[1] + margin_y
+            );
+        };
+    };
+    //
+    ctx.fillStyle = old_fill;
+    ctx.textAlign = old_align;
 }

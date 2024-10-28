@@ -951,7 +951,70 @@ function arraytoul(array, indent) {
     return html;
 }
 
-
+class States extends Array {
+// a class for adding undo/redo functionality to a tool.
+// - integer properties: states. lower numbers are newer, higher numbers are
+//   older.
+// - index: which state is currently loaded.
+// - limit: how long the array can get before it starts deleting the oldest
+//   states.
+// - tool: the big object this is part of and used on.
+// - savefunc: a (tool) function for creating a state.
+// - loadfunc: (tool, state) function for applying a state.
+// =
+// - checklist:
+//   - fill all arguments of the constructor properly.
+//   - add a tool.refresh() call in your loadfunc, so changes are shown
+//   - DON'T save a new state during tool.initialize(); the constructor saves a
+//     new state automatically
+//   - call .save() during tool.refresh(), so that new states are made
+//   - but add an argument for skipping that, so you can use that argument in
+//     loadfunc
+//     - use this argument in any refresh that's purely visual, like mouse tools
+//       where you drag stuff around. refreshes can visualize the movement
+//       before the click is done, but a state should only be saved when the
+//       edit is finalized.
+//   - add key events for it.
+    // fpt.states = new States(fpt, 32, (tool) => structuredClone(tool.markers), function(tool, state) { tool.markers = structuredClone(state) });
+    constructor(tool, limit, savefunc, loadfunc) {
+        super();
+        this.tool = tool;
+        this.limit = Number.isInteger(limit) && limit > 0 ? limit : 32;
+        this.savefunc = typeof savefunc === "function" ? savefunc : function(tool) {};
+        this.loadfunc = typeof loadfunc === "function" ? loadfunc : function(tool, state) {};
+        this[this.length] = this.savefunc(this.tool);
+        this.index = 0;
+    }
+    save() {
+        if(this.index > 0) {
+        // clear redo
+            this.splice(0, this.index);
+            this.index = 0;
+        };
+        this.splice(0, 0, this.savefunc(this.tool));
+        if(this.length > this.limit) {
+        // keep it within limit
+            this.splice(this.limit, this.length - this.limit);
+        };
+    }
+    load(index) {
+    // using in undo/redo, and the anim_index setter. applies the changes
+    // stored in a state.
+        this.loadfunc(this.tool, this[this.index]);
+    }
+    undo() {
+        if(this.index + 1 < this.length) {
+            this.index++;
+            this.load(this.index);
+        };
+    }
+    redo() {
+        if(this.index > 0) {
+            this.index--;
+            this.load(this.index);
+        };
+    }
+};
 
 
 // circledraw

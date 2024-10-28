@@ -1,7 +1,9 @@
+const offline = true;
+const offline_url = "file:///C:/My Stuff/programming";
+// edit these to create an online/offline version.
 const info = {
 // important text info used in automatic rss creation and stuff.
-    url: "file:///C:/My Stuff/programming",
-    //url: "barky.github.io",
+    url: (offline ? offline_url : "https://barky111.github.io"),
     site_name: "barky's web tool repository",
     user_name: "barky",
     language: "en-us",
