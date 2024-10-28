@@ -1,10 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
 	<script src="script/barky_main.js"></script>
-	<script src="script/barky_strings.js"></script>
 	<script src="script/site.js"></script>
+	<script src="script/barky_strings.js"></script>
+	<script src="script/en_phon.js"></script>
 	<script>
 		document.write(head);
+		document.querySelector("title").innerHTML = "text tools";
 	</script>
 	<head>
 		<title>text tools</title>
@@ -3526,6 +3528,24 @@
 			},
 		}
 		bul.initialize();
+		//
+		/*
+		let pho = {
+			element: (name) => document.getElementById("pho_" + tohtmlid(name)),
+			getsetting: (name, caveats) => gethtmlsetting(pho.element(name), caveats),
+			worddata: function(word) {
+				let temp = en_phon.find((element) => element[0] === word);
+				return temp ? {phon: temp[1], syllables: temp[2], first: temp[3], last: temp[4]} : temp;
+			},
+			run: function(type) {
+			},
+			initialize: function() {
+				let html = ``;
+				wrapper.create("pho", html);
+			},
+		}
+		pho.initialize();
+		//*/
 		//
 		wrapper.finish();
 		</script>
