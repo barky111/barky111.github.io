@@ -4824,72 +4824,73 @@ const AAX = {
         // selector
 			hand:
 `wrist:			0, 0, 0
- thumb_1:		-2.5, -1.5, .5
-  thumb_2:		-5, -4, 0
-   thumb_3:		-1, -3, 0
-    thumb_4:	0, -2, 0
- index_1:		-4.5, -12.5, -.5
-  index_2:		0, -6, 0
-   index_3:		0, -3, 0
-    index_4:	0, -2, 0
- middle_1:		-.5, -12.5, -1.5
-  middle_2:		0, -7, 0
-   middle_3:	0, -3, 0
-    middle_4:	0, -2, 0
- ring_1:		3.5, -11.5, -.5
-  ring_2:		0, -6, 0
-   ring_3:		0, -3, 0
-    ring_4:		0, -2, 0
- pinkie_1:		7.5, -9.5, .5
-  pinkie_2:		0, -3, 0
-   pinkie_3:	0, -3, 0
-    pinkie_4:	0, -3, 0
-// the spacing between knuckles/fingers is about 4
+ thumb_1:		-5, -3, 1
+  thumb_2:		-10, -8, 0
+   thumb_3:		-2, -6, 0
+    thumb_4:	0, -6, 0
+ index_1:		-9, -25, -1
+  index_2:		0, -12, 0
+   index_3:		0, -6, 0
+    index_4:	0, -4, 0
+ middle_1:		-1, -25, -3
+  middle_2:		0, -14, 0
+   middle_3:	0, -6, 0
+    middle_4:	0, -4, 0
+ ring_1:		7, -23, -1
+  ring_2:		0, -11, 0
+   ring_3:		0, -6, 0
+    ring_4:		0, -4, 0
+ pinkie_1:		14, -19, 1
+  pinkie_2:		0, -6, 0
+   pinkie_3:	0, -5, 0
+    pinkie_4:	0, -5, 0
+// the spacing between knuckles/fingers is about 8
 // the gap when the fingers point straight up is less than 1/4 of that, but making it 1 makes poses more clear
 // so the finger width is 3
 ###
 [ wrist ]
-0, 0, 0, 9, 5, 5
+0, 0, 0, 18, 10, 10
+9, -1, 0, 6
 [ thumb_1 ]
-0, 0, 0, 3
+0, 0, 0, 8
 [ thumb_2 ]
-0, 0, 0, 4
+0, 0, 0, 8
 [ thumb_3 ]
-0, 0, 0, 3
+0, 0, 0, 8
 [ thumb_4 ]
-0, 0, 0, 3
+0, 0, 0, 6
 [ index_1 ]
-0, 0, 0, 3
+0, 0, 0, 8
 [ index_2 ]
-0, 0, 0, 4
+0, 0, 0, 8
 [ index_3 ]
-0, 0, 0, 3
+0, 0, 0, 6
 [ index_4 ]
-0, 0, 0, 3
+0, 0, 0, 6
 [ middle_1 ]
-0, 0, 0, 3
+0, 0, 0, 8
 [ middle_2 ]
-0, 0, 0, 4
+0, 0, 0, 8
 [ middle_3 ]
-0, 0, 0, 3
+0, 0, 0, 6
 [ middle_4 ]
-0, 0, 0, 3
+0, 0, 0, 6
 [ ring_1 ]
-0, 0, 0, 3
+0, 0, 0, 8
 [ ring_2 ]
-0, 0, 0, 4
+0, 0, 0, 8
 [ ring_3 ]
-0, 0, 0, 3
+0, 0, 0, 6
 [ ring_4 ]
-0, 0, 0, 3
+0, 0, 0, 6
 [ pinkie_1 ]
-0, 0, 0, 3
+0, 0, 0, 8
 [ pinkie_2 ]
-0, 0, 0, 4
+0, 0, 0, 8
 [ pinkie_3 ]
-0, 0, 0, 3
+0, 0, 0, 6
 [ pinkie_4 ]
-0, 0, 0, 3
+0, 0, 0, 6
 ###
 wrist:
     generation(0, 1)
@@ -4945,6 +4946,7 @@ pinkie_1:
     l_toe:     -1, 1, 8
 ###
 [ head ]
+||
 ---------------------------
 ---------------------------
 ---------------------------
@@ -5328,7 +5330,7 @@ l_knee:
         // converts a partobj back to a Part.
             let part = new AAX.Part(tool, body, pose, name);
             for(let i1 in obj) {
-                if(obj.hasOwnProperty(i1)) {
+                if(obj.hasOwnProperty(i1) && i1 !== "tool" && i1 !== "body" && i1 !== "pose" && i1 !== "name") {
                     let type = AAX.part_properties[i1].type;
                     let _i1 = (type === "no_default" || type === "" || type === "pose_getset" ? "_" : "") + i1;
                     // add back the underscore
@@ -6535,31 +6537,33 @@ l_knee:
         return pose;
     },
     // poseclone: (tool, body, pose) => AAX.posefromobj(tool, body, AAX.poseobj(pose)),
-    bodychange: function(tool, body, pose, oldcoor) {
-    // makes adjustments for a change in the Body a pose is based on.
+    bodychange: function(tool, body, poseobj, old_body_rel, old_rel, old_odd) {
+    // makes adjustments for a change in the Body a poseobj is based on.
+    // - there's more to it than this, but what this function does is emulate
+    //   the old pose's difference between its coordinates and its default
+    //   pose's coordinates.
     // - body should be the new body.
-    // - oldcoor: an AAX.all_rel object made from the old body.
+    // - old_body_rel: an AAX.all_rel object made from the old body.
+    // - old_rel: an AAX.all_rel object made from the old pose.
+    // - old_odd: this is kind of weird. sometimes, what's most intuitive is the
+    //   most confusing to actually think about.
+    //   - it isn't just oddness booleans.
+    //   - it's booleans for whether, in the old body and old pose... the
+    //     the oddness for this part/axis was different from its oddness in the
+    //     default pose.
+    //   - since pose tools and all that try to keep it the same, that's what
+    //     you need to preserve.
         let i1 = 0;
         let i2 = 0;
-        let temp = AAX.poseobj(pose);
-        let _pose = AAX.poseobj(AAX.newpose(tool, body));
-        for(i1 in temp) {
-            if(temp.hasOwnProperty(i1) && _pose.hasOwnProperty(i1)) {
-                _pose[i1] = structuredClone(temp[i1]);
-            }
-        }
-        _pose = AAX.posefromobj(tool, body, _pose);
-        // this looks like it's doing nothing, but it isn't. this accounts for
-        // the old and new body having different parts. it starts from a blank
-        // pose and only copies the parts that exist in both.
-        let order = AAX.getdesc(_pose);
+        let _poseobj = structuredClone(poseobj)
+        let order = AAX.getdesc(body);
         for(i1 = 0; i1 < order.length; i1++) {
             let _i1 = order[i1];
-            let part = _pose[_i1];
+            let part = _poseobj[_i1];
             part.cache = structuredClone(AAX.cache_init);
             // reset the cache entirely, since it doesn't have the same
             // shapes or anything
-            if(oldcoor.hasOwnProperty(_i1) && _pose[_i1].parent !== "standpoint") {
+            if(old_body_rel.hasOwnProperty(_i1) && old_rel.hasOwnProperty(_i1) && body[_i1].parent !== "standpoint") {
                 // apply changes to the coordinates. try to
                 // emulate the same change between the old
                 // default coordinates and the old pose's
@@ -6567,44 +6571,42 @@ l_knee:
                 // - the standpoint child's coordinates represent
                 //   the coordinates of the body in general, so
                 //   don't change it.
-                let change = Points.change(oldcoor[_i1], part.relcoor);
+                let change = Points.change(old_body_rel[_i1], old_rel[_i1]);
                 // multiplier and quaternion representing how to
                 // get from the old default pose's coordinates
                 // to the posed coordinates
                 let newcoor = Points.applychange(AAX.relcoor(body[_i1]), change.multiplier, change.quat);
                 // old body + change = old pose
                 // new body + change = new pose
-                if(true) {
+                if(old_odd.hasOwnProperty(_i1)) {
                 // but it should also make adjustments for oddness, so there
                 // aren't unexpected changes.
                 // - if the pose's oddness matches the old body's oddness, it
                 //   should still match.
                 // - if it didn't, it shouldn't.
                     let floats = [];
-                    let parent = part.parent === "standpoint" ? [0, 0, 0] : _pose[part.parent].abscoor;
+                    let parent = [0, 0, 0];
+                    let anc = AAX.getanc(body, _i1);
+                    for(i2 = 0; i2 < anc.length; i2++) {
+                    // abscoor doesn't work on poseobjs.
+                        let ref = _poseobj[ anc[i2] ];
+                        parent[0] += ref.x;
+                        parent[1] += ref.y;
+                        parent[2] += ref.z;
+                    }
                     newcoor = Points.add(newcoor, parent);
                     // it's absolute oddness that matters, so add this at the
                     // beginning and subtract it at the end.
-                    let oldbodyabs = [0, 0, 0];
-                    let anc = AAX.getanc(_pose, _i1);
-                    // figure out which axes had different oddness than the body
-                    // before the body changed.
-                    anc[anc.length] = _i1;
-                    for(i2 = 0; i2 < anc.length; i2++) {
-                        oldbodyabs = Points.add(oldbodyabs, oldcoor[ anc[i2] ] ?? [0, 0, 0]);
-                        // get the absolute coordinates of the old body.
-                        // - oldcoor[ anc[i2] ] might not exist if it's a part
-                        //   that's in the new body but not the old.
-                    }
+                    let temp = AAX.abscoor(body, _i1);
                     for(i2 = 0; i2 < 3; i2++) {
                         let axis = "xyz"[i2];
-                        let odd = !!((body[_i1][ "xyz"[i2] ])%1);
-                        // copy the current body's oddness
-                        if(!!(oldbodyabs[_i1]%1) !== !!(_pose[_i1].abscoor[i2]%1)) {
-                        // unless if the old coordinates' oddness didn't match
-                        // the old body's oddness.
+                        let odd = !!(temp[i2]%1);
+                        // copy the current default pose's oddness
+                        if(old_odd[_i1][i2]) {
                             odd = !odd;
                         };
+                        // if the old pose has different oddness from the old
+                        // default pose, invert it
                         floats[i2] = Number(odd)/2;
                     }
                     //newcoor = AAX.fixfloats(newcoor, floats, null, false, "hypot");
@@ -6612,14 +6614,19 @@ l_knee:
                     // now bring it to the nearest coordinates that have those
                     // floats.
                     newcoor = Points.subtract(newcoor, parent);
+                    // make it relative again
+                }
+                else {
+                    newcoor = Points.divide(Points.trunc(Points.multiply(newcoor, 2)), 2);
+                    // make sure these are .0/.5
                 }
                 part.x = newcoor[0];
                 part.y = newcoor[1];
                 part.z = newcoor[2];
-                // coordinate setter makes sure these are .0/.5
+                // coordinate setter
             }
         }
-        return _pose;
+        return _poseobj;
     },
     inbetweening: function(tool, body, frames, currframe, values, apply) {
     // uses AAX.Part.inbetween on an array of poses.
@@ -6982,6 +6989,10 @@ l_knee:
             //   shown. it's kind of a clusterfuck, and you only need it when
             //   you need to know where a certain outline is, so by default it
             //   just acts like all parts are part of group 0.
+            vertices: true,
+            // if true, the points that make up a .shape will be drawn by
+            // Part.rasterize as 2 pixels. that can get kinda ugly depending on
+            // the angle.
             skeleton: true,
             perspective: false,
             nodes: true,
@@ -6992,10 +7003,6 @@ l_knee:
             // even if a part is hidden, nodes still draw. skeleton will also be
             // drawn if there's visible descendants. if this is on, nothing will
             // draw for hidden parts no matter what.
-            vertices: true,
-            // if true, the points that make up a .shape will be drawn by
-            // Part.rasterize as 2 pixels. that can get kinda ugly depending on
-            // the angle.
         }
         get viewer() {
             return new Viewer(
@@ -7072,9 +7079,6 @@ l_knee:
             // colors of every grid line
             side_tint: "#ff7f001f",
             // this color is drawn over the entire grid, for those views.
-            silhouette_fill: "#ffffff",
-            //silhouette: ["#2f2f5f", "#9fcfff", "#cf9fff"],
-            //silhouette: ["#2f2f5f", "#2f2f5f", "#2f475f", "#472f5f"],
             silhouette: ["#2f2f5f", "#3f7f3f", "#7f3f3f"],
             // by default, this is "draw outlines in dark blue, but draw
             // interior arm outlines in dark azure"
@@ -7087,6 +7091,9 @@ l_knee:
             // - and the legs should be indistinguishable from the body, but
             //   for some poses you might want to do the same thing it does
             //   to the arms.
+            silhouette_fill: "#ffffff",
+            //silhouette: ["#2f2f5f", "#9fcfff", "#cf9fff"],
+            //silhouette: ["#2f2f5f", "#2f2f5f", "#2f475f", "#472f5f"],
             parts: [
             // defining a part's color1 or color2 makes it use colors from
             // this array.
@@ -7191,7 +7198,7 @@ l_knee:
         for (i1 in body) {
             loop.tick(1);
             if (body.hasOwnProperty(i1)) {
-                coor[i1] = body[i1].relcoor;
+                coor[i1] = AAX.relcoor(body[i1]);
             };
         }
         loop.end();

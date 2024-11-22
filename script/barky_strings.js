@@ -795,8 +795,12 @@ class Bullets {
         }
         return output;
     }
-    string_html(width, myformatting) {
-        let string = entityreplacement( this.string(width, myformatting) ).replaceAll("\n", "<br>");
+    string_html(width, myformatting, skip_er) {
+        let string = this.string(width, myformatting);
+        if(!skip_er) {
+            string = entityreplacement(string, true);
+        }
+        string = string.replaceAll("\n", "<br>");
         while(string.includes("  ")) {
             string = string.replaceAll("  ", " &#160;");
         }
@@ -2247,7 +2251,7 @@ class Bullets {
         }
         return newbul;
     }
-    publicize(_unmedia) {
+    publicize(_unmedia, _italicize) {
     // removes spoiler tags and stuff
         let i1 = 0;
         let i2 = 0;
@@ -2331,7 +2335,9 @@ class Bullets {
                     text = text.replaceAll("(" + del[i2] + ")", "")
                     text = text.trim();
                 }
-                this[i1].text = _unmedia ? unmedia(text) : text;
+                text = _unmedia ? unmedia(text) : text;
+                text = _italicize ? italicize(text) : text;
+                this[i1].text = text;
             }
         }
         this.remove(remove);
@@ -2447,20 +2453,20 @@ function entityreplacement(input, leave_whitespace) {
             input = input.replaceAll(i1, "&#" + entities[i1] + ";");
         }
     }
-    for(i1 = 0; i1 < input.length; i1++) {
-    // replace spaces after whitespace
-        if(input[i1] === " ") {
-            let slice = input.slice(0, i1);
-            if(slice.endsWith("&#160;") || !slice.slice(-1).trim()) {
-            // if the text up until now ends with a non-breaking space entity or
-            // whitespace, or it's the beginning of the text, turn this into a
-            // non-breaking space entity
-                input = slice + "&#160;" + input.slice(i1 + 1);
-                i1 += "&#160;".length - 1;
-            };
-        };
-    }
     if(!leave_whitespace) {
+        for(i1 = 0; i1 < input.length; i1++) {
+            // replace spaces after whitespace
+            if(input[i1] === " ") {
+                let slice = input.slice(0, i1);
+                if(slice.endsWith("&#160;") || !slice.slice(-1).trim()) {
+                    // if the text up until now ends with a non-breaking space entity or
+                    // whitespace, or it's the beginning of the text, turn this into a
+                    // non-breaking space entity
+                    input = slice + "&#160;" + input.slice(i1 + 1);
+                    i1 += "&#160;".length - 1;
+                };
+            };
+        }
         input.replaceAll("\n", "<br>");
         while(input.includes("\t")) {
             // replace all indents with <ul> elements
@@ -3463,4 +3469,106 @@ function simplify(string) {
         string = string.slice(0, -1);
     };
     return string;
+}
+function italicize(string) {
+// converts text surrounded by * to italics, ** to bold, *** to bold-italics.
+// does entity replacement as well.
+    let i1 = 0;
+    let i2 = 0;
+    let i3 = 0;
+    let ast = [];
+    let num = 0;
+    for(i1 = 0; i1 < string.length; i1++) {
+        if(string[i1] === "*") {
+            let obj = {
+                index: i1,
+                length: 0,
+            };
+            while(i1 + obj.length < string.length && string[i1 + obj.length] === "*") {
+                obj.length++;
+            }
+            if(obj.length >= 1 && obj.length <= 3) {
+                let white_left = true;
+                let white_right = true;
+                for(i2 = i1 - 1; i2 >= 0; i2--) {
+                    if(!string[i2].trim()) {
+                        white_left = true;
+                        i2 = -1;
+                    }
+                    else if(string[i2].toLowerCase() !== string[i2].toUpperCase()) {
+                        white_left = false;
+                        i2 = -1;
+                    }
+                }
+                for(i2 = i1 + 1; i2 < string.length; i2++) {
+                    if(!string[i2].trim()) {
+                        white_right = true;
+                        i2 = string.length;
+                    }
+                    else if(string[i2].toLowerCase() !== string[i2].toUpperCase()) {
+                        white_right = false;
+                        i2 = string.length;
+                    }
+                }
+                if(white_left && !white_right) {
+                    obj.close = false;
+                    num++;
+                    ast.push(obj);
+                }
+                else if(!white_left && white_right) {
+                    obj.close = true;
+                    num--;
+                    ast.push(obj);
+                }
+            }
+            i1 += obj.length - 1;
+        }
+    }
+    // italics always follow this rule: for openers, the left side is closer to
+    // a whitespace (or the end of the text) than a letter, and the right side
+    // is closer to a letter than whitespace.
+    // - all other characters are ignored. with punctuation, quotes,
+    //   parentheses, etc, it would be complicated.
+    if(num < 0) {
+    // too many closers
+        for(i1 = ast.length - 1; i1 >= 0 && num; i1--) {
+            if(ast[i1].close) {
+                ast.splice(i1, 1);
+                num++;
+            }
+        }
+    }
+    else if(num > 0) {
+    // too many openers
+        for(i1 = ast.length - 1; i1 >= 0 && num; i1--) {
+            if(!ast[i1].close) {
+                ast.splice(i1, 1);
+                num--;
+            }
+        }
+    }
+    if(!ast.length) {
+        return entityreplacement(string, true);
+    };
+    let _string = "";
+    for(i1 = 0; i1 <= ast.length; i1++) {
+        let start = i1 ? ast[i1 - 1].index + ast[i1 - 1].length : 0;
+        let end = i1 < ast.length ? ast[i1].index : string.length;
+        _string += entityreplacement(string.slice(start, end), true);
+        if(i1 < ast.length) {
+            _string += (
+                ast[i1].close ? (
+                    ast[i1].length === 1 ? "</i>" :
+                    ast[i1].length === 2 ? "</b>" :
+                    ast[i1].length === 3 ? "</i></b>" :
+                    ""
+                ) :
+                ast[i1].length === 1 ? "<i>" :
+                ast[i1].length === 2 ? "<b>" :
+                ast[i1].length === 3 ? "<b><i>" :
+                ""
+            )
+        }
+    }
+    return _string;
 }

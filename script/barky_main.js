@@ -933,7 +933,7 @@ function randexponent(factor, allownegative) {
 }
 
 
-function arraytoul(array, indent) {
+function arraytoul(array, indent, details) {
 // technically this is a string thing, but i use it too often. lets me avoid
 // loading the whole strings script.
     let i1 = 0;
