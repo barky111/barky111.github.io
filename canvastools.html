@@ -17857,9 +17857,8 @@
 			editmodetrue: null,
 			editmodefalse: null,
 			coor: null,
-			datatext: null,
 		},
-		version_history: "v1.0 v1.01 v1.1".split(" "),
+		version_history: "v1.0 v1.0.1 v1.1 v1.1.1".split(" "),
 		get version() {
 			return aa.version_history[aa.version_history.length - 1];
 		},
@@ -21016,7 +21015,7 @@
 			//console.log(aa.body);
 			// make sure a body exists
 			//
-			let string = `a character animation system that's featured out the ass. read the tips, using the button at the bottom of the page.`;
+			let string = `a character animation system that's featured out the ass. works best with a mouse/touchpad. read the manual.`;
 			string += `<div id="aa_editmodetrue">`;
 			string += `<div id="aa_editmodetrue_active">`;
 			let ref = aa.pa.ctx;
@@ -21041,6 +21040,254 @@
 			string += `</div>`;
 			// end editmodetrue div
 			//string = `<div hidden>` + document.getElementById("hider_armature_artist").innerHTML + `</div>` + string;
+			string += `\n<details>`;
+			string += `\n\t<summary>manual</summary><ul>`;
+			let manual = [
+				`pose tools`,
+				[
+					`the deform pose tool lets you move parts anywhere, even if it changes how far the part is from their parent. (useful for body parts connected by a spine instead of a bone.)`,
+					`the move pose tool lets you move parts, but keeps it as far away from the parent as it is in the default pose. (the third axis will be whatever positivity/negativity brings it closer to the camera for that view. if you're on the front view, it will move forward, if it's the back view it will move backward.)`,
+					`if you click a part in the rotate pose tool, it will select that part. if you click anywhere else, you can rotate the selected part and its descendants.`,
+					[
+						`tilt is similar, but doesn't affect descendants.`
+					],
+					`the perspective pose tool lets you create an offset for each view, letting you position things around a vanishing point.`,
+					`certain graphical changes only apply in perspective mode, namely the perspective offsets, and camera angle. perspective mode is for visualizing what the pose/animation will look like at the end, while the other modes are meant to be easier to understand and edit, like an engineering multiview.`,
+					`selecting the pose tool you already have selected "inverts" it, making it work differently.`,
+					[
+						`inverted move will use the current hypotenuse of the part, rather than the hypotenuse it has in the default pose. (useful if you used deform to lengthen limbs or something.)`,
+						`inverted deform will move the part without moving its descendants.`,
+						`inverted tilt/rotate does xz rotation.`,
+						`inverted perspective selects parts without editing them. (useful while editing different perspective images)`
+					]
+				],
+				`editing/switching bodies`,
+				[
+					`open the "bodytext" thing, under the ui canvas.`,
+					`by editing the content in that text area and clicking "apply changes", you can edit or replace the body. a lot of part properties can only be changed in here.`,
+					`there's also a dropdown with some example bodytexts to use or start from, like a hand.`,
+					`structure of a bodytext`,
+					[
+						`the first area defines parts, their names, parent structure, and coordinates.`,
+						[
+							`if a part name starts with "l_" or "r_", a symmetrical counterpart will be made.`,
+							[
+								`coordinates, shapes, and images are x-mirrored, and if the part's parent has a symmetrical counterpart, it will be parented to that.`,
+								`this can be avoided. see the "no_mirror" command below.`
+							]
+						],
+						`the second area is images.`,
+						[
+							`type a bracketed part name to make lines after that part of that part's shapes/images.`,
+							`use "||" lines to transition from a part's shape to its unperspectived images, or from that to its perspectived images.`,
+							`read the "shape system" and "image system" sections for more about how shapes/images work and how to write them.`
+						],
+						`the third area is other properties. enter a part name and colon, then...`,
+						[
+							`color1(), color2(): enter numbers in the parentheses to set first and second colors for the part and all its descendants.`,
+							[
+								`these numbers represent items of the list of part colors. (you can edit that list by clicking that rainbowy button.)`,
+								`you can enter multiple numbers, separated by commas. this will make colors alternate between generations. (ex: "color1(1, 2)" will make the part's color1 the first color in the part colors list, and make all its children use the second color in that list. then the grandchildren use the first color, great-grandchildren use the second, etc.)`,
+								`if you use "color1*()" or "color2*()" instead, descendants won't be affected.`
+							],
+							`generation(), capsule(), silhouette(): these affect the silhouette/connection system.`,
+							[
+								`when the silhouettes toggle in draw settings is on, it draws an approximation of the armature's silhouette, using these properties.`,
+								`generation(): enter two numbers in the parentheses. this type of connection forms silhouette shapes by convexing multiple images. the part, and some of its ancestors and/or descendants. for example, "generation(1, 2)" makes it combine the part's image, its parent's image, all of its childrens' images, and all of its grandchildrens' images.`,
+								`capsule(): enter one number in the parentheses. this type of connection form a silhouette shape with the part's image, and a capsule shape from the center of the part to the center of the part's parent. the number represents the capsule diameter.`,
+								[
+									`the "i have to make it look at least kind of like a neck" type.`
+								],
+								`silhouette(): enter a number, and maybe follow it with letters. this defines the "silhouette group", which helps differentiate different limbs.`,
+								[
+									`if parts have the same number <i>and</i> letters, they're drawn together, with no outlines between their silhouette shapes.`,
+									`if parts have the same number but different letters, they're drawn like separate shapes, but in the same color.`,
+									`the number is used to select one of the silhouette colors. there's a color button that lets you edit those. the dark blue/green/red one.`,
+									`if an l_ or r_ part has no letters in their silhouette group, when it gets a symmetrical counterpart, the left one will get "l" and the right one will get "r".`,
+									[
+										`this doesn't happen if the silhouette group was 0. (the assumption is that if it's 0, you didn't want these limbs differentiated from the rest of the body anyway.)`
+									],
+									`just like color1 and color2, silhouette has a "silhouette*()" counterpart that doesn't affect descendants.`
+								],
+								`no_mirror(): avoids the creation of a symmetrical counterpart.`,
+								`hide(): the part is hidden by default.`,
+								`perspective(): lets you predefine perspective offset? this isn't very useful, but it's there.`,
+								[
+									`enter view 0's x, view 0's y, view 1's x, etc.`,
+									`you can also enter "auto". that counts for two coordinates, since it applies to a whole view`,
+									`by default, all views have automatic perspective.`
+								]
+							]
+						]
+					],
+					`writing // anywhere in a bodytext makes a comment, ie the rest of that line is ignored.`,
+					`poses can survive bodytext changes, for the most part. if a part with the same name exists in both the old and new body, it'll adopt changes in coordinates and the like, while accounting for the angle/hypotenuse difference the part has in the default pose.`
+				],
+				`shape system`,
+				[
+					`parts usually use 3d shapes to generate 2d images.`,
+					`these shapes are defined in bodytext, but you can also redefine them with the "edit shape" button.`,
+					`shapes are lists of points, broken up into groups. each line is a point, and a "|" line starts a new group.`,
+					`every group is drawn as a convex shape. you can make simple convex shapes like pyramids/cubes/etc by just placing all the points. the order of the points doesn't matter.`,
+					`concave shapes are impossible with just that, so that's what point groups are for. you can form concave shapes by breaking it up into multiple convex parts.`,
+					`points can be made into spheres/spheroids by writing more than three numbers. if there's four, the fourth is used as the diameter of a sphere. if there's six, the last three numbers are used for width, height, and depth.`,
+					`you can rotate spheroids, too. anything past the sixth number is used for that, either through xy/yz/xz rotations (axis, colon, 0 to 1 number, ex: "xy: 1/4, xz: .37") or a quaternion. (ex: "w: .707, x: 0, y: 0, z: .707")`,
+					`if you enter a point index with axis letters before it, it'll be a duplicate that's inverted in those axes. (it doesn't affect rotation.) if you don't include an index, it'll copy the last non-duplicate/inversion point.`,
+					`you can type a point that's nothing but axis letters to copy the previous point with those coordinates inverted. useful for designing symmetrical shapes.`,
+					`if you type axis letters and a point index, you can make copies of other points. (the first point is 0. negative indexes will start from the most recent points, so -1 means "the point before this one".)`,
+					`the "orient" part property rotates the shape. the rotate and tilt pose tools can edit this. the part information window visualizes it by showing the directions of the x/y/z axes of the shape.`,
+					`"stretch" and "widen" scale the shape. stretch scales it along the line from the part to its parent, and widen scales it in other directions.`,
+					`extra notes`,
+					[
+						`// comments are especially useful in shapes, to remember how the shape is structured.`,
+						`symmetrical counterparts x-mirror the shape as well, but at the moment, they can't invert spheroid rotations.`
+					]
+				],
+				`image system`,
+				[
+					`shapes are generally more useful than 2d images. things are designed around them more than they're designed around 2d images.`,
+					`but 2d images are useful for things like hands, that are important but can't be drawn with shapes. that's what "part artist" is for, creating 2d images manually.`,
+					`a part can have a shape, unperspectived images, and perspectived images. if it has multiple, unperspectived is used over shapes, and perspectived is used over unperspectived.`,
+					`there can be two unperspectived images per part. a front view, and right view. (it's mirrored for the other two views.)`,
+					`there can be four perspectived images. one per view. this is only shown when the selected pose tool is perspective.`,
+					`structure of images, in bodytext:`,
+					[
+						`make a rectangle of characters. any dimensions are fine.`,
+						`- for empty pixels, % for the first color, * for the second color.`,
+						`use a | line to switch to the next image.`,
+					],
+					`the "switch" button in armature artist copies the current part's 2d image to part artist and switches over to part artist so you can edit it.`,
+					`the "switch" button in part artist applies your changes to the part in armature artist and switches back to it.`,
+					`extra notes`,
+					[
+						`the "switch without export" buttons switch between the two without doing any image import/export.`,
+						`when the pose tool is "perspective", switching to/from part artist will import/export the perspective image of the current part, in the current selected view. (the selected view is whatever view you last clicked to edit. there's view buttons to indicate/change the view.)`,
+						`when the pose tool is anything else, switching to/from part artist will import/export both the front and right unperspectived images.`,
+						`the "clear image" button follows the same rules.`,
+						`if said 2d image doesn't exist, part artist imports/exports whatever the 3d shape draws.`,
+						`if you ever get mixed up which images exist and don't exist, check the part information window.`,
+						`the difference between the first and second color is that for the first color, any interior pixels will use the "part fill" color, with only the edges being the part's color. this isn't true for the second color.`,
+						[
+							`the first color is meant to define the shape, the second marks reference points or whatever.`
+						]
+					]
+				],
+				`hide/show`,
+				[
+					`"part" hide/show: hides/shows the selected part.`,
+					`"branch" hide/show: hides/shows the selected part and its descendants.`,
+					`"group" hide/show: hides/shows all parts in the same silhouette group.`,
+					`"body" hide/show: hides/shows all parts in the same body. (if you have parts that are unconnected objects or even separate characters, those won't be affected.)`,
+					`"body-branch" hide/show: short for "body minus branch". hides all parts part of the same body but not the same branch.`,
+					`hide/shows with similar names work the same way. hiding/showing everything that fits into the first type but not the second.`,
+					`hidden parts aren't selectable, unless the "total hide" setting is off. it's useful for animating complex bodies or multiple characters at once, without irrelevant characters/parts getting in the way.`
+				],
+				`other part properties`,
+				[
+					`relative coordinates are the part's coordinates relative to the part's parent.`,
+					`perspective coor is the offset the perspective pose tool creates. it's only shown in perspective mode. if it's set to "auto", it'll be calculated automatically, based on the draw settings vanishing point and range.`,
+				],
+				`draw settings`,
+				[
+					`grid: increments for the grid lines. "2, 2, 4" would mean lines are drawn every 2 pixels in the first grid color, then every 2*2 pixels in the second grid color, then every 2*2*4 pixels in the third grid color. putting a 0 anywhere makes it draw lines at the standpoint and only the standpoint.`,
+					`standpoint: parts that are at (0, 0, 0) will appear at this position in the cell, relative to the cell's center.`,
+					`range: used in automatic perspective. when a point has perspective applied, no matter where it is, it's placed within this radius from the vanishing point. lower numbers mean more curvature, higher numbers mean less.`,
+					`cell: cell dimensions.`,
+					`vp: "vanishing point". used in the automatic perspective. the coordinates are relative to the standpoint.`,
+					`camera: an xz and yz angle. when it's in perspective mode, everything is rotated by these.`,
+					`fineness: used in shape spheroids. spheroids are drawn as if a circle has this many sides. higher numbers are a bit more taxing, but if you're making shapes big enough to see flat sides in your spheroids, increasing this will fix that.`,
+					`toggles`,
+					[
+						`grid: between the background being a grid, color but no grid, or totally transparent. useful when generating images from your animation.`,
+						`silhouette: connects parts' images to form a somewhat realistic-looking silhouette. switches between them being shown, shown with different silhouette groups being distinguished, or no silhouettes at all.`,
+						[
+							`differentiating different limbs is the whole point of silhouette groups, but they only clutter up the image unless you actually need to see those interior outlines at the moment.`
+						],
+						`parts: toggles whether parts' images are drawn. (the pink setting makes it so all images' outlines are visible, even if they would normally be covered up by another image's fill.)`,
+						`vertices: when it generates 2d images from the part's shape, it draws the points that make up the shape in the part's second color. this is a toggle for that.`,
+						`skeleton: lines between parts and their parents`,
+						`perspective: draws lines between where parts are in and out of perspective mode.`,
+						`nodes: highlights the center of each part`,
+						`total hide: when this is off, some things are still drawn even for hidden parts. just enough to know where they are and edit them. (the nodes are visible, and so is their skeleton if they have unhidden descendants.)`
+					],
+					`colors`,
+					[
+						`the left set of colors affects the grid.`,
+						`the middle set of colors affects the elements of an armature. (in about the same order as the draw settings toggles for those elements, and the order they're layered.)`,
+						`the right set of colors is interface stuff. stuff used in pose tool graphics, and the ui.`,
+						`but if you forget which is which, the button prompts will tell you what they are.`,
+					],
+					`extra notes`,
+					[
+						`if you use a bodytext with a part named "head", the vanishing point's y will automatically be set as the y that part has in the default pose. like placing the camera at eye level.`,
+						`hitting "cancel" on a color prompt will keep it as it is, but hitting "ok" without typing anything will reset the color to default.`,
+						`the standpoint grid lines move while in perspective mode, but that only represents where a [0, 0, 0] point would be perspectived to. it's not like it changes which pixels are what coordinates or anything.`
+					]
+				],
+				`keymap`,
+				[
+					`w, a, s, d: lets you switch pose tools and frames.`,
+					`shift+a, shift+d: change which view you have selected. (relevant to buttons that edit perspective images or perspective coordinates, and the "update animation" button.)`,
+					`e: inverts or uninverts the pose tool`,
+					`q, shift+q: switches to/from the image editor, with or without exporting.`,
+					`t, f, g, h: selects parts by moving through the family structure. t selects the parent of the current part, g selects the first child of the part, and f and h cycle through siblings.`,
+					`j, i, k, o, l: frame actions (blank, duplicate, delete, etc)`,
+					`ctrl+z, ctrl+shift+z: undo, redo`,
+					`ctrl+s, ctrl+o: save, load`
+				],
+				`etc`,
+				[
+					`the part information window shows which properties are different from the default pose by marking them with a !. click that line of the window to reset that property to default.`,
+					`oddify makes it so the part is centered on a .5 coordinate instead of a .0 coordinate, and vice versa. the images are edited to match, so the center row/column(s) might be deleted or expanded. it can also be used in perspective mode, to affect perspective offset.`,
+					`when changing something like the cell dimensions or vanishing point, you can leave a spot empty to leave it how it is. (for example, entering "72," for the cell dimensions would set the width as 72 and leave the height unchanged.)`,
+					`you can load files by drag-and-dropping them onto the multiview canvas, or with ctrl+o.`,
+					`if multiple nodes are on the same screen position, clicking it will select whichever one is closest to the camera. the text below the multiview shows the name of the part you're about to click.`,
+					`if it's running slow:`,
+					[
+						`lower the state limit and truncator. (every state stores every frame's pose, and depending on how many animations you have, it can store a lot. the maximum amount it could be storing is limit + (number of animations - 1) * (2*truncator + 1).`,
+						`turn off silhouettes`,
+						`create perspectived/unperspectived images so it doesn't have to convert shapes. (i went through a lot of caching hell to avoid this process slowing things down, but still.)`,
+						`lower fineness`
+					]
+					/*
+					//`if you switch to the image editor while using the perspective pose tool, you'll only edit how it looks in the current view, while perspectived. you can use this to make a part bigger or smaller depending on how far it is from the camera.`,
+					//`if you write a part name at the beginning of a shape point group, or a part name + a colon before a point, that group/point will follow the orientation and scaling of the named part, instead of the part the shape is part of. (this is useful for certain anatomy, like elbows.)`,
+					//`if you type a negative number for the inbetween curve factor, the positions will be somewhat random.`,
+					`"create inbetweens" creates new frames between the current frame and the next frame that act as a bridge between the two. "apply tweening" modifies existing frames instead. (ex: if you're on frame 2 and you "create" 5 inbetweens, it'll insert 5 inbetweens that start like frame 2 and end like frame 3. if you "apply" instead, existing frames 3-7 will be made into inbetweens for frames 2 and 8.)`,
+					`when you use create or apply tweening, it doesn't do anything for parts that are hidden on the starting pose. for "create", those parts will stay like how they are in the starting pose the whole way through. for "apply", they'll stay how they were before. this is what makes "apply" tweening useful: you can keep the poses mostly the same while only tweening one character, one limb, etc.`
+					*/
+				]
+			];
+			for(i1 = 0; i1 < manual.length; i1++) {
+				if(typeof manual[i1] == "string") {
+					if(Array.isArray(manual[i1 + 1] ?? null)) {
+						string += [
+							``,
+							`<details>`,
+							`\t<summary>` + manual[i1] + `</summary>`,
+							`\t` + arraytoul(manual[i1 + 1], 1).replaceAll(`\n`, `\n\t`),
+							`</details>`
+						].join(`\n`).replaceAll(`\n`, `\n\t`);
+						i1++;
+					}
+				}
+			}
+			string += `\n</ul></details>`;
+			string += [
+				`<details>`,
+				`\t<summary>bodytext</summary>`,
+				`\t<button id="aa_bodychanges">apply changes</button> <select id="aa_bodychoices"></select>`,
+				`\t<br><textarea id="aa_bodytext" cols=48></textarea>`,
+				`</details>`
+			].join(`\n`);
+			string += [
+				`<details>`,
+				`\t<summary>posetext</summary>`,
+				`\t<button id="aa_allframes">show ` + (aa.control.all_frames_posetext ? `one frame` : `all frames`) + `</button>`,
+				`\t<br><button id="aa_posechanges">apply changes</button>`,
+				`\t<br><textarea id="aa_posetext" cols=48></textarea>`,
+				`</details>`
+			].join(`\n`);
 			document.write(string);
 			aa.div.editmodetrue_active = document.getElementById("aa_editmodetrue_active");
 			// the _active divs are used to make sure the height of
@@ -21114,17 +21361,8 @@
 			loop.end();
 			string += `</div>`;
 			// end of editmodefalse div
-			string += `<br><button id="aa_opentext">open text</button>`;
-			string += `<div id="aa_div_datatext" hidden>`;
-			string += [
-				`<button id="aa_allframes">show ` + (aa.control.all_frames_posetext ? `one frame` : `all frames`) + `</button>`,
-				`<button id="aa_bodychanges">apply body changes</button> <select id="aa_bodychoices"></select>`,
-				`<button id="aa_posechanges">apply pose changes</button>`
-			].join(`<br>`);
-			string += `<br><label>body: <textarea id="aa_datatext_body" cols=48></textarea></label> <label>poses: <textarea id="aa_datatext_pose" cols="48"></textarea></label>`;
-			string += `</div>`;
-			// the contents of the datatext div will be hidden or
-			// shown when the open/close text button is clicked.
+			string += `<br>`;
+			// data text
 			string += [
 				`<dialog id="aa_editshape_dialog" autofocus>`,
 				`enter new text to define the shape.`,
@@ -21180,21 +21418,16 @@
 			aa.div.coor = document.getElementById("aa_div_coor");
 			aa.div.coor.style["text-shadow"] = "silver .5px .5px";
 			aa.div.coor.style["font-size"] = "8px";
-			aa.div.datatext = document.getElementById("aa_div_datatext");
-			let temp = document.getElementById("aa_datatext_body");
+			let temp = document.getElementById("aa_bodytext");
 			temp.value = aa.bodytext;
 			temp.rows = temp.value.split(String.fromCharCode(10)).length;
 			temp.style["-moz-tab-size"] = 4;
 			temp.style["vertical-align"] = "top";
-			temp = document.getElementById("aa_datatext_pose");
+			temp = document.getElementById("aa_posetext");
 			temp.rows = temp.value.split(String.fromCharCode(10)).length;
 			temp.style["-moz-tab-size"] = 4;
 			temp.style["vertical-align"] = "top";
 			aa.writecoordinates(null);
-			document.getElementById("aa_opentext").onpointerdown = function(e) {
-				aa.div.datatext.hidden = !aa.div.datatext.hidden;
-				e.target.innerHTML = ["close", "open"][Number(aa.div.datatext.hidden)] + " text";
-			};
 			string = [];
 			for(i1 in AAX.Body.templates) {
 				if(AAX.Body.templates.hasOwnProperty(i1)) {
@@ -21212,7 +21445,7 @@
 			temp.innerHTML += `\n\t` + string.join(`\n\t`) + `\n`;
 			temp.onchange = function() {
 				let name = document.getElementById("aa_bodychoices").value;
-				let ref = document.getElementById("aa_datatext_body");
+				let ref = document.getElementById("aa_bodytext");
 				if(name === "current") {
 					ref.value = aa.bodytext;
 				}
@@ -21223,11 +21456,11 @@
 					console.log("this shouldn't happen");
 				}
 			};
-			document.getElementById("aa_datatext_body").onkeyup = function() {
+			document.getElementById("aa_bodytext").onkeyup = function() {
 			// using keyup instead of change, since this changes the bodychoices
 			// selection, and the bodychoices selection edits the body textarea.
 			// that could cause an infinite loop.
-				let value = document.getElementById("aa_datatext_body").value;
+				let value = document.getElementById("aa_bodytext").value;
 				let options = document.getElementById("aa_bodychoices").options;
 				let bool = false;
 				let select = "custom";
@@ -21247,7 +21480,7 @@
 				document.getElementById("aa_bodychoices").value = select;
 			}
 			document.getElementById("aa_bodychanges").addEventListener("pointerdown", function() {
-				let text = document.getElementById("aa_datatext_body").value;
+				let text = document.getElementById("aa_bodytext").value;
 				let body = AAX.Body.new(text);
 				if(typeof body !== "object") {
 				// errors from invalid input
@@ -21262,48 +21495,28 @@
 					let i1 = 0;
 					let i2 = 0;
 					let i3 = 0;
-					let oldcoor = AAX.all_rel(aa.body);
+					let old_rel = AAX.all_rel(aa.body);
+					let old_abs = AAX.all_abs(aa.body);
 					// the coordinates every part had in the old body's default
 					// pose
+					let old_body = aa.body;
 					aa.bodytext = text;
 					aa.body = body;
 					if(aa.body.hasOwnProperty("head")) {
 						aa.drawsettings.vp.y = aa.drawsettings.standpoint.y + AAX.abscoor(aa.body, "head")[1];
 					};
 					// set the camera at eye level
-					let anim_index = aa.anim_index;
-					let currframe = aa.currframe;
-					// so it knows what to return to
-					aa.currframe = 0;
-					// i don't want this to go out of bounds while i'm cycling
-					// through the animations.
 					for(i1 = 0; i1 < aa.anims.length; i1++) {
 					// for every frame of every animation, edit the coordinates
 					// to be like they're derivative of the new body instead of
 					// the old body.
-						aa.anim_index = i1;
-						// they have to be AAX.Parts at the time, or coordinate
-						// setters won't run.
-						for(i2 = 0; i2 < aa.frames.length; i2++) {
-							let oldpose = AAX.poseobj(aa.frames[i2]);
-							let newpose = AAX.poseobj(aa.newpose());
-							for(i3 in oldpose) {
-								if(oldpose.hasOwnProperty(i3) && newpose.hasOwnProperty(i3)) {
-									newpose[i3] = structuredClone(oldpose[i3]);
-								}
-							}
-							aa.frames[i2] = aa.posefromobj(newpose);
-							// account for the old and new body having different
-							// parts. start from a blank pose and copy only the
-							// parts that exist in both.
-							let pose = aa.frames[i2];
-							AAX.bodychange(aa, aa.body, aa.frames[i2], oldcoor);
-							//console.log(objectdifference(logging, AAX.poseobj(pose)));
-						}
-						aa.savestate();
-						// applies changes to the poseobjs. (saves it to index
-						// 0, and also makes sure the state_index is 0.)
-						aa.states = [aa.states[0]];
+					// - don't use the anim_index setter. it'd be convenient in
+					//   some ways, but that makes it use AAX.posefromobj with
+					//   the new body instead of the old. that causes errors if
+					//   the structure is different.
+						let anim = aa.anims[i1];
+						anim.states = [ anim.states[ anim.state_index ] ];
+						anim.state_index = 0;
 						// delete undo/redo history (i don't think it'd cause
 						// problems if i converted it like everything else, but
 						// it's wasteful to bother with every state when most of
@@ -21313,15 +21526,76 @@
 						//   not much point in previous states if they still
 						//   have the biggest possible change applied despite
 						//   being before it.
+						let poseobjs = anim.states[ anim.state_index ].poseobjs;
+						for(i2 = 0; i2 < poseobjs.length; i2++) {
+							let pose = AAX.posefromobj(aa, old_body, poseobjs[i2]);
+							// they have to be AAX.Parts at the time, or
+							// coordinate setters and stuff like abscoor won't
+							// run.
+							let old_odd = AAX.all_abs(pose);
+							for(i3 in old_odd) {
+								if(old_odd.hasOwnProperty(i3)) {
+									old_odd[i3] = [
+										!!(old_odd[i3][0]%1) !== !!(old_abs[i3][0]%1),
+										!!(old_odd[i3][1]%1) !== !!(old_abs[i3][1]%1),
+										!!(old_odd[i3][2]%1) !== !!(old_abs[i3][2]%1)
+									];
+								}
+							}
+							let old_pose_rel = AAX.all_rel(pose);
+							//
+							let oldpose = AAX.poseobj(pose);
+							// non-default stuff in the old pose
+							let newpose = AAX.poseobj(aa.newpose());
+							// default pose of the new body
+							for(i3 in oldpose) {
+								if(oldpose.hasOwnProperty(i3) && newpose.hasOwnProperty(i3)) {
+								// copy properties, but only for parts shared
+								// between old and new
+									delete oldpose[i3].cache;
+									// cache is obsolete after the body change
+									let relcoor = AAX.relcoor(newpose[i3]);
+									delete oldpose[i3].x;
+									delete oldpose[i3].y;
+									delete oldpose[i3].z;
+									// these would overwrite the relative
+									// coordinates. it needs to start from the
+									// new body's default pose. the coordinates
+									// part of the pose will be done in
+									// AAX.bodychange.
+									newpose[i3] = structuredClone(oldpose[i3]);
+									newpose[i3].x = relcoor[0];
+									newpose[i3].y = relcoor[1];
+									newpose[i3].z = relcoor[2];
+								}
+							}
+							poseobjs[i2] = AAX.bodychange(aa, aa.body, newpose, old_rel, old_pose_rel, old_odd);
+							// copy the coordinate parts of the pose
+							//console.log(objectdifference(logging, AAX.poseobj(pose)));
+							if(i1 === aa.anim_index) {
+								aa.frames[i2] = aa.posefromobj(poseobjs[i2]);
+							};
+						}
 					}
-					aa.anim_index = anim_index;
-					aa.currframe = currframe;
+					//aa.loadstate(aa.state_index, true);
+					if(!aa.body.hasOwnProperty(aa.control.partname)) {
+					// can't have partname be a part that doesn't exist anymore.
+						let done = false;
+						for(i1 in aa.body) {
+							if(aa.body.hasOwnProperty(i1) && !done && aa.body[i1].parent === "standpoint") {
+								aa.control.partname = i1;
+							}
+						}
+						if(!done) {
+							console.log("this shouldn't happen");
+						}
+					}
 					aa.refresh("states");
 					// it'd be redundant to make a new state.
 				};
 			});
 			document.getElementById("aa_posechanges").addEventListener("pointerdown", function() {
-				let text = document.getElementById("aa_datatext_pose").value;
+				let text = document.getElementById("aa_posetext").value;
 				if(aa.control.all_frames_posetext) {
 					text = text.split("\n***\n");
 					aa.frames = [];
@@ -21338,7 +21612,7 @@
 			});
 			document.getElementById("aa_allframes").addEventListener("pointerdown", function(e) {
 				aa.control.all_frames_posetext = !aa.control.all_frames_posetext;
-				e.target.innerHTML = (aa.control.all_frames_posetext ? `one frame` : `all frames`);
+				e.target.innerHTML = `show ` + (aa.control.all_frames_posetext ? `one frame` : `all frames`);
 				aa.refresh(["draw", "ui", "states"]);
 				aa.filldatatext();
 			});
@@ -21478,7 +21752,7 @@
 		},
 		filldatatext: function() {
 			document.getElementById("aa_bodychoices").value = "current";
-			let textarea = document.getElementById("aa_datatext_body");
+			let textarea = document.getElementById("aa_bodytext");
 			textarea.value = aa.bodytext;
 			// you'd think the event listener would do this, but it seems like
 			// onchange doesn't fire just from .value being changed.
@@ -21494,10 +21768,8 @@
 			if(aa.control.all_frames_posetext) {
 				text = [];
 				for(let i1 = 0; i1 < aa.poseobjs.length; i1++) {
-					loop.tick(1);
 					text[i1] = aa.poseobjtotext(aa.poseobjs[i1]);
 				}
-				loop.end();
 				text = text.join("\n***\n");
 				// it isn't super efficient to calculate every one of them
 				// but..! tragically..! i can't give a shit about that!
@@ -21513,7 +21785,7 @@
 			else {
 				text = aa.poseobjtotext(aa.currposeobj);
 			};
-			textarea = document.getElementById("aa_datatext_pose");
+			textarea = document.getElementById("aa_posetext");
 			textarea.value = text;
 			textarea.rows = text.split("\n").length;
 		},
@@ -25676,55 +25948,6 @@
 			"stroke pen - this draws a line as wide as the paint size in the erase color, with a pen-size outline around it in the draw color.",
 			"if you have any cool pen or dither ideas, let me know. i'll credit you in here, i guess.",
 			"when using the palette changing button, if one of your colors has no specified index, it'll use whatever index comes after the last one it used. (or zero, if it's the first color you inputted.)"
-		],
-		"armature artist": [
-			`the deform pose tool lets you move parts anywhere, even if it changes how far the part is from their parent.`,
-			`the move pose tool lets you move parts, but keeps it as far away from the parent as it is in the default pose. (the third axis will be whatever positivity/negativity brings it closer to the camera for that view. if you're on the front view, it will move forward, if it's the back view it will move backward.)`,
-			`if you click a part in the rotate pose tool, it will select that part. if you click anywhere else, you can rotate the selected part's descendants.`,
-			`the perspective pose tool lets you create an offset for each view, letting you position things around a vanishing point.`,
-			`the automatic perspective setting makes it calculate perspective offsets automatically, and the perspective visual toggle makes it draw lines between the perspectived and unperspectived positions.`,
-			`perspective offsets and camera xz/yz are only visible while using the perspective pose tool.`,
-			`if you switch to the image editor while using the perspective pose tool, you'll only edit how it looks in the current view, while perspectived. you can use this to make a part bigger or smaller depending on how far it is from the camera.`,
-			`if a part has no perspective image, it'll use whatever the unperspectived image currently is. (the part information area shows if it has no perspective image.)`,
-			`the part information window shows which properties are different from the default pose by marking them with a !. click that line of the window to reset that property to default.`,
-			`oddify makes it so the part is centered on a .5 coordinate instead of a .0 coordinate, and vice versa. the images are edited to match, so the center row/column(s) might be deleted or expanded.`,
-			`when changing something like the cell dimensions or vanishing point, you can leave a spot empty to leave it how it is. (for example, entering "72," for the cell dimensions would set the width as 72 and leave the height unchanged.)`,
-			`if you input a body text with a part named "head", the vanishing point will be set as the y coordinates that part has in the default pose, to emulate an eye-level camera.`,
-			`selecting the pose tool you already have selected "inverts" it, making it work differently.`,
-			`inverted move will use the current hypotenuse of the part, rather than the hypotenuse it has in the default pose. (useful if you used deform to lengthen limbs or something.)`,
-			`inverted deform will move the part without moving its descendants.`,
-			`inverted rotate does xz rotation.`,
-			`inverted perspective selects parts without editing them. (useful while editing different perspective images)`,
-			`you can load files by drag-and-dropping them onto the multiview canvas, or with ctrl+o.`,
-			`hidden parts aren't selectable, unless the "total hide" setting is off. it's useful for animating complex bodies or multiple characters at once, without irrelevant characters/parts getting in the way.`,
-			`"part" hide/show: hides/shows the selected part.`,
-			`"branch" hide/show: hides/shows the selected part and its descendants.`,
-			`"body" hide/show: hides/shows all parts in the same body. (if you have parts that are unconnected objects or even separate characters, those won't be affected.)`,
-			`"body-branch" hide/show: short for "body minus branch". hides all parts part of the same body but not the same branch.`,
-			`if the "total hide" toggle is turned off, hidden parts will still have visible/selectable nodes, and their skeleton will be visible too if any of their descendants aren't hidden.`,
-			`wasd lets you switch pose tools and frames.`,
-			`shift+a and shift+d change which view you have selected. (relevant to buttons that edit perspective images or perspective coordinates, and the "update animation" button.)`,
-			`e inverts or uninverts the pose tool.`,
-			`q switches to/from the image editor. shift+q switches without exporting. (meaning, it switches without the image you were working on being applied to the part you had selected, or without exporting the selected part's image to the image editor.)`,
-			`tfgh lets you select parts by moving through the family structure. t selects the parent of the current part, g selects the first child of the part, and f and h cycle through siblings.`,
-			`the frame actions (blank, duplicate, delete, etc) are mapped to jikol.`,
-			`if multiple nodes are on the same screen position, clicking it will select whichever one is closest to the camera. the text below the multiview shows the name of the part you're about to click.`,
-			`you can create shapes by typing coordinates into the body text. before the first || for the part, type point coordinates.`,
-			`through the nature of the 3d drawing system, the order of the points doesn't matter, and concave features are impossible. however, you can get around this by dividing the list of points with a | line, to create multiple convex shapes that have concave features when combined.`,
-			`if you enter more than three numbers for a shape point, it will create a spheroid. if there's four numbers, the fourth is used as the diameter. if there's 6, they're used as width, height, and depth. anything more than that orients the spheroid, either through xy/yz/xz rotations (axis, colon, 0 to 1 number) or a quaternion. (ex: "xy: 1/4", "w: .707, x: 0, y: 0, z: .707")`,
-			`if you write a part name at the beginning of a shape point group, or a part name + a colon before a point, that group/point will follow the orientation and scaling of the named part, instead of the part the shape is part of. (this is useful for certain anatomy, like elbows.)`,
-			`if you enter a single number instead of a point, it will use a copy of a previous point, the one at that index. (the first point is 0. negative indexes will start from the most recent points, so -1 means "the point before this one".)`,
-			`if you enter a point index with axis letters before it, it'll be a duplicate that's inverted in those axes. (it doesn't affect orient.) if you don't include an index, it'll copy the last non-duplicate/inversion point.`,
-			`if you type // anywhere in the body text, the rest of the line will be ignored. useful for writing comments to remember how the shape is structured.`,
-			`the way the image system works is that if there's a perspective image and it's in perspective mode, it uses that. if not, it uses the unperspectived images. if those don't exist either, it creates a 2d image from the 3d shape on the spot.`,
-			`if it runs too slow, turn off silhouettes. if it's still slow, create images so it doesn't have to draw the shapes. i went through a lot of caching to make shapes as smooth as possible, but i haven't done anything for silhouettes yet.`,
-			`unlike most of the draw settings, silhouette and parts have three settings. the third setting is "overlap". for parts, this means all parts' outlines will be visible even if they should be covered by other parts. for silhouette, this means every silhouette group will have a separate outline. (that's the entire point of silhouette groups, but they only clutter up the image unless you actually need to see those interior outlines at the moment.)`,
-			`add letters after a silhouette group in bodytext to make a "subgroup". parts in different subgroups have separate outlines. it's useful for things like differentiating both arms' shapes from each other or the head from the body, without the trouble of adding another silhouette color.`,
-			`if a part's name starts with "l_", a symmetrical duplicate will be created. (type no_mirror() in the third bodytext field to avoid this.) symmetrical duplicates have x-mirrored coordinates and images, and will parent to the symmetrical duplicate of the parent if applicable. the silhouette subgroup will also be set as l and r respectively, unless the silhouette group was 0. (the assumption is that if it's 0, you didn't want these limbs differentiated from the rest of the body anyway.)`,
-			`if you type a negative number for the inbetween curve factor, the positions will be somewhat random.`,
-			`the [0, 0, 0] grid lines move while in perspective mode, but that only represents where a [0, 0, 0] point would be perspectived to. it's not like it changes which pixels are what coordinates or anything.`,
-			`"create inbetweens" creates new frames between the current frame and the next frame that act as a bridge between the two. "apply tweening" modifies existing frames instead. (ex: if you're on frame 2 and you "create" 5 inbetweens, it'll insert 5 inbetweens that start like frame 2 and end like frame 3. if you "apply" instead, existing frames 3-7 will be made into inbetweens for frames 2 and 8.)`,
-			`when you use create or apply tweening, it doesn't do anything for parts that are hidden on the starting pose. for "create", those parts will stay like how they are in the starting pose the whole way through. for "apply", they'll stay how they were before. this is what makes "apply" tweening useful: you can keep the poses mostly the same while only tweening one character, one limb, etc.`
 		],
 		"sprite arranger": [
 			"the most useful thing here is the import increment system. it's sorta hard to explain, but each pair of numbers is a grid arrangement. 1, 2, 3, 2 will import 1x2x3x2 blocks at once, and paste them as 1x2 pieces in a 3x2 formation. if you can figure out the right pattern, it'll save tons of time."
