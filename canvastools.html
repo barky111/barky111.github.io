@@ -12217,8 +12217,8 @@
 				// - the w/h/d numbers apply *after* rotation. the box the
 				//   spheroid fits in will have the same dimensions no matter
 				//   what this angle is.
-				fineness: 16,
-				// 32 would better fit the resolution, and it wouldn't break the
+				fineness: 4,
+				// 8 would better fit the resolution, and it wouldn't break the
 				// bank either... but i think a flatter and sharper spheroid is
 				// closer to a real head than a rounder one.
 			},
@@ -12301,7 +12301,7 @@
 			if(ref.xz) {
 				temp = Quat.rotate(temp, "xz", ref.xz);
 			};
-			let shape = addspheroids([[0, 0, 0, ref.w, ref.h, ref.d, temp]], ref.fineness ?? 16);
+			let shape = addspheroids([[0, 0, 0, ref.w, ref.h, ref.d, temp]], ref.fineness ?? 4);
 			if(ref.xz) {
 				temp = {
 					h: Math.hypot(
@@ -12639,11 +12639,30 @@
 			return;
 		};
 		//
+		/*
+		if(frame === 0) {
+			v.sphere = perfectsphere(5);
+		}
+		let sphere = revolve(2*Math.PI*frame/v.duration, v.sphere, null, "xz");
+		sphere.sort((a, b) => a[2] - b[2]);
+		for(i1 = 0; i1 < sphere.length; i1++) {
+			let point = sphere[i1];
+			let num = Math.round(255*(v.sphere[i1][2] + 1)/2);
+			ctx.fillStyle = "rgb(255, " + num + ", 0)";
+			ctx.fillRect(
+				v.pos[0] + Math.trunc(point[0]*u.w/3) - 1,
+				v.pos[1] + Math.trunc(point[1]*u.h/3) - 1,
+				3, 3
+			);
+		}
+		//*/
+		/*
 		if(frame === 0) {
 			let scene = RoundScene.shirt(u.w/4);
 			scene.lamps.push(new TriLamp(0, -u.h/2, -u.w/2, 1, 1, 1));
 			scene.render(ctx);
 		}
+		//*/
 		/*
 		if(frame === 0) {
 			v.walkers = new WalkerSet();
@@ -14330,6 +14349,57 @@
 				else {
 					fpt.states.undo();
 				};
+			};
+		}
+		else if(userfocus === "bm") {
+			let prevent = true;
+			if(e.ctrlKey && e.shiftKey) {
+				if(key === "z") {
+					e.preventDefault();
+					bm.states.redo();
+				}
+				else {
+					prevent = false;
+				};
+			}
+			else if(e.ctrlKey) {
+				if(key === "z") {
+					bm.states.undo();
+				}
+				else if(key === "s") {
+					bm.save();
+				}
+				else if(key === "o") {
+					bm.load();
+				}
+				else {
+					prevent = false;
+				};
+			}
+			else if(e.shiftKey) {
+				prevent = false;
+			}
+			else if(key.length === 1 && "wasd".includes(key)) {
+				let array = bm.valid.tools;
+				let index = array.indexOf(bm.control.tool);
+				index += (
+					key === "w" ? -1 :
+					key === "a" ? -3 :
+					key === "s" ? 1 :
+					key === "d" ? 3 :
+					0
+				);
+				bm.control.tool = array[posmod(index, array.length)]
+				let skip = structuredClone(bm.valid.refresh);
+				skip.splice(skip.indexOf("ui"), 1);
+				bm.refresh(skip);
+			}
+			else {
+				prevent = false;
+			};
+			//
+			if(prevent) {
+				e.preventDefault();
 			};
 		};
 	};
@@ -17157,8 +17227,9 @@
 						h: dim[1],
 					};
 				},
-				color1: "#ef007f",
-				color2: "black",
+				color1: AAX.Color.template.parts[1],
+				color2: AAX.Color.template.parts[0],
+				fill: AAX.Color.template.part_fill[0],
 				//"#ef007f", // violet red
 				//"#bfef1f", // lime
 				//"#007fef", // azure
@@ -17251,7 +17322,7 @@
 							ctx.fillStyle = this.part["color" + image[i1]];
 						}
 						else if(image[i1] === "fill") {
-							ctx.fillStyle = aa.color.part_interior;
+							ctx.fillStyle = aa.pa.part.fill;
 						}
 						else {
 							console.log("invalid aa.pa.part pixel data.");
@@ -17858,7 +17929,7 @@
 			editmodefalse: null,
 			coor: null,
 		},
-		version_history: "v1.0 v1.0.1 v1.1 v1.1.1".split(" "),
+		version_history: "v1.0 v1.0.1 v1.1 v1.1.1 v1.2".split(" "),
 		get version() {
 			return aa.version_history[aa.version_history.length - 1];
 		},
@@ -17916,13 +17987,15 @@
 			}
 			else if(suffix === "group") {
 				let num = aa.currpose[partname].silhouette[0];
-				for(i1 in aa.currpose) {
-					loop.tick(1);
-					if(aa.currpose.hasOwnProperty(i1) && aa.currpose[i1].silhouette[0] === num) {
-						array[array.length] = i1;
+				let bodylist = aa.hidelist(partname, "body");
+				// group basically means "same set of limbs", so it should
+				// omit parts that aren't in the same body.
+				for(i1 = 0; i1 < bodylist.length; i1++) {
+					let _i1 = bodylist[i1];
+					if(aa.currpose[_i1].silhouette[0] === num) {
+						array.push(_i1);
 					}
 				}
-				loop.end();
 			}
 			else if(suffix === "branch" || suffix === "body") {
 				let start = suffix === "body" ? AAX.getstem(aa.currpose, partname) : partname;
@@ -18057,12 +18130,13 @@
 						prefix: "misc",
 						first: {
 							suffix: "autoperspective",
-							w: 8, h: 4,
+							w: 10, h: 4,
 						},
 						actions: [
 							["expand", "clearimage editshape".split(" "), "d", 2, true],
-							["expand", "stretch_widen", "d", 2],
-							["expand", "rerendershape", "d", 2]
+							["expand", "stretch_widen refreshshape".split(" "), "d", 2, true],
+							["expand", "reset_part reset_branch".split(" "), "d", 2, true],
+							["expand", "posetoshape", "d", 1]
 						],
 					},
 					{
@@ -18129,15 +18203,7 @@
 							["expand", "fineness", "d", 1]
 						],
 					},
-					{
-						prefix: "color",
-						direction: "d",
-						first: {
-							suffix: [],
-							w: 1, h: 4,
-							horizontal: true,
-						},
-					},
+					AAX.ui.color_area,
 					{
 						prefix: "",
 						previous: 0,
@@ -18242,7 +18308,7 @@
 						array[i1] === "connection" || array[i1] === "shape_settings" ? 2 :
 						1
 					);
-					temp.actions[temp.actions.length] = ["expand", array[i1], "d", h];
+					temp.actions.push(["expand", array[i1], "d", h]);
 					// - relative coordinates title and numbers on
 					//   two lines, absolute coordinates on two
 					//   lines, and the current and original
@@ -18252,17 +18318,6 @@
 					// - stretch and widen both get their own lines
 				}
 				// finish partinfo
-				array = [];
-				for(i1 in AAX.Color.template) {
-					if(AAX.Color.template.hasOwnProperty(i1)) {
-						array[array.length] = i1;
-					}
-				}
-				array.splice(3, 0, null);
-				array.splice(11, 0, null);
-				temp = areas.find((element) => element.prefix === "color");
-				temp.first.suffix = structuredClone(array);
-				// finish colors
 				aa.ui.buttons = Rect.ui(areas);
 				//
 				let ref = aa.ui.buttons;
@@ -18405,12 +18460,15 @@
 								suffix === "clearimage" ? "clear image".split(" ") :
 								suffix === "editshape" ? "edit shape".split(" ") :
 								suffix === "stretch_widen" ? "stretch /widen".split(" ") :
-								suffix === "rerendershape" ? "rerender shape".split(" ") :
+								suffix === "refreshshape" ? "refresh shape".split(" ") :
+								suffix === "reset_part" || suffix === "reset_branch" ? suffix.split("_") :
+								suffix === "posetoshape" ? ["pose to shape"] :
 								null
 							) :
 							(prefix === "hide" && suffix.includes("_minus_")) ? suffix.replaceAll("_minus_", "-") :
 							i1 === "switch" ? " switch ".split(" ") :
 							i1 === "switch_no_export" ? "switch without export".split(" ") :
+							/*
 							prefix === "drawsettings" ? (
 								suffix === "background" ? aa.drawsettings[suffix] :
 								suffix === "cell" ? "cell w: h:".split(" ") :
@@ -18419,6 +18477,7 @@
 								suffix === "camera" ? "camera xz: yz:".split(" ") :
 								null
 							) :
+							//*/
 							i1 === "title" ? ("armature artist " + aa.version) :
 							i1 === "projectname" ? aa.control.projectname :
 							i1 === "states_limit" ? "limit: truncator:".split(" ") :
@@ -18426,6 +18485,7 @@
 						);
 						text ??= (!suffix ? prefix : suffix).replaceAll("_", " ");
 						let right_text = (
+							/*
 							prefix === "drawsettings" ? (
 								suffix === "cell" ? ["", aa.drawsettings.cell.w, aa.drawsettings.cell.h] :
 								suffix === "grid" ? aa.drawsettings.grid.join(",") :
@@ -18447,6 +18507,7 @@
 								suffix === "fineness" ? aa.drawsettings[suffix] :
 								null
 							) :
+							//*/
 							i1 === "states_limit" ? [aa.states_limit, aa.states_truncator] :
 							null
 						);
@@ -18858,33 +18919,11 @@
 							coor[1] = Math.floor(coor[1] + ref.h/2);
 							ctx.fillText(aa.frames.length, ...coor);
 						}
-						else if(prefix === "color") {
-							let num = Number( suffix.slice(suffix.lastIndexOf("_") + 1) );
-							if(suffix.includes("_") && !isNaN(num)) {
-							// one index of a non-variable length array
-								ctx.fillStyle = aa.color[suffix.split("_").slice(0, -1).join("_")][num];
-								ctx.fillRect(ref.x, ref.y, ref.w, ref.h);
-							}
-							else if(Array.isArray(aa.color[suffix])) {
-							// variable length array
-								for(i2 = 0; i2 < aa.color[suffix].length; i2++) {
-									loop.tick(2);
-									ctx.fillStyle = aa.color[suffix][i2];
-									ctx.fillRect(
-										ref.x,
-										ref.y + ref.h*i2/aa.color[suffix].length,
-										ref.w,
-										ref.h/aa.color[suffix].length
-									);
-								}
-								loop.end();
-							}
-							else {
-							// single color
-								ctx.fillStyle = aa.color[suffix];
-								ctx.fillRect(ref.x, ref.y, ref.w, ref.h);
-							}
-							Rect.fauxstroke(ref, ctx);
+						else if(prefix === "drawsettings" && suffix !== "heading") {
+							AAX.ui.draw.drawsettings(ctx, ref, aa.drawsettings, suffix);
+						}
+						else if(prefix === "color" && suffix !== "heading") {
+							AAX.ui.draw.color(ctx, ref, aa.color, suffix);
 						}
 						else if(suffix !== "heading" && ["oddify", "invert", "image"].includes(prefix)) {
 							ctx.fillStyle = ctx.strokeStyle;
@@ -19035,6 +19074,7 @@
 			//   the button.)
 				let i1 = 0;
 				let i2 = 0;
+				let i3 = 0;
 				let prefix = PreSuf.get(button);
 				let suffix = prefix[1];
 				prefix = prefix[0];
@@ -19175,6 +19215,7 @@
 					const ref = aa.pa.part;
 					ref.color1 = part.color1;
 					ref.color2 = part.color2;
+					ref.fill = AAX.getfill(aa.color, aa.currpose, part.name);
 					if(aa.control.perspectived) {
 					// export only the image of the view you have selected.
 						const right = !!(view%2);
@@ -19341,9 +19382,8 @@
 									aa.frames[frame][part]._perspective.coor[aa.control.view] = "auto";
 								}
 								else {
-									let i1 = 0;
 									let loop = new Loop("aa.ui.action automate");
-									for(i1 = 0; i1 < 4; i1++) {
+									for(let i1 = 0; i1 < 4; i1++) {
 										loop.tick(1);
 										aa.frames[frame][part]._perspective.coor[i1] = "auto";
 									}
@@ -19386,6 +19426,9 @@
 						};
 					}
 					else if(suffix === "editshape") {
+						let temp = AAX.shapetostring(part.shape);
+						document.getElementById("aa_editshape_input").rows = temp.split("\n").length;
+						document.getElementById("aa_editshape_input").value = temp;
 						document.getElementById("aa_editshape_dialog").showModal();
 					}
 					else if(suffix === "stretch_widen") {
@@ -19432,9 +19475,39 @@
 							refresh.states = false;
 						};
 					}
-					else if(suffix === "rerendershape") {
+					else if(suffix === "refreshshape") {
 						part.clearcache("orientedshape");
 						refresh.ui = false;
+					}
+					else if(suffix === "reset_part" || suffix === "reset_branch") {
+						let list = aa.hidelist(aa.control.partname, suffix === "reset_branch" ? "branch" : "part");
+						for(i1 = 0; i1 < list.length; i1++) {
+							let _i1 = list[i1];
+							aa.currpose[_i1] = new AAX.Part(aa, aa.body, aa.currpose, _i1);
+						}
+						refresh.states = true;
+					}
+					else if(suffix === "posetoshape") {
+						no_refresh = true;
+						// all this does is open a <dialog> showing you shape
+						// text.
+						let scale = prompt("enter a scale factor for the shape.");
+						if(typeof scale === "string") {
+							scale = AAX.strings.float(scale) ?? 1;
+							let shape = AAX.posetoshape(aa.currpose);
+							if(scale !== 1) {
+								for(i1 = 0; i1 < shape.points.length; i1++) {
+									let group = shape.points[i1];
+									for(i2 = 0; i2 < group.length; i2++) {
+										for(i3 = 0; i3 < Math.min(group[i2].length, 6); i3++) {
+											group[i2][i3] *= scale;
+										}
+									}
+								}
+							}
+							document.getElementById("aa_posetoshape_text").value = AAX.shapetostring(shape);
+							document.getElementById("aa_posetoshape_dialog").showModal();
+						}
 					};
 				}
 				else if(prefix === "partinfo" && suffix === "name") {
@@ -19494,268 +19567,40 @@
 					};
 				}
 				else if(prefix === "drawsettings") {
-					let valid = true;
-					if(["cell", "standpoint", "vp", "camera", "grid", "fineness"].includes(suffix)) {
-						let prompttext = null;
-						if(suffix === "cell") {
-							prompttext = `enter the new width and height of the cell, separated by a comma.`;
-						}
-						else if(suffix === "standpoint") {
-							prompttext = `enter two coordinates for the standpoint, separated by a comma, and relative to the center of the cell.`;
-						}
-						else if(suffix === "vp") {
-							prompttext = `enter two coordinates for the vanishing point, separated by a comma, and relative to the standpoint point.`;
-						}
-						else if(suffix === "camera") {
-							prompttext = `enter an xz and yz angle for it to rotate the armature by, separated by a comma, and measured in degrees.`;
-						}
-						else if(suffix === "grid") {
-							prompttext = `enter new grid increments, separated by commas.` + String.fromCharCode(10).repeat(2) + `each number is a multiplier, so "4, 3, 7" would create lines at every 4 pixels, every 4*3 pixels, and every 4*3*7 pixels. enter 0 anywhere in the list to draw a single set of lines at the standpoint.`;
-						}
-						else if(suffix === "fineness") {
-							prompttext = `enter the level of detail for the spheroids. basically, how many sides a circle has. higher numbers are more taxing.`;
-						};
-						if(suffix === "grid") {
-							prompttext += String.fromCharCode(10).repeat(2) + `remember that you have to edit the grid colors to match, so that there's a color for every increment. if there's more increments than colors, the last color will be used for the extra increments, meaning no change will be visible.`;
-						}
-						else if(suffix === "fineness") {
-							prompttext += String.fromCharCode(10).repeat(2) + `if fineness is 0, it will use an alternate algorithm that's guaranteed to be as high-detail as possible, but can be taxing if the spheroid is too big.`;
-						}
-						else {
-							prompttext += String.fromCharCode(10).repeat(2) + `you can leave a value as it was by not typing anything in that place.`;
-							// not happy with that wording.
-						};
-						let input = prompt(prompttext);
-						if(typeof input === "string" && (input.includes(",") || ["grid", "camera", "fineness"].includes(suffix))) {
-							if(suffix === "fineness") {
-								input = Number(input);
-								valid = Number.isInteger(Math.round(input));
-								// avoid non-numbers and values like Infinity or NaN
-								input = Math.round(Math.abs(input)/4)*4;
-								// positive integer divisible by 4
-							}
-							else {
-								input = input.split(",");
-								for(i1 = 0; i1 < (suffix === "grid" ? input.length : 2) && valid; i1++) {
-									loop.tick(1);
-									if(suffix !== "grid" && (i1 >= input.length || !input[i1].trim())) {
-										input[i1] = "no change";
-										// this way you can set just the yz angle by typing ", 30". stuff like that.
-									}
-									else {
-										input[i1] = Number(input[i1]);
-										if(
-											isNaN(input[i1])
-											||
-											(input[i1] < 0 && ["cell", "grid"].includes(suffix))
-											||
-											(input[i1] === 0 && suffix === "cell")
-										) {
-											valid = false;
-										};
-										if(suffix === "cell") {
-											input[i1] = Math.round(input[i1]*2)/2;
-										}
-										else if(suffix !== "camera") {
-											input[i1] = Math.round(input[i1]);
-										};
-										// no decimals allowed for most of these
+					no_refresh = AAX.ui.action.drawsettings(aa.drawsettings, suffix);
+					if(!no_refresh && ["fineness", "vp", "range", "camera"].includes(suffix)) {
+					// clear the cache
+					// - fineness affects the shape, the rest affect
+					//   perspective.
+						let type = (
+							suffix === "fineness"
+							?
+							"orientedshape"
+							// clear .oriented and .rasterize
+							:
+							"rasterize perspective"
+							// clear .rasterize, but only the perspective
+							// views.
+						);
+						for(let i0 = 0; i0 <= aa.states.length; i0++) {
+						// for every state,
+							let ref = i0 === aa.states.length ? aa.frames : aa.states[i0].poseobjs;
+							for(i1 = 0; i1 < ref.length; i1++) {
+							// for every frame,
+								for(i2 in ref[i1]) {
+									if(ref[i1].hasOwnProperty(i2)) {
+									// for every body part.
+										AAX.clearcache(ref[i1], i2, type);
+										// this isn't an AAX., so we
+										// can't use the method.
 									}
 								}
-								loop.end();
-							}
-							//
-							if(valid) {
-								if(["grid", "fineness"].includes(suffix)) {
-									aa.drawsettings[suffix] = structuredClone(input);
-								}
-								else {
-									for(i1 = 0; i1 < 2; i1++) {
-										loop.tick(1);
-										if(input[i1] !== "no change") {
-											if(suffix === "cell") {
-												let temp = aa.drawsettings.cell["wh"[i1]];
-												aa.drawsettings.cell["wh"[i1]] = input[i1];
-												aa.drawsettings.standpoint["xy"[i1]] = aa.drawsettings.cell["wh"[i1]]/2 + (aa.drawsettings.standpoint["xy"[i1]] - temp/2);
-												aa.drawsettings.vp["xy"[i1]] = aa.drawsettings.cell["wh"[i1]]/2 + (aa.drawsettings.vp["xy"[i1]] - temp/2);
-												// adjust coordinates so that these are
-												// always in the same place.
-											}
-											else if(suffix === "standpoint") {
-												let temp = aa.drawsettings.standpoint["xy"[i1]];
-												aa.drawsettings.standpoint["xy"[i1]] = aa.drawsettings.cell["wh"[i1]]/2 + input[i1];
-												aa.drawsettings.vp["xy"[i1]] = aa.drawsettings.standpoint["xy"[i1]] + (aa.drawsettings.vp["xy"[i1]] - temp);
-												// same here.
-											}
-											else if(suffix === "vp") {
-												aa.drawsettings.vp["xy"[i1]] = aa.drawsettings.standpoint["xy"[i1]] + input[i1];
-											}
-											else if(suffix === "camera") {
-												input[i1] = (posmod(input[i1], 360)/360)*2*Math.PI;
-												// make them radians between 0 and 2 pi
-												aa.drawsettings.camera["xy"[i1] + "z"] = input[i1];
-											};
-										}
-									}
-									loop.end();
-								};
 							}
 						}
-					}
-					else if(suffix === "range") {
-						let input = prompt(`input a new range for the perspective.\n\ndepending on whether something is 0 degrees or 180 degrees from the vanishing point, it'll be between 0 and this many pixels away from it. smaller numbers have more curvature.\n\ntype "none" to have no perspective, just camera xz/yz.`);
-						if(input === "none") {
-							aa.drawsettings.range = input;
-						}
-						else {
-							input = AAX.strings.float(input);
-							if(input && input > 0) {
-							// must be positive
-								aa.drawsettings.range = input;
-							};
-						};
-					}
-					else if(AAX.valid.hasOwnProperty(suffix)) {
-						let index = AAX.valid[suffix].indexOf(aa.drawsettings[suffix]);
-						aa.drawsettings[suffix] = AAX.valid[suffix][(index + 1)%AAX.valid[suffix].length];
-					}
-					else if(typeof aa.drawsettings[suffix] === "boolean") {
-						aa.drawsettings[suffix] = !aa.drawsettings[suffix];
-					};
-					if(valid) {
-						if(["fineness", "vp", "range", "camera"].includes(suffix)) {
-						// clear the cache
-						// - fineness affects the shape, the rest affect
-						//   perspective.
-							let type = (
-								suffix === "fineness"
-								?
-								"orientedshape"
-								// clear .oriented and .rasterize
-								:
-								"rasterize perspective"
-								// clear .rasterize, but only the perspective
-								// views.
-							);
-							for(let i0 = 0; i0 <= aa.states.length; i0++) {
-							// for every state,
-								loop.tick(0);
-								let ref = i0 === aa.states.length ? aa.frames : aa.states[i0].poseobjs;
-								for(i1 = 0; i1 < ref.length; i1++) {
-								// for every frame,
-									loop.tick(1);
-									for(i2 in ref[i1]) {
-										if(ref[i1].hasOwnProperty(i2)) {
-										// for every body part.
-											loop.tick(2);
-											AAX.clearcache(ref[i1], i2, type);
-											// this isn't an AAX., so we
-											// can't use the method.
-										}
-									}
-									loop.end();
-								}
-								loop.end();
-							}
-							loop.end();
-						};
 					};
 				}
 				else if(prefix === "color") {
-					let prompttext = "";
-					let addendum = "\n\nenter a blank string to reset it to the default color.";
-					if(["grid", "parts", "silhouette"].includes(suffix)) {
-						prompttext = "enter the colors for the ";
-						if(suffix === "grid") {
-							prompttext += "grids";
-						}
-						else if(suffix === "parts") {
-							prompttext += "parts";
-						}
-						else if(suffix === "silhouette") {
-							prompttext += "silhouette groups";
-						};
-						prompttext += ", separated by asterisks.";
-						//let temp = String.fromCharCode(10) + String.fromCharCode(9);
-						let temp = " ";
-						temp = " (current:" + temp + aa.color[suffix].join(" *" + temp) + ")";
-						prompttext += String.fromCharCode(10).repeat(2) + temp;
-						prompttext += addendum;
-						let input = prompt(prompttext);
-						if(typeof input === "string") {
-							if(input.trim()) {
-								input = input.split("*");
-								for(i1 = 0; i1 < input.length; i1++) {
-									loop.tick(1);
-									input[i1] = input[i1].trim();
-									// this is unnecessary but it bothers me.
-								};
-								loop.end();
-								aa.color[suffix] = structuredClone(input);
-							}
-							else {
-								aa.color[suffix] = structuredClone(AAX.Color.template[suffix]);
-							}
-						}
-						else {
-							no_refresh = true;
-						};
-					}
-					else {
-						prompttext = "enter the";
-						let place = aa.color;
-						let _place = AAX.Color.template;
-						let name = suffix;
-						if(["interface_0", "interface_1", "interface_2", "buttons_0", "buttons_1", "buttons_2"].includes(suffix)) {
-							let temp = suffix.split("_");
-							temp = [
-								temp.slice(0, -1).join("_"),
-								temp[temp.length - 1]
-							];
-							place = place[temp[0]];
-							_place = _place[temp[0]];
-							name = temp[1];
-							prompttext += " " + ["primary", "secondary", "tertiary"][temp[1]] + " color for the";
-							if(temp[0] === "interface") {
-								prompttext += " clickable interface.";
-							}
-							else if(temp[0] === "buttons") {
-								prompttext += " ui buttons.";
-							};
-						}
-						else if(suffix === "side_tint") {
-							prompttext += " color it tints the left/right view backgrounds in.";
-						}
-						else {
-							prompttext += " color it draws the " + name.replaceAll("_", " ");
-							if(suffix === "perspective") {
-								prompttext += " lines";
-							}
-							else if(suffix === "part_interior") {
-								prompttext += "s";
-							};
-							prompttext += " in.";
-							// part_interior
-							// nodes
-							// skeleton
-							// silhouette_fill
-							// perspective
-						};
-						prompttext += " (current: " + place[name] + ")";
-						prompttext += addendum;
-						let color = prompt(prompttext);
-						if(typeof color === "string") {
-							if(color.trim()) {
-								place[name] = color;
-							}
-							else {
-								place[name] = _place[name];
-							};
-						}
-						else {
-							no_refresh = true;
-						};
-					}
+					no_refresh = AAX.ui.action.color(aa.color, suffix, click, aa.ui.buttons[button]);
 				}
 				else if(prefix === "states") {
 					if(suffix === "undo" || suffix === "redo") {
@@ -19943,7 +19788,7 @@
 						}
 					}
 				};
-				let depress = (
+				let depress = suffix !== "heading" && (
 					prefix === "switch"
 					||
 					(prefix === "frame" && suffix !== "display")
@@ -19954,13 +19799,13 @@
 					||
 					button === "save" || button === "load"
 					||
-					(prefix === "misc" && suffix !== "autoperspective" && suffix !== "stretch_widen")
+					(prefix === "misc" && suffix !== "autoperspective" && suffix !== "stretch_widen" && suffix !== "posetoshape")
 					||
 					(prefix === "anim" && (suffix === "blank" || suffix === "duplicate" || suffix === "delete"))
 				);
 				// boolean for whether to animate it being depressed.
 				// - there aren't actually a lot of buttons worth depressing.
-				//   most of them are toggles, prompts, stuff like that.
+				//   most buttons are toggles, prompts, stuff like that.
 				if(depress) {
 				// it'll get redrawn for the depressing, so the other refresh
 				// would just be redundant.
@@ -20145,8 +19990,6 @@
 			}
 			loop.end();
 		},
-		noderadius: 1,
-		// how close a click has to be to count as clicking the node.
 		nodecheck: function(click, view) {
 			let i1 = 0;
 			let loop = new Loop("aa.nodecheck");
@@ -20158,7 +20001,7 @@
 					node.x - click[0],
 					node.y - click[1]
 				);
-				if(hypot < aa.noderadius + .5 && (!aa.currpose[node.name].hide || !aa.drawsettings.total_hide)) {
+				if(hypot < AAX.noderadius + .5 && (!aa.currpose[node.name].hide || !aa.drawsettings.total_hide)) {
 				// if the part is hidden and total hide is on, don't allow the
 				// node to be selected or clicked.
 					return node;
@@ -20167,20 +20010,7 @@
 			loop.end();
 			return null;
 		},
-		getnode: function(view, name) {
-		// returns the node of the given view and name.
-			let ref = aa.nodes[view];
-			let loop = new Loop("aa.getnode");
-			for(let i1 = 0; i1 < ref.length; i1++) {
-				loop.tick(1);
-				if(ref[i1].name === name) {
-					return ref[i1];
-				}
-			}
-			loop.end();
-			console.log("this shouldn't happen");
-			return null;
-		},
+		getnode: (view, name) => AAX.getnode(aa.nodes, view, name),
 		xz_radius: function(view) {
 		// returns the radius used to calculate angle in inverted rotate mode.
 		// (ie xz rotation)
@@ -20390,7 +20220,7 @@
 						//aa.ui.draw();
 						text[0] = node.name;
 						// display the name
-						node = aa.noderect(node.x, node.y);
+						node = AAX.noderect(node.x, node.y);
 						ctx.strokeStyle = aa.color.interface[0];
 						ctx.fillStyle = aa.color.interface[1];
 						ctx.strokeRect(node.x - .5, node.y - .5, node.w + 1, node.h + 1);
@@ -20495,7 +20325,7 @@
 					circledraw(ctx, parent_node.x, parent_node.y, Math.floor(hypot));
 					let temp = ctx.fillStyle;
 					ctx.fillStyle = ctx.strokeStyle;
-					circledraw(ctx, parent_node.x, parent_node.y, aa.noderadius, true);
+					circledraw(ctx, parent_node.x, parent_node.y, AAX.noderadius, true);
 					ctx.fillStyle = temp;
 				};
 				if(mode === "deform") {
@@ -20658,53 +20488,7 @@
 			aa.mousemove(e, true);
 		},
 		writecoordinates: function(text) {
-		// you can enter arrays or coordinate arrays. it interprets null as
-		// "reset to default", which is generally however many line breaks
-		// guarantees that the stuff after this won't be moving back and forth.
-			if(Array.isArray(text)) {
-				if(text.length === 3 && typeof text[0] === "number" && typeof text[1] === "number" && typeof text[2] === "number") {
-					text = [
-						"x: " + text[0],
-						"y: " + text[1],
-						"z: " + text[2]
-					];
-				};
-				text = text.join(String.fromCharCode(10));
-			}
-			else if(text === null) {
-				text = "";
-			}
-			else if(typeof text === "number") {
-				text += "";
-			};
-			text = text.split(String.fromCharCode(10));
-			if(text.length > 3) {
-				text = text.slice(0, 3);
-			}
-			else if(text.length < 3) {
-				text[0] ??= "";
-				text[1] ??= "";
-				text[2] ??= "";
-			};
-			let i1 = 0;
-			let loop = new Loop("aa.writecoordinates");
-			for(i1 = 0; i1 < text.length; i1++) {
-				loop.tick(1);
-				if(!text[i1]) {
-					text[i1] = "&#160;";
-				};
-			}
-			loop.end();
-			text = text.join("<br>");
-			aa.div.coor.innerHTML = text;
-		},
-		noderect: function(x, y) {
-			return {
-				x: Math.floor(x),
-				y: Math.floor(y),
-				w: 1 + !!(x%1),
-				h: 1 + !!(y%1),
-			};
+			AAX.writecoordinates(aa.div.coor, text);
 		},
 		nodeline: function(ctx, x1, y1, x2, y2, view, viewoffset) {
 			let temp = aa.coortocanvas([0, 0, 0], view, true, viewoffset);
@@ -21004,6 +20788,8 @@
 			let i4 = 0;
 			let loop = new Loop("aa.initialize");
 			//
+			//aa.drawsettings.silhouette = "overlap";
+			//aa.drawsettings.parts = "off";
 			if(typeof aa.bodytext !== "string") {
 				aa.bodytext = AAX.Body.templates.standard;
 				aa.body = AAX.Body.new(aa.bodytext);
@@ -21016,35 +20802,11 @@
 			// make sure a body exists
 			//
 			let string = `a character animation system that's featured out the ass. works best with a mouse/touchpad. read the manual.`;
-			string += `<div id="aa_editmodetrue">`;
-			string += `<div id="aa_editmodetrue_active">`;
-			let ref = aa.pa.ctx;
-			for (i1 in ref) {
-				loop.tick(1);
-				if (ref.hasOwnProperty(i1)) {
-					let id = "aapa_" + i1;
-					if(["front", "ui"].includes(i1)) {
-						string += `<br>`;
-					}
-					else if(i1 === "right") {
-						string += ` `;
-					};
-					string += `<canvas id="` + id + `"></canvas>`;
-					if(i1 === "right") {
-						string += `</div>`;
-						// end active area
-					};
-				}
-			};
-			loop.end();
-			string += `</div>`;
-			// end editmodetrue div
 			//string = `<div hidden>` + document.getElementById("hider_armature_artist").innerHTML + `</div>` + string;
 			string += `\n<details>`;
 			string += `\n\t<summary>manual</summary><ul>`;
-			let manual = [
-				`pose tools`,
-				[
+			let manual = {
+				"pose tools": [
 					`the deform pose tool lets you move parts anywhere, even if it changes how far the part is from their parent. (useful for body parts connected by a spine instead of a bone.)`,
 					`the move pose tool lets you move parts, but keeps it as far away from the parent as it is in the default pose. (the third axis will be whatever positivity/negativity brings it closer to the camera for that view. if you're on the front view, it will move forward, if it's the back view it will move backward.)`,
 					`if you click a part in the rotate pose tool, it will select that part. if you click anywhere else, you can rotate the selected part and its descendants.`,
@@ -21061,21 +20823,14 @@
 						`inverted perspective selects parts without editing them. (useful while editing different perspective images)`
 					]
 				],
-				`editing/switching bodies`,
-				[
+				"editing/switching bodies": [
 					`open the "bodytext" thing.`,
 					`by editing the content in that text area and clicking "apply changes", you can edit or replace the body. a lot of part properties can only be changed in here.`,
 					`there's also a dropdown with some example bodytexts to use or start from, like a hand.`,
+					`you can write these manually, but the "body maker" tool makes it much easier.`,
 					`structure of a bodytext`,
 					[
 						`the first area defines parts, their names, parent structure, and coordinates.`,
-						[
-							`if a part name starts with "l_" or "r_", a symmetrical counterpart will be made.`,
-							[
-								`coordinates, shapes, and images are x-mirrored, and if the part's parent has a symmetrical counterpart, it will be parented to that.`,
-								`this can be avoided. see the "no_mirror" command below.`
-							]
-						],
 						`the second area is images.`,
 						[
 							`type a bracketed part name to make lines after that part of that part's shapes/images.`,
@@ -21084,6 +20839,11 @@
 						],
 						`the third area is other properties. enter a part name and colon, then...`,
 						[
+							`symmetry(): creates horizontally mirrored duplicates of the part and all its descendants.`,
+							[
+								`the original branch will get a "l_" prefix, and the duplicate branch will have "r_" prefixes. (you can also choose your own prefixes by putting them in the parentheses, separated by a comma.)`,
+								`coordinates, shapes, and images are x-mirrored.`
+							],
 							`color1(), color2(): enter numbers in the parentheses to set first and second colors for the part and all its descendants.`,
 							[
 								`these numbers represent items of the list of part colors. (you can edit that list by clicking that rainbowy button.)`,
@@ -21109,22 +20869,20 @@
 									],
 									`just like color1 and color2, silhouette has a "silhouette*()" counterpart that doesn't affect descendants.`
 								],
-								`no_mirror(): avoids the creation of a symmetrical counterpart.`,
-								`hide(): the part is hidden by default.`,
-								`perspective(): lets you predefine perspective offset? this isn't very useful, but it's there.`,
-								[
-									`enter view 0's x, view 0's y, view 1's x, etc.`,
-									`you can also enter "auto". that counts for two coordinates, since it applies to a whole view`,
-									`by default, all views have automatic perspective.`
-								]
+							],
+							`hide(): the part is hidden by default.`,
+							`perspective(): lets you predefine perspective offset? this isn't very useful, but it's there.`,
+							[
+								`enter view 0's x, view 0's y, view 1's x, etc.`,
+								`you can also enter "auto". that counts for two coordinates, since it applies to a whole view`,
+								`by default, all views have automatic perspective.`
 							]
 						]
 					],
 					`writing // anywhere in a bodytext makes a comment, ie the rest of that line is ignored.`,
 					`poses can survive bodytext changes, for the most part. if a part with the same name exists in both the old and new body, it'll adopt changes in coordinates and the like, while accounting for the angle/hypotenuse difference the part has in the default pose.`
 				],
-				`shape system`,
-				[
+				"shape system": [
 					`parts usually use 3d shapes to generate 2d images.`,
 					`these shapes are defined in bodytext, but you can also redefine them with the "edit shape" button.`,
 					`shapes are lists of points, broken up into groups. each line is a point, and a "|" line starts a new group.`,
@@ -21143,8 +20901,7 @@
 						`symmetrical counterparts x-mirror the shape as well, but at the moment, they can't invert spheroid rotations.`
 					]
 				],
-				`image system`,
-				[
+				"image system": [
 					`shapes are generally more useful than 2d images. things are designed around them more than they're designed around 2d images.`,
 					`but 2d images are useful for things like hands, that are important but can't be drawn with shapes. that's what "part artist" is for, creating 2d images manually.`,
 					`a part can have a shape, unperspectived images, and perspectived images. if it has multiple, unperspectived is used over shapes, and perspectived is used over unperspectived.`,
@@ -21172,8 +20929,7 @@
 						]
 					]
 				],
-				`hide/show`,
-				[
+				"hide/show": [
 					`"part" hide/show: hides/shows the selected part.`,
 					`"branch" hide/show: hides/shows the selected part and its descendants.`,
 					`"group" hide/show: hides/shows all parts in the same silhouette group.`,
@@ -21182,20 +20938,18 @@
 					`hide/shows with similar names work the same way. hiding/showing everything that fits into the first type but not the second.`,
 					`hidden parts aren't selectable, unless the "total hide" setting is off. it's useful for animating complex bodies or multiple characters at once, without irrelevant characters/parts getting in the way.`
 				],
-				`other part properties`,
-				[
+				"other part properties": [
 					`relative coordinates are the part's coordinates relative to the part's parent.`,
 					`perspective coor is the offset the perspective pose tool creates. it's only shown in perspective mode. if it's set to "auto", it'll be calculated automatically, based on the draw settings vanishing point and range.`,
 				],
-				`draw settings`,
-				[
+				"draw settings": [
 					`grid: increments for the grid lines. "2, 2, 4" would mean lines are drawn every 2 pixels in the first grid color, then every 2*2 pixels in the second grid color, then every 2*2*4 pixels in the third grid color. putting a 0 anywhere makes it draw lines at the standpoint and only the standpoint.`,
 					`standpoint: parts that are at (0, 0, 0) will appear at this position in the cell, relative to the cell's center.`,
 					`range: used in automatic perspective. when a point has perspective applied, no matter where it is, it's placed within this radius from the vanishing point. lower numbers mean more curvature, higher numbers mean less.`,
 					`cell: cell dimensions.`,
 					`vp: "vanishing point". used in the automatic perspective. the coordinates are relative to the standpoint.`,
 					`camera: an xz and yz angle. when it's in perspective mode, everything is rotated by these.`,
-					`fineness: used in shape spheroids. spheroids are drawn as if a circle has this many sides. higher numbers are a bit more taxing, but if you're making shapes big enough to see flat sides in your spheroids, increasing this will fix that.`,
+					`fineness: used in shape spheroids. spheroids are drawn as if a circle has (4 * this) sides. higher numbers are a bit more taxing, but if you're making shapes big enough to see flat sides in your spheroids, increasing this will fix that.`,
 					`toggles`,
 					[
 						`grid: between the background being a grid, color but no grid, or totally transparent. useful when generating images from your animation.`,
@@ -21216,6 +20970,10 @@
 						`the middle set of colors affects the elements of an armature. (in about the same order as the draw settings toggles for those elements, and the order they're layered.)`,
 						`the right set of colors is interface stuff. stuff used in pose tool graphics, and the ui.`,
 						`but if you forget which is which, the button prompts will tell you what they are.`,
+						`you can enter multiple part/silhouette fill colors to differentiate parts that belong to different bodies. (that is, parts that don't share a common ancestor.) this is useful for animating multiple characters.`,
+						[
+							`it loops around. if you have two colors and five bodies, the first, third, and fifth body will use the first color, and the second and fourth bodies will use the second color.`
+						]
 					],
 					`extra notes`,
 					[
@@ -21224,8 +20982,7 @@
 						`the standpoint grid lines move while in perspective mode, but that only represents where a [0, 0, 0] point would be perspectived to. it's not like it changes which pixels are what coordinates or anything.`
 					]
 				],
-				`keymap`,
-				[
+				"keymap": [
 					`w, a, s, d: lets you switch pose tools and frames.`,
 					`shift+a, shift+d: change which view you have selected. (relevant to buttons that edit perspective images or perspective coordinates, and the "update animation" button.)`,
 					`e: inverts or uninverts the pose tool`,
@@ -21235,16 +20992,35 @@
 					`ctrl+z, ctrl+shift+z: undo, redo`,
 					`ctrl+s, ctrl+o: save, load`
 				],
-				`etc`,
-				[
+				"inbetweens": [
+					`what tweening is`,
+					[
+						`if you have a start pose and an end pose, and you simplify the differences between them into a "difference" object of rotations and length multipliers...`,
+						`start pose + difference = end pose.`,
+						`start pose + difference*1/4 = a pose that's sort of like the start pose, but 1/4 of the way to being like the end pose.`,
+						`so if you insert a 1/4, 1/2, and 3/4 pose between the start and end pose, you can animate a smooth transition between the start and end pose, without even doing anything.`
+					],
+					`when you click "create inbetweens", it creates inbetweens between the current frame and the next frame.`,
+					`"apply inbetweens" does something similar, but assumes these frames already exist. so the end frame is assumed to be start frame + [number of inbetweens] + 1, and the frames between that are made to transition between the two.`,
+					`the rest of these buttons just control easing stuff. most motion is eased.`,
+					[
+						`the number you can tick up/down is how many inbetweens to make.`,
+						`the ^ number is the curve, used for exponenting. the higher the number it is, the more severe the easing is. 1 will make all the frames equally spaced. 2 would place the inbetweens at (1/4)^2, (1/2)^2, (3/4)^2, etc.`,
+						`the two buttons beneath that control if it's ease in, ease out, ease in/out, or ease out/in.`,
+						`the area under that visualizes what the inbetweens will be like. the closer a circle is to the left end, the more it'll be like the start pose, and the closer it is to the right, the more it'll be like the end pose.`
+					],
+					`<i>when using apply inbetweening, it won't tween parts that are hidden in the starting frame.</i> this lets you control what inbetweening is applied to, like only tweening certain characters or limbs.`
+				],
+				"etc": [
 					`the part information window shows which properties are different from the default pose by marking them with a !. click that line of the window to reset that property to default.`,
 					`oddify makes it so the part is centered on a .5 coordinate instead of a .0 coordinate, and vice versa. the images are edited to match, so the center row/column(s) might be deleted or expanded. it can also be used in perspective mode, to affect perspective offset.`,
 					`when changing something like the cell dimensions or vanishing point, you can leave a spot empty to leave it how it is. (for example, entering "72," for the cell dimensions would set the width as 72 and leave the height unchanged.)`,
 					`you can load files by drag-and-dropping them onto the multiview canvas, or with ctrl+o.`,
 					`if multiple nodes are on the same screen position, clicking it will select whichever one is closest to the camera. the text below the multiview shows the name of the part you're about to click.`,
-					`if it's running slow:`,
+					//`"refresh shape": if images based on 3d shapes aren't updating properly, this might fix it? (by clearing the image cache.) but that really shouldn't happen, so let me know if it does!`,
+					`if there are performance issues:`,
 					[
-						`lower the state limit and truncator. (every state stores every frame's pose, and depending on how many animations you have, it can store a lot. the maximum amount it could be storing is limit + (number of animations - 1) * (2*truncator + 1).`,
+						`lower the state limit and truncator. (every state stores every frame's pose, and depending on how many animations you have, it can store a lot of states. the maximum amount it could be storing is limit + (number of animations - 1) * (2*truncator + 1).)`,
 						`turn off silhouettes`,
 						`create perspectived/unperspectived images so it doesn't have to convert shapes. (i went through a lot of caching hell to avoid this process slowing things down, but still.)`,
 						`lower fineness`
@@ -21256,20 +21032,17 @@
 					`"create inbetweens" creates new frames between the current frame and the next frame that act as a bridge between the two. "apply tweening" modifies existing frames instead. (ex: if you're on frame 2 and you "create" 5 inbetweens, it'll insert 5 inbetweens that start like frame 2 and end like frame 3. if you "apply" instead, existing frames 3-7 will be made into inbetweens for frames 2 and 8.)`,
 					`when you use create or apply tweening, it doesn't do anything for parts that are hidden on the starting pose. for "create", those parts will stay like how they are in the starting pose the whole way through. for "apply", they'll stay how they were before. this is what makes "apply" tweening useful: you can keep the poses mostly the same while only tweening one character, one limb, etc.`
 					*/
-				]
-			];
-			for(i1 = 0; i1 < manual.length; i1++) {
-				if(typeof manual[i1] == "string") {
-					if(Array.isArray(manual[i1 + 1] ?? null)) {
-						string += [
-							``,
-							`<details>`,
-							`\t<summary>` + manual[i1] + `</summary>`,
-							`\t` + arraytoul(manual[i1 + 1], 1).replaceAll(`\n`, `\n\t`),
-							`</details>`
-						].join(`\n`).replaceAll(`\n`, `\n\t`);
-						i1++;
-					}
+				],
+			};
+			for(i1 in manual) {
+				if(manual.hasOwnProperty(i1)) {
+					string += [
+						``,
+						`<details>`,
+						`\t<summary>` + i1 + `</summary>`,
+						`\t` + arraytoul(manual[i1], 1).replaceAll(`\n`, `\n\t`),
+						`</details>`
+					].join(`\n`).replaceAll(`\n`, `\n\t`);
 				}
 			}
 			string += `\n</ul></details>`;
@@ -21288,6 +21061,29 @@
 				`\t<br><textarea id="aa_posetext" cols=48></textarea>`,
 				`</details>`
 			].join(`\n`);
+			string += `\n<div id="aa_editmodetrue">`;
+			string += `\n<div id="aa_editmodetrue_active">`;
+			let ref = aa.pa.ctx;
+			for (i1 in ref) {
+				loop.tick(1);
+				if (ref.hasOwnProperty(i1)) {
+					let id = "aapa_" + i1;
+					if(["front", "ui"].includes(i1)) {
+						string += `<br>`;
+					}
+					else if(i1 === "right") {
+						string += ` `;
+					};
+					string += `<canvas id="` + id + `"></canvas>`;
+					if(i1 === "right") {
+						string += `</div>`;
+						// end active area
+					};
+				}
+			};
+			loop.end();
+			string += `</div>`;
+			// end editmodetrue div
 			document.write(string);
 			aa.div.editmodetrue_active = document.getElementById("aa_editmodetrue_active");
 			// the _active divs are used to make sure the height of
@@ -21363,12 +21159,18 @@
 			// end of editmodefalse div
 			string += `<br>`;
 			// data text
-			string += [
+			string += "\n" + [
 				`<dialog id="aa_editshape_dialog" autofocus>`,
 				`enter new text to define the shape.`,
 				`<br><textarea id="aa_editshape_input"></textarea>`,
 				`<br><button id="aa_editshape_enter">enter</button>`,
 				`<button id="aa_editshape_close">close</button>`,
+				`</dialog>`
+			].join("\n");
+			string += "\n" + [
+				`<dialog id="aa_posetoshape_dialog" autofocus>`,
+				`<textarea id="aa_posetoshape_text"></textarea>`,
+				`<br><button id="aa_posetoshape_close">close</button>`,
 				`</dialog>`
 			].join("\n");
 			document.write(string);
@@ -21399,16 +21201,7 @@
 						canvas.style["touch-action"] = "none";
 						// this keeps it from sliding around when you're using a
 						// phone.
-						canvas.ondragover = function(e) {
-							e.preventDefault();
-						};
-						canvas.ondrop = function(e) {
-							let files = e.dataTransfer.items;
-							if(files.length >= 1 && files[0].kind === "file") {
-								aa.readfile(files[0].getAsFile());
-							};
-							e.preventDefault();
-						};
+						AAX.dragndrop(canvas, aa.readfile);
 						// lets you load things by dropping files onto the
 						// canvas.
 					}
@@ -21418,6 +21211,7 @@
 			aa.div.coor = document.getElementById("aa_div_coor");
 			aa.div.coor.style["text-shadow"] = "silver .5px .5px";
 			aa.div.coor.style["font-size"] = "8px";
+			aa.writecoordinates(null);
 			let temp = document.getElementById("aa_bodytext");
 			temp.value = aa.bodytext;
 			temp.rows = temp.value.split(String.fromCharCode(10)).length;
@@ -21427,7 +21221,6 @@
 			temp.rows = temp.value.split(String.fromCharCode(10)).length;
 			temp.style["-moz-tab-size"] = 4;
 			temp.style["vertical-align"] = "top";
-			aa.writecoordinates(null);
 			string = [];
 			for(i1 in AAX.Body.templates) {
 				if(AAX.Body.templates.hasOwnProperty(i1)) {
@@ -21584,6 +21377,7 @@
 						for(i1 in aa.body) {
 							if(aa.body.hasOwnProperty(i1) && !done && aa.body[i1].parent === "standpoint") {
 								aa.control.partname = i1;
+								done = true;
 							}
 						}
 						if(!done) {
@@ -21617,6 +21411,7 @@
 				aa.filldatatext();
 			});
 			// div creation, non-canvas buttons
+
 			document.getElementById("aa_editshape_enter").onpointerdown = function(e) {
 				let shape = AAX.strings.shape(document.getElementById("aa_editshape_input").value, aa.currpose, aa.control.partname);
 				if(shape) {
@@ -21633,6 +21428,10 @@
 			document.getElementById("aa_editshape_close").onpointerdown = function(e) {
 				document.getElementById("aa_editshape_input").value = "";
 				document.getElementById("aa_editshape_dialog").close();
+			};
+			document.getElementById("aa_posetoshape_close").onpointerdown = function(e) {
+				document.getElementById("aa_posetoshape_text").value = "";
+				document.getElementById("aa_posetoshape_dialog").close();
 			};
 			aa.drawsettings.standpoint.x = Math.floor(aa.drawsettings.cell.w/2 + aa.drawsettings.standpoint.x);
 			aa.drawsettings.standpoint.y = Math.floor(aa.drawsettings.cell.h/2 + aa.drawsettings.standpoint.y);
@@ -21668,12 +21467,7 @@
 			canvas.addEventListener("mouseup", aa.mouseup);
 			aa.ctx.main.font = "6px 'thick 4x4'";
 			aa.ui.create();
-			temp = new Date();
-			temp = [temp.getFullYear().toString(), (temp.getMonth() + 1).toString(), temp.getDate().toString()];
-			for(i1 = 1; i1 < temp.length; i1++) {
-				temp[i1] = "0".repeat(2 - temp[i1].length) + temp[i1];
-			}
-			aa.control.projectname = temp.join("_") + " " + aa.control.projectname;
+			aa.control.projectname = AAX.filedate() + " " + aa.control.projectname;
 			aa.anim_index = 0;
 			// it was already 0, but the setter will fill aa.frames.
 			aa.refresh("states");
@@ -22022,26 +21816,7 @@
 			return body;
 		},
 		coortocanvas: (point, view, nonulls, viewoffset) => AAX.coortocanvas(aa.drawsettings.cell, aa.drawsettings.standpoint, point, view, nonulls, viewoffset),
-		coorfromcanvas: function(x, y, view) {
-		// returns an object of two coordinates, based on where you clicked the
-		// canvas.
-		// - view: if specified, it won't calculate view automatically. (this
-		//   way, if you want to get the coordinates of a view 0 click that
-		//   drifted off to view 1, it won't screw up.)
-			view ??= Math.floor(x/aa.drawsettings.cell.w);
-			const standpoint = aa.coortocanvas([0, 0, 0], view, true, true);
-			let coor = [
-				x - standpoint[0],
-				y - standpoint[1]
-			];
-			if([1, 2].includes(view)) {
-				coor[0] *= -1;
-			};
-			return {
-				["xz"[view%2]]: coor[0],
-				y: coor[1],
-			};
-		},
+		coorfromcanvas: (x, y, view) => AAX.coorfromcanvas(aa.drawsettings.cell, aa.drawsettings.standpoint, x, y, view),
 		newpose: () => AAX.newpose(aa, aa.body),
 		frameclone: (frame) => AAX.poseclone(aa, aa.body, aa.frames[frame]),
 		posefromobj: (obj) => AAX.posefromobj(aa, aa.body, obj),
@@ -22143,914 +21918,19 @@
 			loop.end();
 			return aa.posefromobj(obj);
 		},
-		posetoshape: function() {
-		// creates a shape from an entire posed body, using the silhouette
-		// system.
-			let i1 = 0;
-			let i2 = 0;
-			let loop = new Loop("aa.posetoshape");
-			let pose = aa.currpose;
-			let groups = [];
-			let capsules = [];
-			function addgroup(group) {
-				let loop = new Loop("aa.posetoshape addgroup");
-				let bool = false;
-				// boolean for whether it found an existing group that has all the same parts
-				for(let i1 = 0; !bool && i1 < groups.length; i1++) {
-					loop.tick(1);
-					if(groups[i1].length >= group.length) {
-						bool = true;
-						for(let i2 = 0; bool && i2 < group.length; i2++) {
-							loop.tick(2);
-							if(!groups[i1].includes(group[i2])) {
-								bool = false;
-							}
-						}
-						loop.end();
-					}
-				}
-				loop.end();
-				if(!bool) {
-					groups[groups.length] = structuredClone(group);
-				}
-			}
-			for(i1 in pose) {
-				loop.tick(1);
-				if(pose.hasOwnProperty(i1)) {
-					if(!pose[i1].hide) {
-						let conn = pose[i1].connection;
-						if(conn.type === "generation") {
-							addgroup(pose[i1].silhouettelist);
-						}
-						else if(conn.type === "capsule") {
-							capsules[capsules.length] = i1;
-							addgroup([i1]);
-						}
-						else {
-							console.log("this shouldn't happen");
-						}
-					}
-				}
-			}
-			loop.end();
-			let _partshapes = {};
-			function addoffset(points, offset) {
-				let _points = [];
-				let loop = new Loop("aa.posetoshape addoffset");
-				for(let i1 = 0; i1 < points.length; i1++) {
-					loop.tick(1);
-					_points[i1] = structuredClone(points[i1]);
-					_points[i1][0] += offset[0];
-					_points[i1][1] += offset[1];
-					_points[i1][2] += offset[2];
-				}
-				loop.end();
-				return _points;
-			}
-			function partshape(partname) {
-			// use this like a getter
-				_partshapes[partname] ??= addoffset(
-					pose[partname].orientedshape.flat(1),
-					pose[partname].abscoor
-				);
-				return _partshapes[partname];
-			}
-			let points = structuredClone(groups);
-			for(i1 = 0; i1 < points.length; i1++) {
-			// for each group
-			loop.tick(1);
-				for(i2 = 0; i2 < points[i1].length; i2++) {
-				// for each part name
-				loop.tick(2);
-					points[i1][i2] = partshape(points[i1][i2]);
-				}
-				loop.end();
-				points[i1] = points[i1].flat(1);
-			}
-			loop.end();
-			for(i1 = 0; i1 < capsules.length; i1++) {
-				loop.tick(1);
-				let part = pose[capsules[i1]];
-				let temp = part.connection.value;
-				points[points.length] = addspheroids([
-					part.abscoor.concat(temp),
-					pose[part.parent].abscoor.concat(temp)
-				], aa.drawsettings.fineness);
-			}
-			loop.end();
-			return {
-				points,
-				external: {
-					points: {},
-					groups: {},
-				},
-			};
-		},
 		draw_background: function() {
 			AAX.draw_background(aa.ctx.main, aa.drawsettings, aa.color, aa.control.perspectived, 4);
 		},
-		draw: function(rotatecoor, poles) {
-			aa._draw(
+		draw: function(rotatecoor, basis) {
+			AAX.draw(
 				aa.ctx.main, aa.drawsettings, aa.color, aa.control.perspectived, 4,
-				aa.currpose, aa.nodes, aa.control.strokecache, rotatecoor, poles
+				aa.currpose, aa.nodes, aa.control.strokecache, rotatecoor, basis
 			);
-		},
-		_draw: function(
-			ctx, drawsettings, color, perspectived, numofcells,
-			pose, nodes, strokecache, rotatecoor, poles
-		) {//yyyaad
-		// draws or redraws the main canvas, the one with the multiview on it.
-		// - NOTE it also defines the nodes.
-		// - rotatecoor: the return of an aa.rotatecoor running, with the
-		//   absolute argument as true. used in the rotate pose tool's mid-click
-		//   visualization. parts in here will be drawn differently.
-		// - poles: the return of an aa.poles running. used to draw axes.
-			//let time = new Date().valueOf();
-			let i1 = 0;
-			let i2 = 0;
-			let i3 = 0;
-			let loop = new Loop("AAX.draw", 10000);
-			let view = 0;
-			let ds = drawsettings;
-			numofcells ??= 4;
-			nodes ??= {};
-			let coortocanvas = (point, view, nonulls, viewoffset) => AAX.coortocanvas(ds.cell, ds.standpoint, point, view, nonulls, viewoffset);
-			let imagedata = [];
-			for(i1 = 0; i1 < numofcells; i1++) {
-				loop.tick(1);
-				imagedata[i1] = ctx.getImageData(i1*ds.cell.w, 0, ds.cell.w, ds.cell.h);
-			}
-			loop.end();
-			let abs = AAX.all_abs(pose);
-			// all absolute coordinates
-			rotatecoor ??= {};
-			poles ??= {};
-			// so i don't have to tack on "typeof rotatecoor !== "object" ||"
-			// onto everything.
-			let fulcrum_name = null;
-			// name of the fulcrum. only used in rotatecoor code
-			if(!objectisempty(rotatecoor)) {
-			// absolutes the coordinates.
-			// - thanks to getdesc, it should iterate in an order where the
-			//   parent will always have been rotated and absoluted first.
-				rotatecoor = structuredClone(rotatecoor);
-				// unreference it
-				for(part in rotatecoor) {
-					loop.tick("part");
-					if(rotatecoor.hasOwnProperty(part)) {
-						let parent = pose[part].parent;
-						fulcrum_name ??= parent;
-						// the first properties should be children of the
-						// fulcrum
-						if(parent === fulcrum_name) {
-							parent = pose[parent].abscoor;
-						}
-						else if(rotatecoor.hasOwnProperty(parent)) {
-							parent = rotatecoor[parent];
-						}
-						else {
-							console.log("this shouldn't happen");
-						};
-						rotatecoor[part][0] += parent[0];
-						rotatecoor[part][1] += parent[1];
-						rotatecoor[part][2] += parent[2];
-					}
-				}
-				loop.end();
-			};
-			ctx.canvas.width = ds.cell.w;
-			ctx.canvas.height = ds.cell.h;
-			function visible(part, element) {
-			// returns a boolean for whether a given element and part should be
-			// drawn, based on .hide and rotatecoor. (but NOT the booleans in
-			// drawsettings.)
-				if(part.hide && ds.total_hide) {
-					return false;
-				}
-				else if(["silhouette", "parts", "perspective"].includes(element)) {
-					return !rotatecoor.hasOwnProperty(part.name) && !part.hide;
-				}
-				else if(element === "skeleton") {
-					if(
-						part.parent === "standpoint"
-						||
-						rotatecoor.hasOwnProperty(part.name)
-						||
-						(
-							part.pose[part.parent].hide
-							&&
-							ds.total_hide
-						)
-					) {
-						return false;
-					};
-					let hidden = part.hide;
-					if(hidden) {
-					// override if it has descendants that aren't hidden
-						let temp = AAX.getdesc(pose, part.name);
-						let i1 = 0;
-						for(i1 = 0; hidden && i1 < temp.length; i1++) {
-							loop.tick(1);
-							if(!pose[ temp[i1] ].hide) {
-								hidden = false;
-							};
-						}
-						loop.end();
-					};
-					return !hidden;
-				}
-				else if(element === "nodes") {
-					return !rotatecoor.hasOwnProperty(part.name);
-				};
-			};
-			function drawpoles(_poles, coor, view, axis) {
-			// _poles should be the poles for a single part, not the whole
-			// object.
-			// - coor: coordinates of the start of the axes. (don't include view
-			//   offset.)
-				let i1 = 0;
-				let loop = new Loop("AAX.draw drawpoles");
-				const styletemp = ctx.strokeStyle;
-				ctx.strokeStyle = color.interface[2];
-				let __poles = revolve(view*Math.PI/2, _poles, null, "xz");
-				//revolve(angle, points, center, format)
-				let check = Basis.check(__poles);
-				if(check) {
-				// log it if the lengths are wrong, or the angles between axes
-				// aren't perpendicular
-					console.log(check);
-					console.log(view);
-					console.log(__poles);
-				}
-				if(view === 0) {
-					let _axis = (
-						aa.control.posetool_inversion ? 1 :
-						aa.control.view%2 ? 0 : 2
-					);
-					//console.log(__poles[_axis]);
-				}
-				const length = Math.hypot(
-					ds.cell.w,
-					ds.cell.h
-				);
-				// longest possible line within the cell
-				const length2 = 8;
-				// circles are drawn on the lines to measure foreshortening.
-				// this is how far along the line they should be.
-				let center = coortocanvas([0, 0, 0], view, true);
-				__poles[0][3] = "x";
-				__poles[1][3] = "y";
-				__poles[2][3] = "z";
-				__poles.sort((a, b) => a[2] - b[2]);
-				// z sort
-				for(i1 = 0; i1 < 3 + (false && axis !== null); i1++) {
-					loop.tick(1);
-					let pole = (
-						i1 === 3
-						?
-						[
-							roundspecial(axis[0]),
-							roundspecial(axis[1])
-						]
-						:
-						[
-							roundspecial(__poles[i1][0]),
-							roundspecial(__poles[i1][1])
-						]
-					);
-					ctx.strokeStyle = i1 === 3 ? color.interface[2] : ["red", "green", "blue"][ "xyz".indexOf(__poles[i1][3]) ];
-					if(pole[0] || pole[1]) {
-					// skip it if it's perpendicular to the camera
-						circledraw(
-							ctx,
-							coor[0] + pole[0]*length2,
-							coor[1] + pole[1]*length2,
-							2,
-							false
-						);
-						let hypot = Math.hypot(...pole);
-						pole[0] /= hypot;
-						pole[1] /= hypot;
-						// make hypot 1
-						// - draw the circle first, since that's meant to show
-						//   foreshortening and this will negate that.
-						linespecial(
-							ctx,
-							...coor,
-							coor[0] + pole[0]*length,
-							coor[1] + pole[1]*length,
-							center
-						);
-					}
-					else {
-						//console.log(view + " " + "xyz"[i1]);
-						circledraw(ctx, ...coor, 2, false);
-						//console.log(i1 + ": " + pole);
-					};
-				}
-				loop.end();
-				ctx.strokeStyle = styletemp;
-			};
-			function partimage(part, view) {
-				if(view === "front" || view === "right") {
-					console.log("this should only be run with 0-3 view numbers.");
-					return;
-				}
-				const _view = perspectived ? view : view%2 ? "right" : "front";
-				let image = (
-					strokecache
-					&&
-					strokecache.hasOwnProperty(part.name)
-					&&
-					strokecache[part.name].hasOwnProperty(view)
-					?
-					strokecache[part.name][view]
-					:
-					part[(perspectived ? "perspective_" : "image_") + _view]
-				);
-				// use the strokecache, if possible.
-				if(!perspectived && view >= 2) {
-					const w = AAX.l_dim(image.length, part.image_oddness(_view))[0];
-					image = Raster.xmirror(image, w);
-				}
-				return image;
-			}
-			function onesilhouette(partname, view, multiple) {
-			// returns the _2dPoly for the given part, with an
-			// offset applied.
-			// - multiple: Raster._2dPoly argument. remember, this makes it an
-			//   array of shapes instead of just one.
-				let loop = new Loop("AAX.draw onesilhouette");
-				let part = pose[partname];
-				if(view === "front" || view === "right") {
-					console.log("this should only be run with 0-3 view numbers.");
-					return;
-				}
-				const _view = perspectived ? view : view%2 ? "right" : "front";
-				let shape = partimage(part, view);
-				shape = Raster._2dPoly(shape, part.dim(_view, shape.length), multiple);
-				let node = aa.getnode(view, partname);
-				node = [
-					node.x - view*ds.cell.w,
-					node.y,
-				];
-				// reverse view offset
-				for(let i1 = 0; i1 < shape.length; i1++) {
-				// add offset so it's relative to the canvas instead of relative
-				// to the node
-					loop.tick(1);
-					if(multiple) {
-						for(let i2 = 0; i2 < shape[i1].length; i2++) {
-							loop.tick(2);
-							shape[i1][i2][0] += node[0];
-							shape[i1][i2][1] += node[1];
-						}
-						loop.end();
-					}
-					else {
-						shape[i1][0] += node[0];
-						shape[i1][1] += node[1];
-					}
-				}
-				loop.end();
-				return shape;
-			}
-			function drawpart(part, view, filltype, x, y) {
-			// draws a part onto the canvas coordinates specified.
-			// - perspectived: whether to use the perspectived images or not. it
-			//   will also add the perspective coordinates to x/y.
-			// - filltype:
-			//   - falsy: all pixels are drawn
-			//   - "fill only": only the fill color is drawn
-			//   - "no fill": fill is not drawn
-			//   =
-			//   - those last two are used if ds.parts === "overlap"
-				let i1 = 0;
-				let loop = new Loop("AAX.draw drawpart", 10000);
-				if(((x ?? null) === null) || ((y ?? null) === null)) {
-					let temp = coortocanvas(part.abscoor, view, true);
-					x = temp[0];
-					y = temp[1];
-					if(perspectived) {
-						let coor = part["perspective_coor_" + view];
-						x += coor[0];
-						y += coor[1];
-					};
-				}
-				const _view = perspectived ? view : view%2 ? "right" : "front";
-				// number if perspectived, string if not
-				let image = partimage(part, view);
-				let oddness = part.image_oddness(_view);
-				let temp = AAX.l_size(image.length, oddness);
-				if(temp === null) {
-					console.log({name: part.name, view, image, image_oddness: part.image_oddness(_view)});
-				};
-				temp = aa.rect(temp, oddness);
-				const w = temp.w;
-				const h = temp.h;
-				x += temp.x;
-				y += temp.y;
-				// it should start at the top-left corner, not the center
-				if(x%1 || y%1) {
-					console.log(part.name + " view " + view + ": the x and y for the image drawing are not integers (" + x + ", " + y + ")");
-				};
-				//
-				image = AAX.sq_raster.fill(image, w);
-				//console.log(part.name + " " + view);
-				//console.log(image);
-				//console.log(image);
-				let palette = {
-					1: part.color1,
-					2: part.color2,
-					fill: color.part_interior,
-				};
-				if(w*h !== image.length) {
-					console.log(part.name + " image length does not match the w*h. it's probably that changeoddness or changedimensions isn't being run when it should.");
-				};
-				for(i1 = 0; i1 < image.length; i1++) {
-					loop.tick(1);
-					if(
-						image[i1]
-						&&
-						(
-							!filltype
-							||
-							(filltype === "fill only" && image[i1] === "fill")
-							||
-							(filltype === "no fill" && image[i1] !== "fill")
-						)
-					) {
-						let _x = i1%w;
-						let _y = Math.floor(i1/w);
-						ctx.fillStyle = palette[image[i1]];
-						ctx.fillRect(x + _x, y + _y, 1, 1);
-					};
-				}
-				loop.end();
-			};
-			for(view = 0; view < numofcells; view++) {
-				loop.tick("view");
-				ctx.putImageData(imagedata[view], 0, 0);
-				nodes[view] = [];
-				let _nodes = nodes[view];
-				// used in the clickable interface. objects of x, y, name, and a
-				// reference to their parent's node, sorted by z order.
-				const stems = {};
-				// an object of the node coordinates for the standpoint children
-				for(i1 in pose) {
-					loop.tick(1);
-					if(pose.hasOwnProperty(i1)) {
-						let coor = coortocanvas(pose[i1].abscoor, view, true, true);
-						// no null, view offset
-						if(perspectived) {
-							let _coor = pose[i1]["perspective_coor_" + view];
-							coor[0] += _coor[0];
-							coor[1] += _coor[1];
-						};
-						_nodes[_nodes.length] = {
-							x: coor[0],
-							y: coor[1],
-							z: ds.screen_z(abs[i1], view, perspectived),
-							name: i1,
-						};
-						if(pose[i1].parent === "standpoint") {
-							stems[i1] = structuredClone(coor);
-						};
-					}
-				}
-				loop.end();
-				_nodes.sort(function(a, b) {
-					let temp = a.z - b.z;
-					return (
-						roundspecial(temp)
-						?
-						temp
-						:
-						(
-							Math.hypot(
-								b.x - stems[ AAX.getstem(pose, b.name) ][0],
-								b.y - stems[ AAX.getstem(pose, b.name) ][1]
-							)
-							-
-							Math.hypot(
-								a.x - stems[ AAX.getstem(pose, a.name) ][0],
-								a.y - stems[ AAX.getstem(pose, a.name) ][1]
-							)
-						)
-					);
-					// if they're the same, prioritize nodes that are closer to
-					// the standpoint child. (this sounds neurotic, but
-					// otherwise the layering near the pelvis is l_hip, pelvis,
-					// r_hip or something like that.)
-				});
-				// now it's an array of the order to draw parts in, taking into
-				// account view number and xz/yz rotation.
-				for(i1 = 0; i1 < _nodes.length; i1++) {
-					loop.tick(1);
-					let parent = pose[ _nodes[i1].name ].parent;
-					if(parent === "standpoint") {
-						_nodes[i1].parent = parent;
-					}
-					else {
-						for(i2 = 0; i2 < _nodes.length; i2++) {
-							loop.tick(2);
-							if(_nodes[i2].name === parent) {
-								_nodes[i1].parent = _nodes[i2];
-								i2 += _nodes.length;
-							}
-						}
-						loop.end();
-						if(!_nodes[i1].hasOwnProperty("parent")) {
-							console.log("this shouldn't happen");
-						};
-					}
-				}
-				loop.end();
-				// create .parent, a reference to the node for the parent.
-				if(ds.silhouette !== "off" && strokecache === null) {
-				// silhouette can be kind of intensive, so i don't want it to
-				// draw per frame.
-					let groups = [];
-					// - [group numbers]
-					//   - [subgroup names]
-					//     - _2dPoly.getdatas
-					for(i1 = 0; i1 < _nodes.length; i1++) {
-						loop.tick(1);
-						let part = pose[ _nodes[i1].name ];
-						const sl_center = coortocanvas([0, 0, 0], view, true);
-						if(visible(part, "silhouette")) {
-							let groupnum = ds.silhouette === "overlap" ? part.silhouette[0] : 0;
-							let subgroup = ds.silhouette === "overlap" ? part.silhouette[1] : "";
-							groups[groupnum] ??= {};
-							groups[groupnum][subgroup] ??= [];
-							let group = groups[groupnum][subgroup];
-							let conn = part.connection;
-							let image = null;
-							if(!AAX.valid.connection.includes(conn.type)) {
-								console.log("this shouldn't happen");
-								conn = {
-									type: "generation",
-									value: [1, 0],
-								};
-							}
-							if(conn.type === "generation") {
-								let list = part.silhouettelist;
-								image = [];
-								for(let i2 = 0; i2 < list.length; i2++) {
-									loop.tick(2);
-									image = image.concat(onesilhouette(list[i2], view));
-								}
-								loop.end();
-								image = _2dPoly.getdata(_2dPoly.convexed(image), true, sl_center);
-								// merge into one _2dPoly, and get the getdata
-								// from that.
-							}
-							else if(conn.type === "capsule") {
-								image = onesilhouette(part.name, view, true);
-								let parent = part.parent;
-								if(parent !== "standpoint") {
-								// add capsule
-									let start = [
-										_nodes[i1].x - view*ds.cell.w,
-										_nodes[i1].y
-									];
-									let end = aa.getnode(view, parent);
-									end = [
-										end.x - view*ds.cell.w,
-										end.y
-									];
-									// start and end of the capsule
-									capsule = [];
-									const fineness = ds.fineness ? ds.fineness : 32;
-									for(i2 = 0; i2 < ds.fineness; i2++) {
-										loop.tick(2);
-										let temp = 2*Math.PI*i2/ds.fineness;
-										temp = [
-											Math.cos(temp)*conn.value/2,
-											Math.sin(temp)*conn.value/2
-										];
-										// halve it, because it's a diameter
-										capsule[capsule.length] = [
-											start[0] + temp[0],
-											start[1] + temp[1]
-										];
-										capsule[capsule.length] = [
-											end[0] + temp[0],
-											end[1] + temp[1]
-										];
-									}
-									loop.end();
-									// this doesn't follow 0 fineness. i'd
-									// like to change that soon, but it's
-									// not like you're supposed to see the
-									// ends of the capsule anyway...
-									image[image.length] = _2dPoly.convexed(capsule);
-									// get rid of interior points and make
-									// sure it's ordered right
-								};
-								for(i2 = 0; i2 < image.length; i2++) {
-									loop.tick(2);
-									image[i2] = _2dPoly.getdata(image[i2], true, sl_center);
-								}
-								loop.end();
-								image = _2dPoly.mergedata(image);
-								// it's an array of _2dPolys. use getdata on
-								// each one and merge them. (preserves concave
-								// features.)
-							}
-							group[group.length] = image;
-						}
-					}
-					loop.end();
-					let sum = [];
-					// gonna combine all silhouette getdatas here
-					for(i1 = 0; i1 < groups.length; i1++) {
-						loop.tick(1);
-						groups[i1] ??= {};
-						// fill empty group slots
-						for(i2 in groups[i1]) {
-							loop.tick(2);
-							if(groups[i1].hasOwnProperty(i2)) {
-							// for each subgroup, merge them into one getdata
-								groups[i1][i2] = _2dPoly.mergedata(groups[i1][i2]);
-								sum[sum.length] = structuredClone(groups[i1][i2]);
-							}
-						}
-						loop.end();
-					}
-					loop.end();
-					// now each groups index is the .within array and .rect for
-					// that silhouette group.
-					if(sum.length) {
-					// if everything's hidden or there's no parts, skip it all.
-						sum = _2dPoly.mergedata(sum);
-						// all of them combined. this will be an array of values
-						// like:
-						// - number: silhouette group/color index
-						// - null: empty
-						// - "fill": silhouette_fill
-						const rect = sum.rect;
-						const within = sum.within;
-						for(i1 = 0; i1 < within.length; i1++) {
-							loop.tick(1);
-							within[i1] = within[i1] ? "fill" : null;
-						};
-						loop.end();
-						for(i1 = groups.length - 1; i1 >= 0; i1--) {
-						// iterate backwards, so that higher number groups are
-						// layered under.
-						loop.tick(1);
-							for(i2 in groups[i1]) {
-								loop.tick(2);
-								if(groups[i1].hasOwnProperty(i2)) {
-								// for every subgroup, add the outlines to the
-								// sum silhouette.
-									let _rect = groups[i1][i2].rect;
-									let outline = Raster.outline(groups[i1][i2].within, _rect.w);
-									for(i3 = 0; i3 < outline.length; i3++) {
-										loop.tick(3);
-										if(outline[i3]) {
-										// if it's part of the outline...
-											let x = _rect.x + (i3%_rect.w);
-											let y = _rect.y + Math.floor(i3/_rect.w);
-											x -= rect.x;
-											y -= rect.y;
-											// relative to the main rectangle
-											if(
-												x >= 0 && x < rect.w
-												&&
-												y >= 0 && y < rect.h
-											) {
-												let index = rect.w*y + x;
-												if(within[index] === null) {
-													console.log("this shouldn't happen");
-												}
-												else {
-													// set it as the outline color for this
-													// group
-													within[index] = i1;
-												}
-											}
-											else {
-												console.log("this shouldn't happen");
-											};
-										}
-									}
-									loop.end();
-								}
-							}
-							loop.end();
-						}
-						loop.end();
-						for(i1 = 0; i1 < within.length; i1++) {
-							loop.tick(1);
-							if(within[i1] !== null) {
-								ctx.fillStyle = (
-									within[i1] === "fill" ? color.silhouette_fill :
-									(within[i1] >= 0 && within[i1] < color.silhouette.length) ? color.silhouette[ within[i1] ] :
-									"gray"
-								);
-								ctx.fillRect(
-									rect.x + (i1%rect.w),
-									rect.y + Math.floor(i1/rect.w),
-									1,
-									1
-								);
-							}
-						}
-						loop.end();
-					}
-				};
-				for(i1 = 0; i1 < _nodes.length; i1++) {
-					loop.tick(1);
-					if(poles.hasOwnProperty(_nodes[i1].name)) {
-						drawpoles(
-							poles[_nodes[i1].name],
-							[_nodes[i1].x - view*ds.cell.w, _nodes[i1].y],
-							view,
-							Quat.axis_magnitude(pose[ _nodes[i1].name ].orient).axis
-						);
-					}
-				}
-				loop.end();
-				if(ds.parts === "overlap") {
-					for(i1 = 0; i1 < _nodes.length; i1++) {
-						loop.tick(1);
-						let part = pose[ _nodes[i1].name ];
-						if(visible(part, "parts")) {
-							drawpart(part, view, "fill only", _nodes[i1].x - view*ds.cell.w, _nodes[i1].y);
-							// drawpart can fill in the coordinates on its own, but
-							// waste not want not.
-						}
-					}
-					loop.end();
-				};
-				if(ds.parts !== "off") {
-				// draw parts
-					for(i1 = 0; i1 < _nodes.length; i1++) {
-						loop.tick(1);
-						let part = pose[ _nodes[i1].name ];
-						if(visible(part, "parts")) {
-							drawpart(part, view, (ds.parts === "overlap" ? "no fill" : null), _nodes[i1].x - view*ds.cell.w, _nodes[i1].y);
-						}
-					}
-					loop.end();
-				};
-				if(ds.skeleton) {
-				// draw skeleton
-					ctx.strokeStyle = color.skeleton;
-					for(i1 = 0; i1 < _nodes.length; i1++) {
-						loop.tick(1);
-						let part = pose[ _nodes[i1].name ];
-						if(visible(part, "skeleton")) {
-							aa.nodeline(ctx,
-								_nodes[i1].parent.x - view*ds.cell.w,
-								_nodes[i1].parent.y,
-								_nodes[i1].x - view*ds.cell.w,
-								_nodes[i1].y,
-								view,
-							);
-						}
-					}
-					loop.end();
-				};
-				if(ds.perspective) {
-				// draw perspective
-					ctx.strokeStyle = color.perspective;
-					for(i1 = 0; i1 < _nodes.length; i1++) {
-						loop.tick(1);
-						let part = pose[ _nodes[i1].name ];
-						if(visible(part, "perspective")) {
-							const rotated_coor = coortocanvas(AAX.camerarotations(part.abscoor, null, ds.xz, ds.yz, "same floats"), view, true, false);
-							// rotated unperspectived coordinates. (it should
-							// start here so that the lines point to the
-							// vanishing point.)
-							//const rect = aa.noderect(...rotated_coor);
-							//ctx.strokeRect(rect.x - .5, rect.y - .5, rect.w + 1, rect.h + 1);
-							// testing code. the rotated coordinates don't
-							// actually display anywhere.
-							let perspectived_coor = coortocanvas(part.abscoor, view, true, false);
-							let temp = part["perspective_coor_" + view];
-							perspectived_coor[0] += temp[0];
-							perspectived_coor[1] += temp[1];
-							aa.nodeline(ctx,
-								...rotated_coor,
-								...perspectived_coor,
-								view
-							);
-						}
-					}
-					loop.end();
-				};
-				if(ds.nodes) {
-				// draw nodes
-					ctx.fillStyle = color.nodes;
-					for(i1 = 0; i1 < _nodes.length; i1++) {
-						loop.tick(1);
-						let part = pose[ _nodes[i1].name ];
-						if(visible(part, "nodes")) {
-						// draw nodes even if the part is hidden
-							const rect = aa.noderect(_nodes[i1].x, _nodes[i1].y);
-							//ctx.fillRect(_nodes[i1].x - view*ds.cell.w + rect.x, _nodes[i1].y + rect.y, rect.w, rect.h);
-							ctx.fillRect(rect.x - view*ds.cell.w, rect.y, rect.w, rect.h);
-						}
-					}
-					loop.end();
-				};
-				if(!objectisempty(rotatecoor)) {
-				// the code in here only happens for rotatecoor.
-					let fulcrum = null;
-					// screen coordinates of the fulcrum's node
-					for(i1 = 0; i1 < _nodes.length; i1++) {
-						loop.tick(1);
-						if(_nodes[i1].name === fulcrum_name) {
-							fulcrum = [_nodes[i1].x - view*ds.cell.w, _nodes[i1].y];
-							// negate the view offset (that was
-							// added earlier, for the clickable
-							// interface's sake.)
-						}
-					}
-					loop.end();
-					if(fulcrum === null) {
-						console.log("this shouldn't happen");
-					};
-					let _rotatecoor = {};
-					// object for the coortocanvas-ed coordinates.
-					ctx.strokeStyle = color.interface[0];
-					for(i1 in rotatecoor) {
-						loop.tick(1);
-						if(rotatecoor.hasOwnProperty(i1)) {
-							_rotatecoor[i1] = coortocanvas(rotatecoor[i1], view, true, false);
-							let parent = pose[i1].parent;
-							if(parent === fulcrum_name) {
-							// probably the fulcrum. that isn't included in the
-							// rotatecoor object because it doesn't move.
-								parent = fulcrum;
-							}
-							else if(rotatecoor.hasOwnProperty(parent)) {
-								if(!_rotatecoor.hasOwnProperty(parent)) {
-								// it should be in getdesc order, so parents should
-								// be put in _rotatecoor before their children.
-									console.log("this shouldn't happen");
-								};
-								parent = _rotatecoor[parent];
-							}
-							else {
-								console.log("this shouldn't happen");
-							};
-							//console.log("===" + i1 + "===");
-							//console.log(parent);
-							//console.log(_rotatecoor[i1]);
-							aa.nodeline(ctx,
-								...parent,
-								..._rotatecoor[i1],
-								view
-							);
-						}
-					}
-					loop.end();
-					// draw lines
-					fulcrum = aa.noderect(...fulcrum);
-					ctx.fillStyle = color.interface[0];
-					ctx.fillRect(fulcrum.x - 2, fulcrum.y - 2, fulcrum.w + 4, fulcrum.h + 4);
-					for(i1 in _rotatecoor) {
-						loop.tick(1);
-						if(_rotatecoor.hasOwnProperty(i1)) {
-							_rotatecoor[i1] = aa.noderect(_rotatecoor[i1][0], _rotatecoor[i1][1]);
-							ctx.fillRect(_rotatecoor[i1].x - 1, _rotatecoor[i1].y - 1, _rotatecoor[i1].w + 2, _rotatecoor[i1].h + 2);
-						}
-					}
-					loop.end();
-					// draw node outlines
-					ctx.fillStyle = color.interface[1];
-					ctx.fillRect(fulcrum.x, fulcrum.y, fulcrum.w, fulcrum.h);
-					for(i1 in _rotatecoor) {
-						loop.tick(1);
-						if(_rotatecoor.hasOwnProperty(i1)) {
-							ctx.fillRect(_rotatecoor[i1].x, _rotatecoor[i1].y, _rotatecoor[i1].w, _rotatecoor[i1].h);
-						}
-					}
-					loop.end();
-					// draw node interiors
-				}
-				//
-				imagedata[view] = ctx.getImageData(0, 0, ds.cell.w, ds.cell.h);
-			}
-			loop.end();
-			ctx.canvas.width = numofcells*ds.cell.w;
-			ctx.clearRect(0, 0, numofcells*ds.cell.w, ds.cell.h);
-			for(view = 0; view < numofcells; view++) {
-				loop.tick("view");
-				ctx.putImageData(imagedata[view], view*ds.cell.w, 0);
-			}
-			loop.end();
-			//console.log("AAX.draw took " + (new Date().valueOf() - time)/1000 + " seconds.");
 		},
 		save: function() {
 			let i1 = 0;
 			let i2 = 0;
 			let i3 = 0;
-			let loop = new Loop("aa.save");
 			let obj = {
 				version: aa.version,
 				// doesn't do anything, but it's useful information.
@@ -23067,7 +21947,6 @@
 			delete obj.drawsettings.viewer;
 			// this is a getter.
 			for(i1 = 0; i1 < aa.anims.length; i1++) {
-				loop.tick(1);
 				let ref = aa.anims[i1];
 				obj[i1] = {name: ref.name};
 				ref = ref.states[ref.state_index];
@@ -23091,122 +21970,2136 @@
 					}
 				}
 			};
-			loop.end();
-			let blob = new Blob([ objtotext(obj) ], {type: "text/plain"});
-			// it should be text, so that it's easy to read manually.
-			let url = URL.createObjectURL(blob);
-			let downloader = document.createElement("a");
-			downloader.href = url;
-			//
-			let date = new Date();
-			date = [
-				date.getFullYear(),
-				date.getMonth() + 1,
-				date.getDate()
-			].join("-").split("-");
-			for(i1 = 1; i1 < 3; i1++) {
-				loop.tick(1);
-				date[i1] = "0".repeat(2 - date[i1].length) + date[i1];
-			}
-			loop.end();
-			date = date.join("-");
-			let filename = aa.control.projectname + ".txt";
-			//browser.downloads.download({url: url, filename: filename});
-			//URL.revokeObjectURL(url);
-			// - this is what mdn says to use, but it doesn't work on android.
-			//   so why do they recommend it.
-			downloader.download = filename;
-			downloader.click();
+			AAX.save(aa.control.projectname + ".txt", objtotext(obj));
 		},
 		load: function() {
-		// what happens when the load button is clicked. it asks for a file,
-		// then runs readfile on it.
-			let input = document.createElement("input");
-			input.type = "file";
-			input.accept = ".txt";
-			input.oninput = function() {
-				aa.readfile(input.files[0]);
-			};
-			input.click();
+			AAX.load(aa.readfile);
 		},
 		readfile: function(file) {
 		// run by load and the drag-and-drop event listener.
-			if(file) {
-				let temp = file.name.lastIndexOf(".");
-				aa.control.projectname = temp === -1 ? file.name : file.name.slice(0, temp);
-				let reader = new FileReader();
-				reader.onload = function() {
-					file = texttoobj(reader.result);
-					let loop = new Loop("aa.readfile reader.onload");
-					if(file) {
-						let i1 = 0;
-						let i2 = 0;
-						let i3 = 0;
-						let body = AAX.Body.new(file.bodytext);
-						if(typeof body === "object") {
-						// errors from invalid input
-							aa.bodytext = file.bodytext;
-							aa.body = body;
-						}
-						else {
-							alert("invalid bodytext: " + body);
-						};
-						aa.anims = [];
-						for(i1 = 0; file.hasOwnProperty(i1); i1++) {
-							aa.anims[i1] = aa.newanim();
-							let ref = aa.anims[i1];
-							ref.name = file[i1].name;
-							ref.states = [structuredClone(file[i1])];
-							delete ref.states[0].name;
-							ref.state_index = 0;
-							ref = ref.states[0].poseobjs;
-							for(i2 = 0; i2 < ref.length; i2++) {
-								for(i3 in ref[i2]) {
-									if(ref[i2].hasOwnProperty(i3)) {
-										ref[i2][i3].cache = structuredClone(AAX.cache_init);
-									}
+			if(!file) {
+				console.log("this shouldn't happen");
+				return;
+			};
+			let temp = file.name.lastIndexOf(".");
+			aa.control.projectname = temp === -1 ? file.name : file.name.slice(0, temp);
+			let reader = new FileReader();
+			reader.onload = function() {
+				file = texttoobj(reader.result);
+				if(file) {
+					let i1 = 0;
+					let i2 = 0;
+					let i3 = 0;
+					let body = AAX.Body.new(file.bodytext);
+					if(typeof body === "object") {
+					// errors from invalid input
+						aa.bodytext = file.bodytext;
+						aa.body = body;
+					}
+					else {
+						alert("invalid bodytext: " + body);
+					};
+					aa.anims = [];
+					for(i1 = 0; file.hasOwnProperty(i1); i1++) {
+						aa.anims[i1] = aa.newanim();
+						let ref = aa.anims[i1];
+						ref.name = file[i1].name;
+						ref.states = [structuredClone(file[i1])];
+						delete ref.states[0].name;
+						ref.state_index = 0;
+						ref = ref.states[0].poseobjs;
+						for(i2 = 0; i2 < ref.length; i2++) {
+							for(i3 in ref[i2]) {
+								if(ref[i2].hasOwnProperty(i3)) {
+									ref[i2][i3].cache = structuredClone(AAX.cache_init);
 								}
 							}
-							// restore cache
 						}
-						aa.anim_index = file.anim_index;
-						for(i1 in aa.drawsettings) {
-							loop.tick(1);
-							if(file.drawsettings.hasOwnProperty(i1)) {
-								aa.drawsettings[i1] = structuredClone(file.drawsettings[i1]);
-							};
-						}
-						loop.end();
-						for(i1 in aa.color) {
-							loop.tick(1);
-							if(file.color.hasOwnProperty(i1)) {
-								aa.color[i1] = structuredClone(file.color[i1]);
-							};
-						}
-						// you have to copy these property by property. if you
-						// use structuredClone outright, it won't be the AAX
-						// DrawSettings/Color class anymore.
-						let temp = file.states_limit ?? null;
-						if(Number.isInteger(temp) && temp >= 1) {
-							aa.states_limit = temp;
-						};
-						temp = file.states_truncator ?? null;
-						if(Number.isInteger(temp) && temp >= 0) {
-							aa.states_truncator = temp;
-						};
-						loop.end();
-						aa.refresh();
+						// restore cache
 					}
-				};
-				reader.readAsText(file);
-			}
-			else {
-				console.log("this shouldn't happen");
+					aa.anim_index = file.anim_index;
+					for(i1 in aa.drawsettings) {
+						if(file.drawsettings.hasOwnProperty(i1)) {
+							aa.drawsettings[i1] = structuredClone(file.drawsettings[i1]);
+						};
+					}
+					for(i1 in aa.color) {
+						if(file.color.hasOwnProperty(i1)) {
+							aa.color[i1] = structuredClone(file.color[i1]);
+						};
+					}
+					// you have to copy these property by property. if you
+					// use structuredClone outright, it won't be the AAX
+					// DrawSettings/Color class anymore.
+					let temp = file.states_limit ?? null;
+					if(Number.isInteger(temp) && temp >= 1) {
+						aa.states_limit = temp;
+					};
+					temp = file.states_truncator ?? null;
+					if(Number.isInteger(temp) && temp >= 0) {
+						aa.states_truncator = temp;
+					};
+					aa.refresh();
+				}
 			};
+			reader.readAsText(file);
 		},
 	};
 	aa.initialize();
 	document.write(`</div>`);
+	//
+	document.write(`<div name="hider" id="hider_body_maker"></div>`);
+	let bm = {
+	// tool for making bodytexts.
+	// - this was written after the facial proportions tool, i just wanted it
+	//   right after armature artist.
+	// - if something isn't explained, chances are it's because there's an
+	//   armature artist equivalent. read the comments there.
+		bodydata: {},
+		// stores data used to make bodytext.
+		form_bodytext: function(bodydata) {
+		// forms a bodytext from bodydata.
+			let i1 = 0;
+			bodydata ??= bm.bodydata;
+			let text = [];
+			let order = AAX.getchildren(bodydata);
+			function addbranch(name, level) {
+				level = Number.isInteger(level) && level > 0 ? level : 0;
+				text.push(" ".repeat(level) + name + ": " + bodydata[name].x + ", " + bodydata[name].y + ", " + bodydata[name].z);
+				for(let i1 in bodydata) {
+					if(bodydata.hasOwnProperty(i1) && bodydata[i1].parent === name) {
+						addbranch(i1, level + 1);
+					}
+				}
+			}
+			for(i1 = 0; i1 < order.length; i1++) {
+				addbranch(order[i1]);
+			}
+			text = text.join("\n");
+			text += "\n###";
+			//
+			order = AAX.getdesc(bodydata);
+			// it's better to use getchildren/getdesc than to iterate through.
+			// the order of iteration might not match the family tree if parts
+			// were deleted or renamed.
+			for(i1 = 0; i1 < order.length; i1++) {
+				let _i1 = order[i1];
+				if(bodydata[_i1].image_text.trim()) {
+					text += "\n[ " + _i1 + " ]\n" + bodydata[_i1].image_text;
+				}
+			}
+			text += "\n###";
+			//
+			for(i1 = 0; i1 < order.length; i1++) {
+				let _i1 = order[i1];
+				let symmetry = (
+					bodydata[_i1].symmetry
+					?
+					"symmetry(" + (
+						(bm.control.prefix1 === AAX.prefix1 && bm.control.prefix2 === AAX.prefix2)
+						?
+						""
+						:
+						bm.control.prefix1 + ", " + bm.control.prefix2
+					) + ")"
+					:
+					""
+				);
+				let temp = bodydata[_i1].extra_text;
+				if(symmetry) {
+					temp = symmetry + (symmetry && temp ? "\n" : "") + temp;
+				};
+				if(temp) {
+					text += "\n" + _i1 + ":\n\t" + temp.replaceAll("\n", "\n\t");
+				};
+			}
+			//
+			return text;
+		},
+		bodytext_change: function(text) {
+		// used in the "apply changes" button and when loading a file. figures
+		// out and applies everything needed to finalize the change, or alerts
+		// the user if it ran into a problem.
+			let i1 = 0;
+			let i2 = 0;
+			text ??= bm.bodytext;
+			// whatever's in the bodytext textarea
+			let obj = AAX.body_read.collect(text);
+			if(typeof obj === "string") {
+				alert(obj);
+				return;
+			};
+			let data = {};
+			let array = "parent x y z image_text extra_text".split(" ");
+			let symmetry_found = false;
+			// whether any parts are symmetrical. (gotta keep track of this so
+			// it only saves the first prefix choice.)
+			let prefix1 = AAX.prefix1;
+			let prefix2 = AAX.prefix2;
+			let prefix_schism = false;
+			for(i1 in obj) {
+				if(obj.hasOwnProperty(i1)) {
+					data[i1] = bm.newpart();
+					for(i2 = 0; i2 < array.length; i2++) {
+						data[i1][ array[i2] ] = obj[i1][ array[i2] ];
+					}
+					let commands = AAX.body_read.extra_commands(data[i1].extra_text);
+					for(i2 = 0; i2 < commands.length && !data[i1].symmetry; i2++) {
+						let ref = commands[i2];
+						if(ref.name === "symmetry") {
+							let prefix = AAX.body_read.symmetry_prefixes(ref.content);
+							prefix_schism = prefix_schism || (symmetry_found && (prefix[0] !== prefix1 || prefix[1] !== prefix2));
+							if(!symmetry_found) {
+								prefix1 = prefix[0];
+								prefix2 = prefix[1];
+							};
+							symmetry_found = true;
+							data[i1].symmetry = true;
+						}
+					}
+					if(data[i1].symmetry) {
+						data[i1].extra_text = bm.remove_symmetry(data[i1].extra_text, commands);
+					}
+				}
+			}
+			if(symmetry_found) {
+			// ancestors with symmetry on override descendants with symmetry
+			// on.
+				let order = AAX.getdesc(data);
+				for(i1 = 0; i1 < order.length; i1++) {
+					let _i1 = order[i1];
+					if(data[_i1].symmetry && AAX.getanc(data, _i1).some((element) => data[element].symmetry)) {
+						data[_i1].symmetry = false;
+					}
+				}
+			};
+			//
+			text = bm.form_bodytext(data);
+			let body = AAX.Body.new(text);
+			if(typeof body === "string") {
+			// report Body.new errors
+				alert(body);
+				return;
+			};
+			//
+			bm.bodydata = structuredClone(data);
+			bm.control.prefix1 = prefix1;
+			bm.control.prefix2 = prefix2;
+			bm.control.partname = AAX.getchildren(body)[0];
+			// select the first stem
+			bm.refresh(null, text, body);
+			// pass on the bodytext and body to refresh
+		},
+		remove_symmetry: function(text, commands) {
+		// input an extra_text, and it'll slice out any symmetry() commands.
+			commands ??= AAX.body_read.extra_commands;
+			let offset = 0;
+			// gotta keep track of how much you sliced out, so the
+			// slicing indexes stay accurate.
+			for(let i1 = 0; i1 < commands.length; i1++) {
+				let ref = commands[i1];
+				if(ref.name === "symmetry") {
+					text = text.slice(0, offset + ref.start) + text.slice(offset + ref.end);
+					offset += ref.end - ref.start;
+				}
+			}
+			return text.replaceAll("\n\n", "\n");
+		},
+		extra_text_symmetry: function(string) {
+		// returns an array of the starts and ends of symmetry() commands in an
+		// extra_text.
+		// - the indexes specifically mark the start and end of the parenthese
+		//   contents.
+			let comment_char = "//";
+			let start = "symmetry(";
+			let end = ")";
+			let ranges = [];
+			for(let i1 = 0; i1 < string.length; i1++) {
+				let left = string.slice(0, i1);
+				let right = string.slice(i1);
+				if(right.startsWith(comment_char)) {
+				// skip to the end of the comment.
+					let temp = right.indexOf("\n");
+					i1 += temp === -1 ? string.length : temp - 1;
+					// it's a comment if it's in or after a comment_char but
+					// before a \n. (the \n doesn't count as part of it, i
+					// mean.)
+				}
+				else if(!(ranges.length%2) && right.startsWith("(") && left.endsWith("symmetry")) {
+				// command start
+					ranges.push(i1 + 1);
+				}
+				else if(ranges.length%2 && right.startsWith(")")) {
+				// command end
+					ranges.push(i1);
+				};
+			}
+			return ranges;
+		},
+		get bodytext() {
+			return document.getElementById("bm_bodytext").value;
+		},
+		set bodytext(value) {
+			document.getElementById("bm_bodytext").value = value;
+			document.getElementById("bm_bodytext").rows = value.split("\n").length;
+		},
+		body: null,
+		pose: null,
+		// Body, and pose.
+		// - NOTE: the pose is only created so it can be drawn. it will never be
+		//   posed.
+		newpart: () => structuredClone({
+		// returns a blank bodydata part.
+			parent: "standpoint",
+			x: 0,
+			y: 0,
+			z: 0,
+			symmetry: false,
+			image_text: AAX.shape_templates.sphere,
+			// text used in the second field. (shapes and images.)
+			extra_text: "",
+			// text used in the third field.
+			// - NOTE: do not allow symmetry() commands. this tool needs to
+			//   reliably know whether a part is symmetried or not, and with
+			//   what prefixes.
+		}),
+		valid: {
+			tools: "child sibling move radius horizontal vertical".split(" "),
+			refresh: ["bodytext", "states", "draw", "ui"],
+			draw_type: ["parts", "silhouette", "neither"],
+			// - parts only, with overlapping outlines
+			// - silhouettes only, with different groups differentiated
+			// - neither
+		},
+		drawsettings: new AAX.DrawSettings(),
+		color: new AAX.Color(),
+		ctx: null,
+		ui_ctx: null,
+		states: null,
+		// States object for undo/redo
+		initialize: function() {
+			let i1 = 0;
+			let i2 = 0;
+			bm.bodydata.core = bm.newpart();
+			bm.control.partname = "core";
+			bm.drawsettings.total_hide = false;
+			// total hide makes less sense for this, especially if it makes
+			// parts unselectable.
+			//bm.drawsettings.grid = [];
+			bm.control.draw_type = bm.valid.draw_type[0];
+			bm.states = new States(
+				bm, 32,
+				function(tool) {
+					let state = {bodydata: structuredClone(tool.bodydata)};
+					let array = "partname prefix1 prefix2".split(" ");
+					for(let i1 = 0; i1 < array.length; i1++) {
+						state[array[i1]] = tool.control[array[i1]];
+					}
+					return state;
+				},
+				function(tool, state) {
+					for(let i1 in state) {
+						if(state.hasOwnProperty(i1)) {
+							if(i1 === "bodydata") {
+								tool[i1] = structuredClone(state[i1]);
+							}
+							else {
+								tool.control[i1] = state[i1];
+							}
+						}
+					}
+					tool.refresh("states");
+				}
+			);
+			let string = `a tool for creating bodytexts you can use in armature artist. make sure to read the manual of that to get how bodytext works. or what a bodytext is.`;
+			string += `\n<details>`;
+			string += `\n\t<summary>manual</summary><ul>`;
+			let manual = {
+				"edit tools": [
+					`sibling: create a sibling to the current part.`,
+					`child: create a child to the current part.`,
+					`move: move where a part is, relative to its parent.`
+				],
+				"scale tools": [
+					`radius: scales the shape so that the furthest point of the shape is just as far away from the center as the mouse is.`,
+					`horizontal, vertical: changes where the bounds of the shape are by scaling the points along the given axis.`,
+					[
+						`click past the front edge with horizontal, and you'll be able to move where the front edge is.`,
+						`click past the back edge, and you move the back edge.`,
+						`clicking between the edges moves the shape.`
+					],
+					`clicking a part selects it, and clicking anywhere else adjusts sizing.`
+				],
+				"etc": [
+					`for sibling, child, and the scale tools, clicking a part will select it instead of doing anything else.`,
+					`the symmetry button toggles whether this branch of parts has a symmetrical duplicate.`,
+					`expand lets you expand the part in whatever directions you toggled on the pad below the button.`,
+					[
+						`it's useful for fat and muscle. body parts get bigger, but they don't expand in all directions.`,
+					]
+				],
+			};
+			for(i1 in manual) {
+				if(manual.hasOwnProperty(i1)) {
+					string += [
+						``,
+						`<details>`,
+						`\t<summary>` + i1 + `</summary>`,
+						`\t` + arraytoul(manual[i1], 1).replaceAll(`\n`, `\n\t`),
+						`</details>`
+					].join(`\n`).replaceAll(`\n`, `\n\t`);
+				}
+			}
+			string += `\n</ul></details>`;
+			string += `\n<canvas id="bm_canvas"></canvas>`;
+			string += `\n<div id="bm_coor" style="text-shadow: silver .5px .5px; font-size: 8px"></div>`;
+			string += `\n<br><canvas id="bm_ui_canvas"></canvas>`;
+			string += `<br><button id="bm_applychanges">apply changes</button>`;
+			string += `<br><textarea id="bm_bodytext" cols=48></textarea>`;
+			//string += ``;
+			for(i1 = 0; i1 < 2; i1++) {
+				let id = "bm_" + (i1 ? "extra" : "image") + "_text";
+				string += `\n<dialog id="` + id + `" autofocus>`;
+				string += `\nenter new text to define the `;
+				if(i1) {
+					string += `extra parameters. (check the bodytext section of the armature artist manual for a full list of commands you can write here, and what they do.)`;
+					string += `\n<ul>`;
+					string += `\n\t<li>`;
+					string += `\n\tdon't put "symmetry()" commands here. use the symmetry button instead.`;
+					string += `\n\t</li>`;
+					string += `\n</ul>`;
+				}
+				else {
+					string += `shape.`;
+					string += `\n<br>templates:`;
+					string += `\n<ul>`;
+					for(i2 in AAX.shape_templates) {
+						if(AAX.shape_templates.hasOwnProperty(i2)) {
+							string += `\n<button id=` + id + `_template_` + i2 + `>` + i2 + `</button>`;
+						}
+					}
+					string += `\n</ul>`;
+				};
+				string += `\n<br><textarea id="` + id + `_input" cols=48></textarea>`,
+				string += `\n<br><button id="` + id + `_enter">enter</button>`,
+				string += `\n<button id="` + id + `_close">close</button>`,
+				string += `\n</dialog>`;
+			}
+			document.getElementById("hider_body_maker").innerHTML = string;
+			bm.writecoordinates(null);
+			for(i1 = 0; i1 < 2; i1++) {
+				let canvas = document.getElementById("bm_" + (i1 ? "ui_" : "") + "canvas");
+				canvas.style["image-rendering"] = "crisp-edges";
+				bm[i1 ? "ui_ctx" : "ctx"] = canvas.getContext("2d");
+				if(i1) {
+					canvas.onpointerdown = bm.ui.mousedown;
+				}
+				else {
+					canvas.onpointerdown = bm.mousedown;
+					canvas.onpointermove = bm.mousemove;
+					canvas.onpointerup = bm.mouseup;
+					// like mouse events, except they work for phones and
+					// drawing tablets.
+					canvas.style["touch-action"] = "none";
+					// this keeps it from sliding around when you're using a
+					// phone.
+					AAX.dragndrop(canvas, bm.readfile);
+					// drag n drop file loading
+					/*
+					canvas.ondragover = function(e) {
+						e.preventDefault();
+					};
+					canvas.ondrop = function(e) {
+						let files = e.dataTransfer.items;
+						if(files.length >= 1 && files[0].kind === "file") {
+							bm.readfile(files[0].getAsFile());
+						};
+						e.preventDefault();
+					};
+					// lets you load things by dropping files onto the
+					// canvas.
+					*/
+				}
+			}
+			for(i1 in AAX.shape_templates) {
+				if(AAX.shape_templates.hasOwnProperty(i1)) {
+					let text = "\n" + AAX.shape_templates[i1];
+					document.getElementById("bm_image_text_template_" + i1).onclick = function() {
+						let input = document.getElementById("bm_image_text_input");
+						let temp = [
+							input.selectionStart,
+							input.selectionEnd
+						];
+						if(temp[1] < temp[0]) {
+							temp = [temp[1], temp[0]];
+						}
+						input.value = input.value.slice(0, temp[0]) + text + input.value.slice(temp[1]);
+						input.selectionStart = temp[0] + text.length;
+						input.selectionEnd = input.selectionStart;
+					};
+				}
+			}
+			for(i1 = 0; i1 < 2; i1++) {
+				let _i1 = (i1 ? "extra" : "image") + "_text";
+				let id = "bm_" + _i1;
+				document.getElementById(id + "_close").onpointerdown = function(e) {
+					document.getElementById(id + "_input").value = "";
+					document.getElementById(id).close();
+				};
+				document.getElementById(id + "_enter").onpointerdown = function(e) {
+					let old_text = bm.control.bodydata_part[_i1];
+					let new_text = document.getElementById(id + "_input").value.trim();
+					if(_i1 === "extra_text") {
+						let commands = AAX.body_read.extra_commands(new_text);
+						let temp = new_text.length;
+						new_text = bm.remove_symmetry(new_text, commands);
+						// slice out symmetry() commands
+						if(new_text.length < temp) {
+						// alert the user
+							alert("do not use symmetry() commands. use the symmetry button instead.");
+						};
+					}
+					bm.control.bodydata_part[_i1] = new_text;
+					let bodytext = bm.form_bodytext();
+					let body = AAX.Body.new(bodytext);
+					if(typeof body === "string") {
+						alert("invalid " + _i1 + ". (" + body + ")");
+						bm.control.bodydata_part[_i1] = old_text;
+					}
+					else {
+						bm.refresh(null, bodytext, body);
+					}
+					document.getElementById(id + "_input").value = "";
+					document.getElementById(id).close();
+				};
+			}
+			document.getElementById("bm_applychanges").onclick = function() { bm.bodytext_change(); };
+			bm.ui.create();
+			bm.ui_ctx.font = AAX.ui.font;
+			bm.ui_ctx.textBaseline = "middle";
+			// these get reset if the canvas dimensions change. fuck if i know
+			// why. ask mozilla.
+			bm.refresh("states");
+		},
+		refresh: function(skip, bodytext, body) {
+		// - skip: string or string array of actions to skip. (ex: "states" will
+		//   keep it from saving a state. bm.valid.refresh has the full list.)
+		// - bodytext, body: used to pass on bodytext/body, to avoid redundant
+		//   runnings of bm.get_bodytext and AAX.Body.new.
+		//   - when editing shape_text or something like that, before it decides
+		//     to refresh and save the user's changes, it has to run those
+		//     functions to make sure invalid input didn't cause an error
+		//     somewhere. it'd be a waste to throw the generated bodytext/body
+		//     out and run that stuff again.
+			let i1 = 0;
+			let i2 = 0;
+			let i3 = 0;
+			skip = typeof skip === "string" ? [skip] : Array.isArray(skip) ? skip : [];
+			if(!skip.includes("bodytext")) {
+			// rewrite the bodytext, redefine the body and pose
+				bodytext ??= bm.form_bodytext();
+				body ??= AAX.Body.new(bodytext);
+				if(typeof body === "string") {
+					console.log("this shouldn't happen");
+					console.log(body);
+				}
+				else if(body instanceof AAX.Body) {
+					bm.bodytext = bodytext;
+					bm.body = body;
+					bm.pose = AAX.newpose(bm, bm.body);
+					for(i1 in bm.pose) {
+						if(bm.pose.hasOwnProperty(i1) && !bm.control.partname) {
+						// NOTE: ALWAYS ALWAYS ITERATE THROUGH THE POSE, NOT
+						// BODYDATA!
+						// - otherwise, you'll miss parts created as symmetrical
+						//   duplicates.
+						// - not that that's particularly relevant here, but
+						//   shut up!
+							bm.control.partname = i1;
+						}
+					}
+				}
+				else {
+					console.log("this shouldn't happen");
+				}
+			};
+			if(!skip.includes("states")) {
+				bm.states.save();
+			};
+			if(!skip.includes("draw")) {
+				bm.draw_background();
+				bm.draw();
+				const ctx = bm.ctx;
+				const cell = bm.drawsettings.cell;
+				for(i1 = 0; i1 < 2; i1++) {
+					bm["image_" + (i1 ? "right" : "front")] = ctx.getImageData(cell.w*i1, 0, cell.w, cell.h);
+				}
+				// save images, which are used to reverse graphical changes in
+				// the clickable interface
+			};
+			if(!skip.includes("ui")) {
+				bm.ui.draw();
+			};
+		},
+		symmetry: function(name) {
+		// input a partname from the body/pose, and it'll return 0, 1, or 2
+		// depending on what kind of symmetry the named part has.
+		// - 1 and 2 mean it's part of a branch with symmetry duplication
+		// - 0 means it isn't
+		// - 2 means it's specifically the branch that gets x-mirrored, and
+		//   takes bm.control.prefix2
+		// - 1 means it's the branch that isn't, and takes prefix1
+			if(name in bm.bodydata) {
+				return 0;
+			}
+			else if(name.startsWith(bm.control.prefix1) && name.slice(bm.control.prefix1.length) in bm.bodydata) {
+				return 1;
+			}
+			else if(name.startsWith(bm.control.prefix2) && name.slice(bm.control.prefix2.length) in bm.bodydata) {
+				return 2;
+			}
+			else {
+				if(name in bm.body) {
+					console.log("this shouldn't happen");
+					// the only kind of part that should be in body/pose but not
+					// bodydata is symmetrical counterparts.
+				}
+				else {
+					console.log("invalid part name.");
+				}
+			};
+		},
+		has_symmetry: (name) => bm.bodydata[name].symmetry || AAX.getanc(bm.bodydata, name).some((element) => bm.bodydata[element].symmetry),
+		// input a bodydata part name. returns whether it's symmetrical, ie one
+		// of its ancestors has true .symmetry
+		bodydata_name: function(name) {
+		// takes a body/pose partname and gives the corresponding bm.bodydata
+		// name.
+			let symmetry = bm.symmetry(name);
+			name = (
+				symmetry === 1 ? name.slice(bm.control.prefix1.length) :
+				symmetry === 2 ? name.slice(bm.control.prefix2.length) :
+				name
+			);
+			if(!(name in bm.bodydata)) {
+				console.log("this shouldn't happen");
+			};
+			return name;
+		},
+		replaceshape: function(bodydata_part, shape) {
+		// converts the given shape into text, and replaces the first field of
+		// the given part's image_text with it.
+			let temp = bodydata_part.image_text.split("||");
+			temp[0] = AAX.shapetostring(shape);
+			if(temp[0] && temp.length > 1) {
+				temp[0] += "\n";
+			};
+			bodydata_part.image_text = temp.join("||");
+		},
+		disable_delete: () => (
+			bm.control.delete_branch
+			?
+			(
+				bm.control.bodydata_part.parent === "standpoint"
+				&&
+				AAX.getchildren(bm.bodydata, "standpoint").length <= 1
+			)
+			:
+			AAX.getdesc(bm.bodydata).length <= 1
+		),
+		// evaluates whether the delete button should be disabled.
+		// - if branch is on, than it should be disabled if it's the only stem.
+		// - otherwise, it should be disabled if it's the only part.
+		control: {
+			view: 0,
+			// on account of armature artist conventions and that i am just not
+			// willing to fully implement a "right" boolean or whatever would be
+			// more efficient... 0 means the front, 1 means the right.
+			partname: "",
+			// name of the selected part. it must always be the name of a part
+			// in the body/pose.
+			get symmetry() {
+				return bm.symmetry(bm.control.partname);
+			},
+			get bodydata_name() {
+				return bm.bodydata_name(bm.control.partname);
+			},
+			get bodydata_part() {
+				return bm.bodydata[bm.control.bodydata_name];
+			},
+			get body_part() {
+				return bm.body[bm.control.partname];
+			},
+			get pose_part() {
+				return bm.pose[bm.control.partname];
+			},
+			get node() {
+				return AAX.getnode(bm.nodes, bm.control.view, bm.control.partname);
+			},
+			tool: "child",
+			clicktype: null,
+			partclicked: false,
+			strokecache: null,
+			//
+			prefix1: AAX.prefix1,
+			prefix2: AAX.prefix2,
+			// used in symmetry
+			// - NOTE: one of the few things besides bodydata to be saved in a state.
+			delete_branch: false,
+			expand_number: 1,
+			expand: {
+				l: false,
+				r: false,
+				u: false,
+				d: false,
+				b: false,
+				f: false,
+			},
+			adjust_half: true,
+			last_adjust: "",
+			// a direction. it can be empty.
+			scale_number: 2,
+			scale_divide: false,
+			//
+			draw_type: null,
+			get skeleton() {
+				return bm.drawsettings.skeleton && bm.drawsettings.nodes;
+			},
+		},
+		nodecheck: function(click, view) {
+			for(let i1 = bm.nodes[view].length - 1; i1 >= 0; i1--) {
+			// search backwards, so it finds the closer nodes first.
+				let node = bm.nodes[view][i1];
+				if(
+					Math.hypot(node.x - click[0], node.y - click[1]) < AAX.noderadius + .5
+					&&
+					(!bm.pose[node.name].hide || !bm.drawsettings.total_hide)
+				) {
+				// if the part is hidden and total hide is on, don't allow the
+				// node to be selected or clicked.
+					return node;
+				};
+			}
+			return null;
+		},
+		coortocanvas: (point, view, nonulls, viewoffset) => AAX.coortocanvas(bm.drawsettings.cell, bm.drawsettings.standpoint, point, view, nonulls, viewoffset),
+		coorfromcanvas: (x, y, view) => AAX.coorfromcanvas(bm.drawsettings.cell, bm.drawsettings.standpoint, x, y, view),
+		mousedown: function(e) {
+			let i1 = 0;
+			let i2 = 0;
+			let i3 = 0;
+			let click = clickxy(e, "bm");
+			const cell = bm.drawsettings.cell;
+			const view = Math.floor(click[0]/cell.w);
+			const tool = bm.control.tool;
+			bm.control.view = view;
+			let node = bm.nodecheck(click, view);
+			bm.control.partclicked = node !== null;
+			if(bm.control.partclicked) {
+				bm.control.partname = node.name;
+				let skip = structuredClone(bm.valid.refresh);
+				skip.splice(skip.indexOf("ui"), 1);
+				bm.refresh(skip);
+			}
+			else {
+				node = bm.control.node;
+			};
+			bm.control.strokecache = {};
+			for(i1 in bm.pose) {
+				if(bm.pose.hasOwnProperty(i1)) {
+					let _part = bm.pose[i1];
+					bm.control.strokecache[i1] = {
+						front: _part.image_front,
+						right: _part.image_right,
+					}
+					let ref = bm.control.strokecache[i1];
+					for(i2 in ref) {
+						if(ref.hasOwnProperty(i2)) {
+							ref[i2] = AAX.sq_raster.fill(ref[i2], _part.dim(i2, ref[i2].length)[0]);
+						}
+					}
+				}
+			}
+			// fill strokecache (lets it reuse images so it doesn't run rasterize
+			// every mousemove)
+			bm.control.clicktype = "main";
+			if(bm.control.partclicked && tool !== "move") {
+				// select the part, don't do anything else.
+			}
+			else if(tool === "child" || tool === "sibling") {
+				let parent = tool === "child" ? bm.control.partname : bm.control.body_part.parent;
+				let parentcoor = parent === "standpoint" ? [0, 0, 0] : bm.pose[parent].abscoor;
+				// abscoor of the new part's parent
+				let relcoor = bm.coorfromcanvas(...click, view);
+				relcoor = [
+					relcoor.x ?? parentcoor[0],
+					relcoor.y ?? parentcoor[1],
+					relcoor.z ?? parentcoor[2]
+				];
+				relcoor = Points.trunc(Points.subtract(relcoor, parentcoor));
+				// subtract the parent's abscoor, and truncate.
+				let name = prompt("enter a name for the new part.");
+				name = typeof name === "string" ? name.trim() : "";
+				if(!name) {
+					//
+				}
+				else if(name === "standpoint") {
+					alert("\"standpoint\" is a reserved word.");
+				}
+				else if(name in AAX.Body.prototype) {
+					alert("\"" + name + "\" is an invalid part name for technical reasons.");
+				}
+				else {
+					if(name in bm.body && !(name in bm.bodydata)) {
+						name = bm.bodydata_name(name);
+					};
+					let symmetry = parent === "standpoint" ? 0 : bm.symmetry(parent);
+					if(symmetry === 2) {
+						relcoor[0] *= -1;
+					}
+					parent = parent === "standpoint" ? parent : bm.bodydata_name(parent);
+					let skip_refresh = false;
+					//
+					if(name in bm.bodydata) {
+					// instead of making a new part, make the named part a
+					// child/sibling of the selected part.
+						let anc = parent === "standpoint" ? [] : AAX.getanc(bm.bodydata, parent);
+						if(anc.includes(name) || name === parent) {
+						// the named part is an ancestor of the part the user is
+						// attempting to parent it to. this would cause a
+						// parenting loop.
+							skip_refresh = true;
+							alert("part already exists. (normally it would shift parenting around to add it as a " + tool + ", but in this case it would cause a parenting loop.)");
+						}
+						else {
+							bm.bodydata[name].parent = parent;
+						};
+					}
+					else {
+						bm.bodydata[name] = bm.newpart();
+						bm.bodydata[name].parent = parent;
+						for(i1 = 0; i1 < 3; i1++) {
+							bm.bodydata[name]["xyz"[i1]] = relcoor[i1];
+						}
+						bm.control.partname = (symmetry ? bm.control["prefix" + symmetry] : "") + name;
+						// select it
+					}
+					// - name is in bodydata: change its parenting
+					// - name is not in bodydata, but is in body: use the
+					//   bodydata_name, and change its parenting like a bodydata
+					//   name
+					// - name is in neither: make a new part, and copy the
+					//   relcoor
+					//
+					if(!skip_refresh) {
+						bm.refresh();
+					};
+				}
+			}
+			else if(tool === "radius" || tool === "horizontal" || tool === "vertical") {
+			// figure out the strokedata.
+				bm.control.strokedata = {};
+				let ref = bm.control.strokedata;
+				let points = bm.control.body_part.shape.points;
+				if(tool === "radius") {
+					ref.radius = AAX.shape_radius(points);
+				}
+				else {
+					ref.bounds = AAX.shape_bounds(points);
+					ref.axis = tool === "vertical" ? 1 : view%2 ? 2 : 0;
+				};
+				if(tool === "horizontal" || tool === "vertical") {
+					ref.coor = bm.coorfromcanvas(...click, view)["xyz"[ref.axis]];
+					// the amount you move the box or bound by is measured by
+					// how many pixels away you moved from where the click
+					// started.
+					if(ref.bounds) {
+						if(bm.control.symmetry === 2) {
+						// mirror the bounding box
+							let temp = ref.bounds.l;
+							ref.bounds.l = -ref.bounds.r;
+							ref.bounds.r = -temp;
+						};
+						let center = bm.control.pose_part.abscoor[ref.axis];
+						let temp = ref.coor - center;
+						ref.sign = (
+							temp <= ref.bounds["lub"[ref.axis]] ? -1 :
+							temp >= ref.bounds["rdf"[ref.axis]] ? 1 :
+							0
+						);
+						// if you click on or past an edge, your click drags that
+						// edge around. if you click between the edges, you move the
+						// whole box.
+						ref.zero = !(ref.bounds["rdf"[ref.axis]] - ref.bounds["lub"[ref.axis]]);
+					}
+					else {
+						ref.sign = 0;
+						ref.zero = true;
+					}
+				}
+			}
+		},
+		mousemove: function(e, finish) {
+			let i1 = 0;
+			let i2 = 0;
+			let i3 = 0;
+			let click = clickxy(e);
+			const ctx = bm.ctx;
+			const cell = bm.drawsettings.cell;
+			const view = bm.control.clicktype === "main" ? bm.control.view : Math.floor(click[0]/cell.w);
+			const coor = bm.coorfromcanvas(click[0], click[1], view);
+			if(view === 0 || view === 1) {
+			// draw coordinates
+				let text = [
+					"",
+					"xz"[view%2] + ": " + coor["xz"[view%2]],
+					"y: " + coor.y
+				];
+				if(bm.control.clicktype !== "main") {
+					let node = bm.nodecheck(click, view);
+					bm.pasteimages(false);
+					bm.pasteimages(true);
+					if(node !== null) {
+						text[0] = node.name;
+						// display the name
+						node = AAX.noderect(node.x, node.y);
+						ctx.strokeStyle = bm.color.interface[0];
+						ctx.fillStyle = bm.color.interface[1];
+						ctx.strokeRect(node.x - .5, node.y - .5, node.w + 1, node.h + 1);
+						ctx.fillRect(node.x, node.y, node.w, node.h);
+						bm.pasteimages(!view);
+					}
+				};
+				bm.writecoordinates(text);
+			};
+			if(bm.control.clicktype !== "main") {
+				return;
+			};
+			//
+			bm.pasteimages(!!bm.control.view);
+			bm.writecoordinates(null);
+			ctx.strokeStyle = bm.color.interface[0];
+			ctx.fillStyle = bm.color.interface[1];
+			const tool = bm.control.tool;
+			const strokedata = bm.control.strokedata;
+			if(
+				(tool === "move" !== bm.control.partclicked)
+				// you have to click a part and drag it.
+				// - move without clicking a part: invalid, you have to click
+				//   and drag a node.
+				// - clicking a part in any other mode: don't do anything after
+				//   mousedown, just select it.
+				||
+				tool === "child" || tool === "sibling"
+				// everything happens on mousedown for these.
+				||
+				(tool === "radius" && !strokedata.radius)
+				// if the radius was zero or null, no matter how much the shape
+				// is multiplied, it won't change.
+				||
+				((tool === "horizontal" || tool === "vertical") && (
+					(strokedata.zero && strokedata.sign)
+					// can't drag the edges around if the dimension is zero, since
+					// it works by multiplying.
+					||
+					!strokedata.bounds
+					// scaling a shape with no valid points makes no sense.
+				))
+			) {
+				bm.control.strokecache = null;
+				bm.control.clicktype = null;
+				bm.control.strokedata = null;
+				bm.writecoordinates(null);
+				return;
+			}
+			const node = bm.control.node;
+			const bodydata_part = bm.control.bodydata_part;
+			const body_part = bm.control.body_part;
+			const pose_part = bm.control.pose_part;
+			let parent_node = node.parent;
+			if(node.parent === "standpoint") {
+				parent_node = bm.coortocanvas([0, 0, 0], view, true, true);
+				parent_node = {
+					x: parent_node[0],
+					y: parent_node[1],
+					name: parent,
+				};
+			};
+			// a node-like object for standpoint, or the .parent reference.
+			//
+			let data = {};
+			// things that the position of the mouse is adjusting... it's like
+			// strokedata, except it can be deleted now.
+			// - if that's confusing, just don't worry about it. this is just to
+			//   escape block-scoping.
+			if(tool === "radius") {
+				data.radius = Math.round(Math.hypot(click[0] - node.x, click[1] - node.y));
+				bm.writecoordinates(data.radius);
+			}
+			else if(tool === "move") {
+				let oldcoor = pose_part.abscoor;
+				let newcoor = bm.coorfromcanvas(...click, view);
+				newcoor = [
+					newcoor.x ?? oldcoor[0],
+					newcoor.y ?? oldcoor[1],
+					newcoor.z ?? oldcoor[2]
+				];
+				for(i1 = 0; i1 < 3; i1++) {
+					newcoor[i1] = oldcoor[i1] + Math.trunc(newcoor[i1] - oldcoor[i1]);
+				}
+				// truncate the coordinates so that the floats are the same as they
+				// were before.
+				let parent = body_part.parent;
+				data.coor = parent === "standpoint" ? structuredClone(newcoor) : Points.subtract(newcoor, bm.pose[parent].abscoor);
+				// data.coor is the new relcoor to apply to the selected part.
+			}
+			else if(tool === "horizontal" || tool === "vertical") {
+				data.bounds = structuredClone(strokedata.bounds)
+				let bounds = strokedata.bounds;
+				let _bounds = data.bounds;
+				let neg = "lub"[strokedata.axis];
+				let pos = "rdf"[strokedata.axis];
+				data.change = Math.trunc(bm.coorfromcanvas(...click, view)["xyz"[strokedata.axis]] - strokedata.coor);
+				let sign = strokedata.sign;
+				let temp = data.change;
+				if(sign === -1) {
+					temp *= -1;
+				};
+				temp = (temp > 0 ? "+" : "") + temp;
+				bm.writecoordinates("lxruydbzf"[3*strokedata.axis + 1 + sign] + " " + temp);
+				data.multiplier = 1;
+				if(sign === 0) {
+					_bounds[neg] += data.change;
+					_bounds[pos] += data.change;
+				}
+				else if(sign === -1) {
+					_bounds[neg] += data.change;
+					data.multiplier = _bounds[neg]/bounds[neg];
+					_bounds[pos] *= data.multiplier;
+					// bounds*multiplier = _bounds
+					// multiplier = _bounds/bounds
+				}
+				else if(sign === 1) {
+					_bounds[pos] += data.change;
+					data.multiplier = _bounds[pos]/bounds[pos];
+					_bounds[neg] *= data.multiplier;
+				};
+			}
+			//
+			if(tool === "radius" || (tool === "move" && body_part.parent !== "standpoint")) {
+			// draw circles.
+			// - radius: show the current radius of the part's shape, and the
+			//   radius your click would set it as
+			// - move: show the current hypotenuse, and where the parent is
+				let center = tool === "radius" ? node : parent_node;
+				center = [center.x, center.y];
+				let radius = tool === "radius" ? strokedata.radius : Math.floor(Math.hypot(bodydata_part.x, bodydata_part.y, bodydata_part.z));
+				circledraw(ctx, ...center, radius);
+				if(tool === "radius") {
+					circledraw(ctx, ...center, data.radius);
+				};
+				temp = ctx.fillStyle;
+				ctx.fillStyle = ctx.strokeStyle;
+				circledraw(ctx, ...center, AAX.noderadius, true);
+				ctx.fillStyle = temp;
+			}
+			else if(tool === "horizontal" || tool === "vertical") {
+				let center = bm.control.pose_part.abscoor;
+				let temp = view%2 ? ["ruf", "rub", "rdb", "rdf"] : ["luf", "ruf", "rdf", "ldf"];
+				let rect = Rect.new();
+				let _rect = Rect.new();
+				for(i1 = 0; i1 < 2; i1++) {
+					let bounds = i1 ? data.bounds : strokedata.bounds;
+					for(i2 = 0; i2 < 4; i2++) {
+						let point = Points.add(
+							center,
+							[
+								bounds[ temp[i2][0] ],
+								bounds[ temp[i2][1] ],
+								bounds[ temp[i2][2] ]
+							]
+						);
+						point = bm.coortocanvas(point, view, true, true);
+						//console.log(point);
+						if(i1) {
+							if(i2) {
+								_rect = Rect.reach(_rect, ...point);
+							}
+							else {
+								_rect.x = point[0];
+								_rect.y = point[1];
+							}
+						}
+						else {
+							if(i2) {
+								rect = Rect.reach(rect, ...point);
+							}
+							else {
+								rect.x = point[0];
+								rect.y = point[1];
+							}
+						}
+					}
+					//console.log(i1 ? _rect : rect);
+				}
+				for(i1 = 0; i1 < 4; i1++) {
+				// 0: draw a black outline for the original box
+				// 1: draw a black outline for the modified box
+				// 2: draw the original box, in gray
+				// 3: draw the modified box, in white
+					ctx.strokeStyle = bm.color.interface[i1 === 2 ? 2 : i1 === 3 ? 1 : 0];
+					for(i2 = 0; i2 < 2; i2++) {
+					// - first iteration: round the coordinates so the rect gets
+					//   smaller (and subtract 1, if it's outline)
+					// - second iteration: round the coordinates so the rect
+					//   gets bigger (and add 1, if it's outline)
+						let temp = structuredClone(i1%2 ? _rect : rect);
+						temp = i2 ? Rect.round_out(temp) : Rect.round_in(temp);
+						if(i1 < 2) {
+							let sign = i2 ? 1 : -1;
+							temp = Rect.expanded(temp, "l", sign);
+							temp = Rect.expanded(temp, "r", sign);
+							temp = Rect.expanded(temp, "u", sign);
+							temp = Rect.expanded(temp, "d", sign);
+						}
+						Rect.fauxstroke(temp, ctx);
+					}
+				}
+			};
+			bm.pasteimages(!view);
+			//
+			if(tool === "move") {
+				let rect = {
+					x: Math[([1, 2].includes(view) ? "ceil" : "floor")](parent_node.x) + .5,
+					y: Math[([1, 2].includes(view) ? "ceil" : "floor")](parent_node.y) + .5,
+					// floor/ceil it so it's what the coortocanvas would be
+					// without floats, and add .5 so it's in the center of
+					// the pixels.
+					w: ([1, 2].includes(view) ? -1 : 1)*Math.trunc(data.coor[view%2 ? 2 : 0]),
+					h: Math.trunc(data.coor[1]),
+				};
+				ctx.strokeRect(rect.x, rect.y, rect.w, rect.h);
+				bm.writecoordinates(data.coor);
+			}
+			if(finish) {
+				let skip_refresh = false;
+				if(tool === "move") {
+					bodydata_part.x = data.coor[0];
+					bodydata_part.y = data.coor[1];
+					bodydata_part.z = data.coor[2];
+					if(bm.control.symmetry === 2) {
+					// bodydata_part is actually the symmetrical counterpart,
+					// so.
+						bodydata_part.x *= -1;
+					};
+				}
+				else if((tool === "horizontal" || tool === "vertical") && !strokedata.sign) {
+				// move the shape
+					if(data.change) {
+						let points = structuredClone(body_part.shape.points);
+						for(i1 = 0; i1 < points.length; i1++) {
+							for(i2 = 0; i2 < points[i1].length; i2++) {
+								let point = points[i1][i2];
+								point[strokedata.axis] += data.change;
+								if(bm.control.symmetry === 2) {
+								// shape belongs to the counterpart, but will be
+								// applied to the original
+									point[0] *= -1;
+								};
+							}
+						}
+						bm.replaceshape(bodydata_part, {points});
+					}
+				}
+				else if(tool === "radius" || tool === "horizontal" || tool === "vertical") {
+					let multiply = [1, 1, 1];
+					if(tool === "radius") {
+						let num = data.radius/strokedata.radius;
+						multiply = [num, num, num];
+					}
+					else if(tool === "horizontal" || tool === "vertical") {
+						multiply[strokedata.axis] = data.multiplier;
+					}
+					let all_same = multiply[0] === multiply[1] && multiply[1] === multiply[2];
+					// endless, finite (copy that.)
+					skip_refresh = all_same && multiply[0] === 1;
+					if(!skip_refresh) {
+					// editing the shapes like this wipes comments. at least
+					// avoid it if it won't do anything.
+						let points = structuredClone(body_part.shape.points);
+						for(i1 = 0; i1 < points.length; i1++) {
+							for(i2 = 0; i2 < points[i1].length; i2++) {
+								let point = points[i1][i2];
+								if(point.length >= 4 && point.length < 6 && !all_same) {
+								// there's different multipliers for each axis,
+								// so turn spheres into spheroids. (make sure
+								// there's three numbers, filling in missing
+								// numbers with [3].)
+									point[4] = point[4] ?? point[3];
+									point[5] = point[5] ?? point[3];
+								}
+								for(i3 = 0; i3 < Math.min(point.length, 6); i3++) {
+									point[i3] *= multiply[i3%3];
+								}
+								if(bm.control.symmetry === 2) {
+								// the shape being edited right now belongs to
+								// the symmetrical counterpart of the part we're
+								// actually applying the changes to. invert it
+								// to keep things consistent.
+									point[0] *= -1;
+								};
+							}
+						}
+						bm.replaceshape(bodydata_part, {points});
+					}
+				}
+				bm.control.strokecache = null;
+				bm.control.clicktype = null;
+				bm.control.strokedata = null;
+				bm.writecoordinates(null);
+				bm.refresh();
+			};
+		},
+		mouseup: function(e) {
+			if(bm.control.clicktype !== "main") {
+				return;
+			};
+			bm.mousemove(e, true);
+		},
+		ui: {
+			buttons: {},
+			// rectangle objects
+			heading: [],
+			// list of button names that are headings
+			depress: [],
+			// list of button names that are animated
+			checkbox: [],
+			// buttons that are checkboxes. you get the idea.
+			finddirection: function(x, y) {
+			// used for the expand and adjust directional buttons. input two 0
+			// to 1 numbers for where the click is on the button, and it'll
+			// return the appropriate direction letter.
+				if(x > 2/3) {
+					return y < .5 ? "b" : "f";
+				};
+				x /= 2/3;
+				x -= .5;
+				y -= .5;
+				return (
+					Math.abs(x) >= Math.abs(y)
+					?
+					(x < 0 ? "l" : "r")
+					:
+					(y < 0 ? "u" : "d")
+				);
+			},
+			create: function() {
+				let i1 = 0;
+				let temp1 = [];
+				for(i1 in AAX.shape_templates) {
+					if(AAX.shape_templates.hasOwnProperty(i1)) {
+						temp1.push(i1);
+					};
+				}
+				let temp2 = structuredClone(AAX.ui.color_area);
+				temp2.direction = "r";
+				bm.ui.buttons = Rect.ui([
+					{
+						prefix: "",
+						actions: [
+							["row", "undo redo".split(" "), "r", 4, 2]
+						],
+					},
+					{
+						prefix: "",
+						actions: [
+							["row", "save load".split(" "), "r", 4, 2]
+						],
+					},
+					{
+						prefix: "tool",
+						previous: -2,
+						direction: "d",
+						actions: [
+							["column", "create child sibling move".split(" "), "r", 7, 1],
+							["column", "scale radius horizontal vertical".split(" "), "r", 7, 1]
+						],
+					},
+					{
+						prefix: "part",
+						direction: "d",
+						actions: [
+							["column", "image_text", "d", 11, 2],
+							["expand", "symmetry", "d", 1],
+							["expand", "extra_text", "d", 2],
+							["column", "hypot", "l", 10, 5],
+							["expand", "name", "u", 1]
+						],
+					},
+					{
+						prefix: "template",
+						direction: "d",
+						actions: [
+							["column", temp1, "d", 7, 1]
+						],
+						heading: 2,
+					},
+					{
+						prefix: "scale",
+						direction: "r",
+						actions: [
+							["column", " number".split(" "), "d", 5, 1]
+						],
+					},
+					{
+						prefix: "delete",
+						direction: "d",
+						actions: [
+							["column", "", "d", 5, 2],
+							["expand", "branch", "d", 1]
+						],
+					},
+					{
+						prefix: "expand",
+						previous: -2,
+						direction: "r",
+						actions: [
+							["column", "", "d", 4, 1],
+							["expand", "number", "r", 2],
+							["expand", "directions", "d", 4]
+						],
+					},
+					{
+						prefix: "adjust",
+						direction: "r",
+						actions: [
+							["column", "directions", "d", 6, 4],
+							["expand", "half", "d", 1]
+						],
+						heading: 1,
+					},
+					{
+						prefix: "drawsettings",
+						direction: "d",
+						previous: -5,
+						actions: [
+							["column", "background draw_type skeleton".split(" "), "d", 9, 1],
+							["expand", "grid", "d", 1],
+							["expand", "standpoint", "d", 2],
+							["expand", "cell", "d", 1],
+							["expand", "fineness", "d", 1],
+						],
+						heading: 1,
+					},
+					temp2
+					// - simplified:
+				    //   - prefix
+				    //   - previous, direction, gap, adjust
+				    //   - first
+				    //     - suffix
+				    //     - w, h
+				    //     - horizontal
+				    //   - actions
+				    //     - ["row"/"column", suffixes, direction, w, h]
+				    //     - ["expand", suffix, direction, amount, horizontal]
+				    //     - ["subtract", suffix, direction, amount]
+				    //     - ["align", suffix, direction]
+				    //   - heading
+				]);
+				bm.ui.buttons.part_prefix1 = Rect.fromslice(bm.ui.buttons.part_symmetry, "r", 5);
+				bm.ui.buttons.part_prefix2 = Rect.fromslice(bm.ui.buttons.part_prefix1, "r", 2.5);
+				bm.ui.buttons.part_relcoor = Rect.fromslice(bm.ui.buttons.part_hypot, "d", 4);
+				bm.ui.buttons.part_abscoor = Rect.fromslice(bm.ui.buttons.part_relcoor, "l", bm.ui.buttons.part_relcoor.w/2);
+				bm.ui.buttons.scale_divide = Rect.fromslice(bm.ui.buttons.scale_number, "l", 1);
+				let w = 0;
+				let h = 0;
+				for(i1 in bm.ui.buttons) {
+					if(bm.ui.buttons.hasOwnProperty(i1)) {
+						let ref = bm.ui.buttons[i1];
+						ref.x *= AAX.ui.block;
+						ref.y *= AAX.ui.block;
+						ref.w *= AAX.ui.block;
+						ref.h *= AAX.ui.block;
+						w = Math.max(w, ref.x, ref.x + ref.w);
+						h = Math.max(h, ref.y, ref.y + ref.h);
+						let prefix = PreSuf.get(i1);
+						let suffix = prefix[1];
+						prefix = prefix[0];
+						if(
+							suffix === "heading"
+							||
+							(prefix === "tool" && (suffix === "create" || suffix === "scale"))
+						) {
+							bm.ui.heading.push(i1);
+						}
+						else if(
+							(prefix === "delete" && suffix === "branch")
+							||
+							(prefix === "adjust" && suffix === "half")
+						) {
+							bm.ui.checkbox.push(i1);
+						}
+						else if(
+							!suffix
+							||
+							(prefix === "part" && (suffix === "image_text" || suffix === "extra_text"))
+							||
+							prefix === "template"
+							||
+							(prefix === "adjust" && suffix === "directions")
+						) {
+							bm.ui.depress.push(i1);
+						};
+					}
+				}
+				w++;
+				h++;
+				let canvas = bm.ui_ctx.canvas;
+				canvas.width = w;
+				canvas.height = h;
+			},
+			draw: function(depress) {
+				let i1 = 0;
+				let i2 = 0;
+				let i3 = 0;
+				let ctx = bm.ui_ctx;
+				ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+				let part = bm.control.bodydata_part;
+				for(let button in bm.ui.buttons) {
+					if(bm.ui.buttons.hasOwnProperty(button)) {
+						let rect = structuredClone(bm.ui.buttons[button]);
+						let center = Rect.center(rect);
+						center = [
+							Math.floor(center[0]),
+							Math.floor(center[1])
+						];
+						let prefix = PreSuf.get(button);
+						let suffix = prefix[1];
+						prefix = prefix[0];
+						let heading = bm.ui.heading.includes(button);
+						let checkbox = bm.ui.checkbox.includes(button);
+						let directions = suffix === "directions" && (prefix === "expand" || prefix === "adjust");
+						let selected = (
+							(prefix === "tool" && !heading && suffix === bm.control.tool)
+							||
+							(checkbox && bm.control[button])
+							||
+							(button === "part_symmetry" && bm.control.bodydata_part.symmetry)
+						);
+						selected = Number(selected);
+						if(depress && button === depress) {
+							selected = posmod(selected + 1, 3);
+						};
+						if(
+							(button === "delete" && bm.disable_delete())
+							||
+							(button === "part_symmetry" && !selected && bm.has_symmetry(bm.control.bodydata_name))
+						) {
+							selected = 2;
+						};
+						if(prefix === "drawsettings") {
+							if(suffix === "draw_type") {
+								selected = bm.valid[suffix].indexOf(bm.control[suffix]);
+							}
+							else if(suffix === "skeleton") {
+								selected = Number(bm.control.skeleton);
+							};
+						};
+						let color = bm.color.buttons;
+						ctx.strokeStyle = color[posmod(-selected, color.length)];
+						ctx.fillStyle = color[posmod(1 - selected, color.length)];
+						if(!heading && !checkbox && !directions) {
+							ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+							Rect.fauxstroke(rect, ctx);
+						};
+						if(prefix === "drawsettings" && suffix !== "heading" && suffix !== "draw_type" && suffix !== "skeleton") {
+							AAX.ui.draw.drawsettings(ctx, rect, bm.drawsettings, suffix, suffix === "standpoint" ? "double" : "row");
+							// row: grid, cell, fineness
+							// double: standpoint
+						}
+						else if(prefix === "color" && suffix !== "heading") {
+							AAX.ui.draw.color(ctx, rect, bm.color, suffix);
+						}
+						else {
+							let text = (
+								!suffix ? prefix :
+								suffix === "heading" ? (
+									prefix === "tool" ? prefix + "s" :
+									prefix === "template" ? ["shape", prefix + "s"] :
+									prefix === "drawsettings" ? "draw settings" :
+									prefix
+								) :
+								prefix === "part" ? (
+									suffix === "name" ? "part: " + bm.control.partname :
+									suffix === "image_text" ? "edit image text" :
+									(suffix === "prefix1" || suffix === "prefix2") ? bm.control[suffix] :
+									suffix === "extra_text" ? "edit extra text" :
+									suffix === "hypot" ? (Math.hypot(part.x, part.y, part.z) + "").slice(0, 7) :
+									(suffix === "relcoor" || suffix === "abscoor") ? bm.control.pose_part[suffix] :
+									suffix
+								) :
+								directions ? [] :
+								(prefix === "expand" && suffix === "number") ? bm.control.expand_number :
+								prefix === "scale" ? (
+									suffix === "number" ? (bm.control.scale_number + "").slice(0, 5) :
+									suffix === "divide" ? (bm.control.scale_divide ? "/" : "x") :
+									suffix
+								) :
+								(prefix === "drawsettings" && suffix === "draw_type") ? bm.control[suffix] :
+								suffix
+							);
+							let left = [];
+							let centered = [];
+							let right = [];
+							// string arrays. each one is a different alignment,
+							// each item is a different row.
+							if(prefix === "part" && (suffix === "relcoor" || suffix === "abscoor")) {
+								for(i1 = 0; i1 < 3; i1++) {
+									text[i1] = (text[i1] > 0 ? "+" : "") + text[i1] + (text[i1]%1 ? "" : "  ");
+								}
+								// make it a string, add plus signs, and make sure
+								// the decimal points align.
+								text.splice(0, 0, "");
+								left = [suffix.slice(0, 3) + ":", "", "", ""];
+							}
+							else if(prefix === "part" && suffix === "hypot") {
+								left.push("length:");
+							};
+							//
+							if(
+								(prefix === "part" && (suffix === "hypot" || suffix === "relcoor" || suffix === "abscoor"))
+								||
+								suffix === "number"
+							) {
+								if(Array.isArray(text)) {
+									right = structuredClone(text);
+								}
+								else {
+									right.push(text);
+								};
+							}
+							else if(
+							heading
+							||
+							(!suffix && prefix !== "expand")
+							||
+							(prefix === "part" && (suffix === "image_text" || suffix === "extra_text" || suffix === "symmetry"))
+							) {
+								if(Array.isArray(text)) {
+									centered = structuredClone(text);
+								}
+								else {
+									centered.push(text);
+								};
+							}
+							else {
+								if(Array.isArray(text)) {
+									left = structuredClone(text);
+								}
+								else {
+									left.push(text);
+								};
+							};
+							if(checkbox) {
+								let box = Rect.expand_all(Rect.new(rect.x, rect.y, AAX.ui.block, AAX.ui.block), -1);
+								ctx.fillStyle = bm.color.buttons[1];
+								ctx.strokeStyle = bm.color.buttons[0];
+								ctx.fillRect(box.x + 1, box.y + 1, box.w, box.h);
+								Rect.fauxstroke(box, ctx);
+								box = Rect.expand_all(box, -2);
+								if(selected) {
+									// draw a pink x, or filled box.
+									//ctx.strokeStyle = bm.color.buttons[2];
+									ctx.strokeStyle = bm.color.buttons[0];
+									if(selected === 1) {
+										linespecial(ctx, box.x, box.y, box.x + box.w, box.y + box.h);
+										linespecial(ctx, box.x + box.w, box.y, box.x, box.y + box.h);
+									}
+									else if(selected === 2) {
+										ctx.fillRect(box.x, box.y, box.w + 1, box.h + 1);
+									};
+								};
+								rect.x += AAX.ui.block;
+								rect.w -= AAX.ui.block;
+							}
+							else if(directions) {
+								let selected = prefix === "expand" ? bm.control[prefix] : {
+									l: false,
+									r: false,
+									u: false,
+									d: false,
+									b: false,
+									f: false,
+								};
+								if(prefix === "adjust" && button === depress && bm.control.last_adjust) {
+									selected[bm.control.last_adjust] = true;
+								};
+								let order = "lrudbf".split("");
+								order.sort((a, b) => selected[a] - selected[b]);
+								for(i1 = 0; i1 < order.length; i1++) {
+									let _i1 = order[i1];
+									ctx.fillStyle = bm.color.buttons[selected[_i1] ? 0 : 1];
+									ctx.strokeStyle = bm.color.buttons[selected[_i1] ? 2 : 0];
+									if(_i1 === "b" || _i1 === "f") {
+										let box = Rect.new(rect.x + rect.w*2/3, rect.y, rect.w/3, rect.h/2);
+										if(_i1 === "f") {
+											box.y += box.h;
+										};
+										ctx.fillRect(box.x, box.y, box.w, box.h);
+										Rect.fauxstroke(box, ctx);
+									}
+									else {
+										let tri = [[1/2, 1/2]];
+										tri.push([
+										Number(_i1 === "r" || _i1 === "d"),
+										Number(_i1 === "d" || _i1 === "l")
+										]);
+										tri.push([
+										Number(_i1 === "u" || _i1 === "r"),
+										Number(_i1 === "r" || _i1 === "d")
+										]);
+										for(i2 = 0; i2 < 3; i2++) {
+											tri[i2] = [
+											rect.x + tri[i2][0]*rect.w*2/3,
+											rect.y + tri[i2][1]*rect.h
+											];
+										}
+										_2dPoly.draw(ctx, tri, "both");
+									}
+								}
+							};
+							AAX.ui.button_text(ctx, rect, left, centered, right);
+						}
+					}
+				}
+			},
+			mousedown: function(e) {
+				let click = clickxy(e, "bm");
+				bm.control.clicktype = "ui";
+				for(let i1 in bm.ui.buttons) {
+					if(bm.ui.buttons.hasOwnProperty(i1) && Rect.inside(bm.ui.buttons[i1], ...click)) {
+						bm.ui.action(i1, click);
+						bm.control.clicktype = null;
+					}
+				}
+				bm.control.clicktype = null;
+			},
+			action: function(button, click) {
+				let i1 = 0;
+				let i2 = 0;
+				let i3 = 0;
+				let i4 = 0;
+				let part = bm.control.bodydata_part;
+				let prefix = PreSuf.get(button);
+				let suffix = prefix[1];
+				prefix = prefix[0];
+				let refresh = {};
+				for(i1 = 0; i1 < bm.valid.refresh.length; i1++) {
+					let _i1 = bm.valid.refresh[i1];
+					if(_i1 !== "bodytext") {
+						refresh[_i1] = _i1 !== "states";
+					}
+				}
+				// an object of booleans, for which parts of refresh should be
+				// done or skipped.
+				let no_refresh = false;
+				function prompt_number(text, increment, no_negative, allow_inf) {
+				// opens a prompt for changing a number. allows fractions.
+				// returns null if their input was invalid.
+				// - increment: 1 means the input will be truncated to the
+				//   nearest integer, .5 means to the nearest .5, etc. 0 or any
+				//   non-number will skip this.
+				// - invalid inputs:
+				//   - cancel
+				//   - empty string (or a string that's just whitespace)
+				//   - NaN when Number() is used
+				//   - Infinity, -Infinity
+					let input = prompt(text);
+					if(input === null || !input.trim()) {
+						return null;
+					};
+					input = input.split("/").slice(0, 2);
+					for(let i1 = 0; i1 < 2; i1++) {
+						input[i1] = Number(input[i1] ?? 1);
+					}
+					input = input[0]/input[1];
+					if(typeof increment === "number" && increment) {
+						input = Math.trunc(input/increment)*increment;
+					};
+					return (
+						(
+							isNaN(input)
+							||
+							((input === Infinity || input === -Infinity) && !allow_inf)
+							||
+							(input < 0 && no_negative)
+						)
+						?
+						null
+						:
+						input
+					);
+				};
+				//
+				if(bm.ui.heading.includes(button)) {
+					no_refresh = true;
+				}
+				else if(suffix === "directions" && click) {
+					let rect = bm.ui.buttons[button];
+					let direction = bm.ui.finddirection(
+						(click[0] - rect.x)/rect.w,
+						(click[1] - rect.y)/rect.h
+					);
+					if(prefix === "expand") {
+						bm.control.expand[direction] = !bm.control.expand[direction];
+					}
+					else if(prefix === "adjust") {
+						let temp = "lrudbf".indexOf(direction);
+						if(bm.control.symmetry === 2 && (temp === 0 || temp === 1)) {
+							temp = posmod(temp + 1, 2);
+						}
+						part["xyz"[Math.floor(temp/2)]] += (temp%2 ? 1 : -1)*(bm.control.adjust_half ? .5 : 1);
+						refresh.states = true;
+						bm.control.last_adjust = direction;
+					}
+				}
+				else if(suffix === "number") {
+					let text = (
+						prefix === "scale" ? "enter the scale factor." :
+						prefix === "expand" ? "enter how much to expand each side by." :
+						"enter a number."
+					);
+					let num = prompt_number(text, prefix === "expand" ? .5 : 0);
+					if(num === null) {
+						no_refresh = true;
+					}
+					else {
+						bm.control[button] = num;
+					};
+				}
+				else if(bm.ui.checkbox.includes(button) || button === "scale_divide") {
+					bm.control[button] = !bm.control[button];
+				}
+				else if(button === "scale") {
+					let scale = bm.control.scale_number;
+					let divide = bm.control.scale_divide;
+					let same_floats = true;
+					let keep_float = function(num, odd) {
+						if(!num) {
+							return num;
+						};
+						let float = odd ? .5 : 0;
+						let sign = Math.sign(num);
+						num = Math.abs(num);
+						num = Math.round(num - float) + float;
+						// make sure it has the same float as
+						// the original
+						return Math.max(num, float)*sign;
+						// make sure the rounding didn't invert
+						// the sign, reverse the Math.abs
+					};
+					if(scale === 1 || (divide && scale === 0)) {
+						no_refresh = true;
+					}
+					else {
+						let abs = AAX.all_abs(bm.bodydata);
+						for(i1 in abs) {
+							if(abs.hasOwnProperty(i1)) {
+								for(i2 = 0; i2 < 3; i2++) {
+									let num = abs[i1][i2];
+									num = divide ? num/scale : num*scale;
+									if(same_floats) {
+										num = keep_float(num, !!(abs[i1][i2]%1));
+									};
+									abs[i1][i2] = Math.trunc(num*2)/2;
+								}
+							}
+						}
+						abs.standpoint = [0, 0, 0];
+						let order = AAX.getdesc(bm.bodydata);
+						for(i1 = order.length - 1; i1 >= 0; i1--) {
+							let _i1 = order[i1];
+							let _part = bm.bodydata[_i1];
+							for(i2 = 0; i2 < 3; i2++) {
+								_part["xyz"[i2]] = abs[_i1][i2] - abs[ _part.parent ][i2];
+							}
+							let points = structuredClone(bm.body[(bm.has_symmetry(_i1) ? bm.control.prefix1 : "") + _i1].shape.points);
+							for(i2 = 0; i2 < points.length; i2++) {
+								for(i3 = 0; i3 < points[i2].length; i3++) {
+									let point = points[i2][i3];
+									for(i4 = 0; i4 < point.length && i4 < 6; i4++) {
+										let num = divide ? point[i4]/scale : point[i4]*scale;
+										if(same_floats) {
+											num = i4 < 3 ? keep_float(num, !!(point[i4]%1)) : Math.round(num);
+										};
+										point[i4] = num;
+									}
+								}
+							}
+							bm.replaceshape(_part, {points});
+						}
+						refresh.states = true;
+					}
+				}
+				else if(button === "expand") {
+					let points = structuredClone(bm.control.body_part.shape.points);
+					let bounds = AAX.shape_bounds(points);
+					let num = bm.control.expand_number;
+					if(bounds && num) {
+					// expansion is both movement and scaling.
+						let _bounds = structuredClone(bounds);
+						no_refresh = true;
+						let letters = "lrudbf";
+						for(i1 = 0; i1 < letters.length; i1++) {
+							let _i1 = letters[i1];
+							if(bm.control.expand[_i1]) {
+								no_refresh = false;
+								_bounds[_i1] += (i1%2 ? 1 : -1)*num;
+							}
+						}
+						// get the old box with AAX.shape_bounds, modify it to get the new box
+						if(!no_refresh) {
+							let center = [];
+							let _center = [];
+							let multiply = [];
+							for(i1 = 0; i1 < 3; i1++) {
+								let neg = letters[2*i1];
+								let pos = letters[2*i1 + 1];
+								center[i1] = (bounds[neg] + bounds[pos])/2;
+								_center[i1] = (_bounds[neg] + _bounds[pos])/2;
+								// find the centers of both boxes
+								let temp = Math.abs(bounds[pos] - bounds[neg]);
+								multiply[i1] = !temp ? 1 : Math.abs(_bounds[pos] - _bounds[neg])/temp;
+								// get multipliers by dividing whatever by
+								// whatever
+							}
+							let all_same = multiply[0] === multiply[1] && multiply[1] === multiply[2];
+							for(i1 = 0; i1 < points.length; i1++) {
+								for(i2 = 0; i2 < points[i1].length; i2++) {
+									let point = points[i1][i2];
+									if(point.length > 3 && !all_same) {
+									// if all the multipliers aren't the same,
+									// fill all missing dimensions.
+										point[4] ??= point[3];
+										point[5] ??= point[3];
+									};
+									for(i3 = 0; i3 < 3; i3++) {
+										point[i3] = (point[i3] - center[i3])*multiply[i3] + _center[i3];
+										if(3 + i3 < point.length) {
+											point[3 + i3] *= multiply[i3];
+										}
+									}
+									// for each point, subtract old box's
+									// center, scale, add new box's center
+								}
+							}
+						}
+						bm.replaceshape(part, {points});
+						refresh.states = true;
+					}
+					else {
+						no_refresh = true;
+					}
+				}
+				else if(button === "delete") {
+					if(bm.disable_delete()) {
+						no_refresh = true;
+					}
+					else {
+						let symmetry = bm.control.symmetry;
+						let name = bm.control.bodydata_name;
+						let _name = bm.bodydata[name].parent;
+						// part that it'll switch to
+						if(bm.control.delete_branch) {
+							let array = AAX.getdesc(bm.bodydata, name);
+							delete bm.bodydata[name];
+							for(i1 = 0; i1 < array.length; i1++) {
+								delete bm.bodydata[ array[i1] ];
+							}
+						}
+						else {
+							let array = AAX.getchildren(bm.bodydata, name);
+							for(i1 = 0; i1 < array.length; i1++) {
+								let _part = bm.bodydata[ array[i1] ];
+								for(i2 = 0; i2 < 3; i2++) {
+									_part["xyz"[i2]] += part["xyz"[i2]];
+								}
+								_part.parent = _name;
+								if(part.symmetry) {
+									_part.symmetry = true;
+								}
+							}
+							delete bm.bodydata[name];
+						};
+						if(_name === "standpoint") {
+							_name = AAX.getchildren(bm.bodydata, "standpoint")[0];
+						};
+						bm.control.partname = (bm.has_symmetry(_name) ? bm.control["prefix" + symmetry] : "") + _name;
+						// - you have to use has_symmetry, since it might be
+						//   symmetrical through an ancestor
+						// - if it is symmetrical, match what the deleted part
+						//   was
+						// - if the deleted part wasn't symmetrical, that
+						//   shouldn't be possible. so i'm okay with it causing
+						//   undefined error.
+						refresh.states = true;
+					};
+				}
+				else if(prefix === "tool") {
+					bm.control.tool = suffix;
+				}
+				else if(prefix === "part") {
+					if(suffix === "name") {
+						let symmetry = bm.control.symmetry;
+						let name = prompt("enter a new name." + (symmetry ? " (leave out symmetry prefixes.)" : ""));
+						name = (name ?? "").trim();
+						if(!name) {
+							no_refresh = true;
+						}
+						else if(name in bm.bodydata) {
+							alert("part already exists.");
+							no_refresh = true;
+						}
+						else {
+							let _name = bm.control.bodydata_name;
+							bm.bodydata[name] = structuredClone(bm.bodydata[_name]);
+							delete bm.bodydata[_name];
+							for(i1 in bm.bodydata) {
+								if(bm.bodydata.hasOwnProperty(i1)) {
+									let _part = bm.bodydata[i1];
+									if(_part.parent === _name) {
+										_part.parent = name;
+									};
+								}
+							}
+							bm.control.partname = (symmetry ? bm.control["prefix" + symmetry] : "") + name;
+							refresh.states = true;
+						};
+					}
+					else if(suffix === "image_text" || suffix === "extra_text") {
+						let temp = part[suffix];
+						let dialog = document.getElementById("bm_" + suffix);
+						let textarea = document.getElementById("bm_" + suffix + "_input");
+						textarea.rows = temp.split("\n").length;
+						textarea.value = temp;
+						dialog.showModal();
+						no_refresh = true;
+						// clicking the button just opens the dialog. it doesn't
+						// do anything worth refreshing, only the buttons inside
+						// it do.
+					}
+					else if(suffix === "symmetry" || suffix === "prefix1" || suffix === "prefix2") {
+						let name = bm.control.bodydata_name;
+						let symmetry = bm.control.symmetry;
+						if(suffix === "symmetry") {
+							if(!bm.control.bodydata_part.symmetry && bm.has_symmetry(bm.control.bodydata_name)) {
+							// descendant of a part with true symmetry (ie it
+							// must stay false.)
+								no_refresh = true;
+							}
+							else {
+								bm.bodydata[name].symmetry = !bm.bodydata[name].symmetry;
+								if(bm.bodydata[name].symmetry) {
+									// when flipping symmetry on, flip it off for all
+									// descendants
+									let desc = AAX.getdesc(bm.bodydata, name);
+									for(i1 = 0; i1 < desc.length; i1++) {
+										bm.bodydata[ desc[i1] ].symmetry = false;
+									}
+									//
+								}
+								bm.control.partname = (bm.bodydata[name].symmetry ? bm.control.prefix1 : "") + name;
+								// in either case, update partname
+								refresh.states = true;
+							}
+						}
+						else if(suffix === "prefix1" || suffix === "prefix2") {
+							let text = prompt("enter a new prefix for " + (suffix === "prefix2" ? "mirrored" : "unmirrored") + " symmetrical parts.") ?? "";
+							text = text.replaceAll(",", "").replaceAll("(", "").replaceAll(")", "").trim();
+							// forbid parentheses and commas, for syntax reasons
+							if(text && text !== bm.control["prefix" + (suffix === "prefix2" ? "1" : "2")]) {
+								bm.control[suffix] = text;
+								bm.control.partname = (symmetry ? bm.control["prefix" + symmetry] : "") + name;
+								// update partname
+								refresh.states = true;
+								// prefixes are part of states.
+							}
+							else {
+								no_refresh = true;
+							}
+						}
+					}
+					// part
+					//  name/rename
+					//  hypot, relcoor, abscoor
+					//  no heading
+				}
+				else if(prefix === "template") {
+					let temp = part.image_text.split("\n||\n");
+					temp[0] = AAX.shape_templates[suffix];
+					part.image_text = temp.join("\n||\n");
+					refresh.states = true;
+				}
+				else if(prefix === "drawsettings") {
+					let ref = bm.drawsettings;
+					if(suffix === "background") {
+						let num = AAX.valid[suffix].indexOf(bm.drawsettings[suffix]);
+						num = (num + 1)%3;
+						if(num === 2) {
+							num = (num + 1)%3;
+						}
+						bm.drawsettings[suffix] = AAX.valid[suffix][num];
+					}
+					else if(suffix === "draw_type") {
+						let num = bm.valid[suffix].indexOf(bm.control[suffix]);
+						num = (num + 1)%3;
+						bm.control[suffix] = bm.valid[suffix][num];
+						ref.silhouette = AAX.valid.silhouette[num === 1 ? 2 : 0];
+						ref.parts = AAX.valid.parts[num === 0 ? 2 : 0];
+					}
+					else if(suffix === "skeleton") {
+					// skeletons and nodes share one toggle.
+						let bool = ref.skeleton && ref.nodes;
+						ref.skeleton = !bool;
+						ref.nodes = !bool;
+					}
+					else {
+						no_refresh = AAX.ui.action.drawsettings(ref, suffix);
+						if(!no_refresh && suffix === "fineness") {
+							// clear the cache
+							// - fineness affects the shape, the rest affect
+							//   perspective.
+							for(i1 in bm.pose) {
+								if(bm.pose.hasOwnProperty(i1)) {
+									// for every body part.
+									AAX.clearcache(bm.pose, i1, "orientedshape");
+									// this isn't an AAX., so we
+									// can't use the method.
+								}
+							}
+						};
+					}
+				}
+				else if(prefix === "color") {
+					no_refresh = AAX.ui.action.color(bm.color, suffix, click, bm.ui.buttons[button]);
+				}
+				else if(!suffix) {
+					if(prefix === "undo") {
+						bm.states.undo();
+						no_refresh = true;
+						// refresh already happens in undo/redo.
+					}
+					else if(prefix === "redo") {
+						bm.states.redo();
+						no_refresh = true;
+					}
+					else if(prefix === "save") {
+						bm.save();
+						no_refresh = true;
+						// save doesn't do anything that requires a refresh
+					}
+					else if(prefix === "load") {
+						bm.load();
+						no_refresh = true;
+						// load already refreshes
+					};
+				};
+				// expand
+				//  expand
+				//  number
+				//  directions
+				//  no heading
+				// adjust
+				//  directions
+				// shape templates
+				//  sphere
+				//  pelvis
+				//  torso
+				//  head
+				//  cranium
+				//  jaw
+				// scale
+				//  scale
+				//  number
+				//  divide
+				//  no heading
+				//
+				if(bm.ui.depress.includes(button)) {
+					refresh.ui = false;
+					// it'll get redrawn for the depressing, so the other refresh
+					// would just be redundant.
+					bm.ui.draw(button);
+					// draw the button depressed
+					setTimeout(bm.ui.draw, 1000*AAX.ui.depress);
+					// draw it undepressed after a little bit.
+				}
+				refresh.bodytext = refresh.states;
+				let temp = [];
+				for(i1 = 0; i1 < bm.valid.refresh.length; i1++) {
+					let _i1 = bm.valid.refresh[i1];
+					if(!refresh[_i1]) {
+						temp.push(_i1);
+					};
+				}
+				// now it's an array of what to skip.
+				if(!no_refresh) {
+					bm.refresh(temp);
+				}
+			},
+		},
+		nodes: [[], []],
+		image_front: null,
+		image_right: null,
+		pasteimages: function(right) {
+		// pastes image_front or image_right over the canvas, to reverse
+		// graphical changes or correct overflow.
+			bm.ctx.putImageData(bm["image_" + (right ? "right" : "front")], (right ? bm.drawsettings.cell.w : 0), 0);
+		},
+		writecoordinates: function(text) {
+			AAX.writecoordinates(document.getElementById("bm_coor"), text);
+		},
+		nodeline: function(ctx, x1, y1, x2, y2, view, viewoffset) {
+			let temp = bm.coortocanvas([0, 0, 0], view, true, viewoffset);
+			temp[0] += .5;
+			temp[1] += .5;
+			// center of the standpoint pixel
+			linespecial(ctx, x1, y1, x2, y2, temp);
+		},
+		draw_background: function() {
+			AAX.draw_background(bm.ctx, bm.drawsettings, bm.color, false, 2);
+		},
+		draw: function() {
+			AAX.draw(
+				bm.ctx, bm.drawsettings, bm.color, false, 2,
+				bm.pose, bm.nodes, bm.control.strokecache
+			);
+		},
+		save: function() {
+			AAX.save(AAX.filedate() + ".txt", bm.bodytext);
+		},
+		load: function() {
+			AAX.load(bm.readfile);
+		},
+		readfile: function(file) {
+		// run by load and the drag-and-drop event listener.
+			if(!file) {
+				console.log("this shouldn't happen");
+				return;
+			};
+			let temp = file.name.lastIndexOf(".");
+			let reader = new FileReader();
+			reader.onload = function() {
+				bm.bodytext_change(reader.result);
+			};
+			reader.readAsText(file);
+		},
+		version_history: "v1.0".split(" "),
+		get version() {
+			return aa.version_history[aa.version_history.length - 1];
+		},
+	};
+	bm.initialize();
+	//
 	document.write(`<div name="hider" id="hider_fighting_game_tester">`);
 	let fg = {
 	// fighting game testy thing.
@@ -25967,7 +26860,7 @@
 		for(i1 = 0; i1 < divs.length; i1++) {
 			divs[i1].hidden = true;
 			let name = hider_id_to_name(divs[i1].id);
-			if(!["face tool", "fighting game tester", "interactive animation"].includes(name)) {
+			if(!["face tool", "fighting game tester", "interactive animation", "procanim", "background maker"].includes(name)) {
 				html += `<option value="` + divs[i1].id + `"` + (name === "armature artist" ? ` selected` : ``) + `>` + name + `</option>`;
 			};
 		}
@@ -26009,6 +26902,19 @@
 		};
 	};
 	hider_init();
+	//
+	addEventListener("load", function() {
+	// this is so stupid. but i'm cryin tears of joy that it works.
+	// - the font in the ui graphics is blurry until the first page refresh or
+	//   ui refresh, since the page/canvas loads faster than the font. this
+	//   triggers a ui refresh after the page fully loads.
+		let skip = structuredClone(AAX.valid.refresh);
+		skip.splice(skip.indexOf("ui"), 1);
+		aa.refresh(skip);
+		skip = structuredClone(bm.valid.refresh);
+		skip.splice(skip.indexOf("ui"), 1);
+		bm.refresh(skip);
+	}, false);
 	//
 	//
 	//
