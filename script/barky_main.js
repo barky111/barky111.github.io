@@ -965,8 +965,11 @@ class States extends Array {
 // - checklist:
 //   - fill all arguments of the constructor properly.
 //   - add a tool.refresh() call in your loadfunc, so changes are shown
+//     - but don't save a new state during that refresh!
 //   - DON'T save a new state during tool.initialize(); the constructor saves a
 //     new state automatically
+//     - call the constructor after the data being saved is fully formed. don't
+//       just put it in the tool's defining.
 //   - call .save() during tool.refresh(), so that new states are made
 //   - but add an argument for skipping that, so you can use that argument in
 //     loadfunc
@@ -974,7 +977,7 @@ class States extends Array {
 //       where you drag stuff around. refreshes can visualize the movement
 //       before the click is done, but a state should only be saved when the
 //       edit is finalized.
-//   - add key events for it.
+//   - add buttons and key events for it.
     // fpt.states = new States(fpt, 32, (tool) => structuredClone(tool.markers), function(tool, state) { tool.markers = structuredClone(state) });
     constructor(tool, limit, savefunc, loadfunc) {
         super();

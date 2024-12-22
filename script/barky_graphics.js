@@ -628,6 +628,87 @@ let _2dPoly = {
         return center;
     },
 };
+function perfectsphere(fineness) {
+// returns a sphere with perfectly even point distribution. adjacent points are
+// always the same distance from each other. compared to a latitude/longitude
+// sphere, the same number of points will get you a rounder shape.
+// - divide a sphere in eighths by slicing it in half on each axis.
+// - that divides the surface into sorta-triangular thingies,
+//   right...
+// - the more you subdivide those, the rounder the sphere. fineness is how many
+//   segments each quater-curve is broken up into.
+// =
+// - icospheres are usually better, because "perfect" spheres show seams that
+//   unnaturally show how it's oriented. but that isn't a problem for me, since
+//   i'm just using this in Raster.from3d and stuff like that.
+    let i1 = 0;
+    let i2 = 0;
+    fineness = Math.floor(fineness);
+    fineness = Number.isInteger(fineness) && fineness > 0 ? fineness : 1;
+    let one = false;
+    // used for testing. makes it return only one eighth of the sphere. (one
+    // *complete* eighth, with all sides and corners.)
+    let sphere = one ? Basis.new() : [
+        [1, 0, 0],
+        [-1, 0, 0],
+        [0, 1, 0],
+        [0, -1, 0],
+        [0, 0, 1],
+        [0, 0, -1]
+    ];
+    for(i1 = 0; i1 < fineness*(one ? 1 : 4); i1++) {
+        if(i1%fineness) {
+            sphere.push([
+                Math.cos(2*Math.PI*i1/(fineness*4)),
+                Math.sin(2*Math.PI*i1/(fineness*4)),
+                0
+            ]);
+        }
+    }
+    // fill the xy ring
+    let tri = [];
+    for(i1 = 1; i1 < fineness; i1++) {
+    // - for this loop, all we're making is the right, bottom, front triangle.
+    // - reasons why it skips around so weirdly:
+    //   - i1 === 0 would just be [0, 0, 1], which was already filled
+    //   - i1 === fineness would be the xy ring, already filled (did that ahead
+    //     of time so it wouldn't have inverted copies)
+    //   - i1 === i2 would be the counterclockwise leg of the next triangle
+    //   - i1 > i2 is outside the triangle.
+        let temp = (Math.PI/2)*i1/fineness;
+        let point = [Math.sin(temp), 0, Math.cos(temp)];
+        // xz rotation
+        for(i2 = 0; i2 < i1 + !!one; i2++) {
+            temp = Point2.rotate([point[0], point[1]], (Math.PI/2)*i2/i1);
+            tri.push([temp[0], temp[1], point[2]]);
+            // xy rotation
+        }
+    }
+    for(i1 = 0; i1 < (one ? 1 : 4); i1++) {
+        for(i2 = 0; i2 < tri.length; i2++) {
+            let temp = i1 ? Point2.rotate([tri[i2][0], tri[i2][1]], i1*Math.PI/2) : tri[i2];
+            sphere.push([temp[0], temp[1], tri[i2][2]]);
+            if(!one) {
+                sphere.push([temp[0], temp[1], -tri[i2][2]]);
+
+            }
+        }
+    }
+    // add the tri and a z-inverted version of the tri, then do it again for
+    // all 90 degree rotations.
+    return sphere;
+};
+let perfectsphere_length = (fineness) => (
+    6
+    +
+    12*Math.max(0, fineness - 1)
+    +
+    8*(Math.max(0, fineness - 2) + 1)*Math.max(0, fineness - 2)/2
+);
+// for math.
+// - ...wait, you could just use perfectsphere(fineness).length. it'd be slower,
+//   but it's not like that matters if you're just using it to figure out what
+//   the default fineness should be...
 function addspheroids(points, fineness) {
 // the first three numbers of each point are coordinates, the rest are
 // parameters for turning points into spheroid-shaped arrangements of
@@ -645,44 +726,21 @@ function addspheroids(points, fineness) {
 //   enough.)
     let i1 = 0;
     let i2 = 0;
-    fineness = Number.isInteger(Math.round(fineness)) ? fineness : 16;
+    let i3 = 0;
+    fineness = Number.isInteger(Math.round(fineness)) ? fineness : 4;
     // avoid non-numbers and values like Infinity or NaN
     //console.log(new Date().valueOf());
     if(fineness !== 0) {
-        fineness = Math.round(Math.abs(fineness)/4)*4;
+        fineness = Math.round(Math.abs(fineness));
     };
     const circle = [];
     for(i1 = 0; i1 < fineness; i1++) {
-        circle[circle.length] = [
+        circle.push([
             Math.cos(2*Math.PI*i1/fineness),
             Math.sin(2*Math.PI*i1/fineness)
-        ];
+        ]);
     }
-    const sphere = [];
-    for(i1 = 0; i1 <= fineness/2; i1++) {
-        if(i1 === 0) {
-            sphere[sphere.length] = [0, -1, 0];
-        }
-        else if(i1 === fineness/2) {
-            sphere[sphere.length] = [0, 1, 0];
-        }
-        else {
-            let angle = Math.PI*(-1/2 + i1/(fineness/2));
-            let y = Math.sin(angle);
-            let r = Math.cos(angle);
-            //console.log("y, r: " + [y, r]);
-            //let antitrunc = (number) => number%1 ? Math[Math.sign(number) === -1 ? "floor" : "ceil"](number) : number;
-            // moves it away from zero, instead.
-            for(i2 = 0; i2 < circle.length; i2++) {
-                sphere[sphere.length] = [
-                    circle[i2][0]*r,
-                    y,
-                    circle[i2][1]*r
-                ];
-            }
-        };
-        //console.log(Math.hypot(...sphere[sphere.length - 1]));
-    }
+    const sphere = fineness === 0 ? null : perfectsphere(fineness);
     function make_spheroid(array) {
     // array should be [x, y, z, w, h, d, orient]
         array[2] ??= 0;
@@ -731,7 +789,7 @@ function addspheroids(points, fineness) {
                                 if(!checker(...coor)) {
                                     within[coor[0]] ??= {};
                                     within[coor[0]][coor[1]] ??= [];
-                                    within[coor[0]][coor[1]][ within[coor[0]][coor[1]].length ] = i3;
+                                    within[coor[0]][coor[1]].push(i3);
                                 };
                             }
                             // since all that matters is absolute distance, every
@@ -782,19 +840,24 @@ function addspheroids(points, fineness) {
         else {
             let shape = [];
             for(let i1 = 0; i1 < sphere.length; i1++) {
+                shape.push([
+                    sphere[i1][0]*w/2,
+                    sphere[i1][1]*h/2,
+                    sphere[i1][2]*d/2
+                ]);
+            }
+            // scale it
+            shape = orient ? Quat.orient(orient, shape) : shape;
+            // orient the points of the sphere, relative to its center
+            for(let i1 = 0; i1 < sphere.length; i1++) {
                 shape[i1] = [
-                    Math.trunc(offset[0] + sphere[i1][0]*w/2),
-                    Math.trunc(offset[1] + sphere[i1][1]*h/2),
-                    Math.trunc(offset[2] + sphere[i1][2]*d/2)
+                    Math.trunc(offset[0] + shape[i1][0]),
+                    Math.trunc(offset[1] + shape[i1][1]),
+                    Math.trunc(offset[2] + shape[i1][2])
                 ];
             }
-            return (
-                orient
-                ?
-                Quat.orient(orient, shape)
-                :
-                shape
-            );
+            // add the coordinates
+            return shape;
         }
     }
     let _points = [];
@@ -1011,6 +1074,42 @@ const Raster = {
             //   -= .5, abs, *= 2
         }
         return _this;
+    },
+    capsule: function(x1, y1, x2, y2, r) {
+    // returns the pixel coverage of a capsule shape.
+    // - that is, two tangented circles.
+    // - returns {x, y, w, h, raster}.
+        let temp = [
+            [x1 - r, x1 + r, x2 - r, x2 + r],
+            [y1 - r, y1 + r, y2 - r, y2 + r]
+        ];
+        let rect = Rect.fromedges(
+            Math.floor(Math.min(...temp[0]) - 1),
+            Math.ceil(Math.max(...temp[0]) + 1),
+            Math.floor(Math.min(...temp[1]) - 1),
+            Math.ceil(Math.max(...temp[1]) + 1)
+        );
+        temp = [x2 - x1, y2 - y1];
+        let length = Math.hypot(...temp);
+        let angle = length ? get2dangle(...temp) : 0;
+        let raster = [];
+        for(let y = rect.y; y < rect.y + rect.h; y++) {
+            for(let x = rect.x; x < rect.x + rect.w; x++) {
+                let dist = [x - x1, y - y1];
+                if(
+                    (Math.hypot(...dist) <= r + .5)
+                    ||
+                    (Math.hypot(x - x2, y - y2) <= r + .5)
+                ) {
+                    raster.push(true);
+                }
+                else {
+                    dist = Point2.rotate(dist, -angle);
+                    raster.push(dist[0] >= 0 && dist[0] <= length && Math.abs(dist[1]) <= r + .5);
+                }
+            }
+        }
+        return {x: rect.x, y: rect.y, w: rect.w, h: rect.h, raster};
     },
     redimension: function(_this, w, new_w, new_h) {
         let i1 = 0;
@@ -1493,7 +1592,6 @@ const Raster = {
     //   _2dPoly.convexed to make it.
         let i1 = 0;
         let i2 = 0;
-        let loop = new Loop("Raster._2dPoly");
         if(typeof rect === "number") {
             rect = [rect, Math.ceil(_this.length/rect)];
         };
@@ -1507,7 +1605,6 @@ const Raster = {
         //   - y coordinates: value is a boolean for whether it's been
         //     used in the shape yet
         for(i1 = 0; i1 < temp.length; i1++) {
-            loop.tick(1);
             if(temp[i1]) {
                 let x = rect.x + (i1%rect.w);
                 let y = rect.y + Math.floor(i1/rect.w);
@@ -1520,19 +1617,16 @@ const Raster = {
                 }
             }
         }
-        loop.end();
         if(!multiple) {
             return _2dPoly.convexed(outline);
         }
         const dircoor = [];
         for(let dir = 0; dir < 8; dir++) {
-            loop.tick(1);
             dircoor[dir] = [
                 0 + (posmod(dir - 7, 8) <= 2) - (posmod(dir - 3, 8) <= 2),
                 0 + (posmod(dir - 1, 8) <= 2) - (posmod(dir - 5, 8) <= 2)
             ];
         }
-        loop.end();
         // 0 +0
         // 1 ++
         // 2 0+
@@ -1549,10 +1643,8 @@ const Raster = {
             let loop = new Loop("Raster._2dPoly addshape");
             let shape = [];
             for(i1 in outline) {
-                loop.tick(1);
                 if(outline.hasOwnProperty(i1) && !shape.length) {
                     for(i2 in outline[i1]) {
-                        loop.tick(2);
                         if(outline[i1].hasOwnProperty(i2) && !shape.length && !outline[i1][i2]) {
                         // start the shape with the first point you see
                         // that isn't taken.
@@ -1560,10 +1652,8 @@ const Raster = {
                             outline[i1][i2] = true;
                         }
                     }
-                    loop.end();
                 }
             }
-            loop.end();
             if(shape.length === 0) {
             // no points left that aren't taken
                 return null;
@@ -1580,14 +1670,12 @@ const Raster = {
             for(; !loopexit;) {
             // look for neighbors from the most recent point, and add
             // them. exit if there's none.
-                loop.tick(0);
                 let x = shape[shape.length - 1][0];
                 let y = shape[shape.length - 1][1];
                 loopexit = true;
                 // gets turned off if there was a new point
                 for(i1 = 0; i1 < 8; i1++) {
                 // search every direction
-                    loop.tick(1);
                     let dir = posmod(prevdir + i1, 8);
                     // prioritize the directions closest to the
                     // previous, clockwise.
@@ -1630,16 +1718,13 @@ const Raster = {
                         prevdir = dir;
                     }
                 }
-                loop.end();
             }
-            loop.end();
             return shape;
         };
         let shapes = [];
         // array of _2dPolys
         let loopexit = false;
         for(; !loopexit;) {
-            loop.tick(1);
             shapes[shapes.length] = addshape();
             // adds a closed shape
             if(!shapes[shapes.length - 1]) {
@@ -1648,7 +1733,6 @@ const Raster = {
                 loopexit = true;
             }
         }
-        loop.end();
         return shapes;
     },
     rewrite: function(_this, code) {
@@ -1686,7 +1770,7 @@ const Raster = {
         let i1 = 0;
         let i2 = 0;
         let i3 = 0;
-        fineness ??= 32;
+        fineness ??= 4;
         offset ??= [0, 0, 0];
         const is_aa = etc.includes("aa");
         // as in armature artist.
@@ -1725,7 +1809,6 @@ const Raster = {
                 _points[i1] = structuredClone(shape);
             }
             data[i1] = _2dPoly.getdata(shape, true, null);
-            //console.log(data[i1].rect);
         }
         data = _2dPoly.mergedata(data);
         let rect = structuredClone(data.rect);
@@ -1735,6 +1818,17 @@ const Raster = {
         }
         for(i1 = 0; i1 < _points.length; i1++) {
             for(i2 = 0; i2 < _points[i1].length; i2++) {
+                let index = Rect.getindex(rect, ..._points[i1][i2].slice(0, 2));
+                if(index === -1) {
+                // out of bounds
+                    console.log("this shouldn't happen (out of bounds Raster.from3d vertex.)");
+                }
+                else if(_points[i1][i2].length < 4) {
+                // skip if it's a spheroid.
+                    raster[index] = 2;
+                }
+                //
+                /*
                 let coor = [
                     Math.floor(_points[i1][i2][0] - rect.x),
                     Math.floor(_points[i1][i2][1] - rect.y)
@@ -1752,6 +1846,7 @@ const Raster = {
                 // skip if it's a spheroid.
                     raster[coor[1]*rect.w + coor[0]] = 2;
                 }
+                //*/
             }
         }
         return {raster, rect};
@@ -3412,6 +3507,10 @@ let Basis = {
         point[0]*_this[0][1] + point[1]*_this[1][1] + point[2]*_this[2][1],
         point[0]*_this[0][2] + point[1]*_this[1][2] + point[2]*_this[2][2]
     ],
+    // [0][0]: "one unit of x translates to this much x"
+    // [0][1]: "one unit of x translates to this much y"
+    // [1][0]: "one unit of y translates to this much x"
+    // etc.
     check: function(_this) {
     // checks if all three are 90 degrees from each other.
         let i1 = 0;
@@ -3564,11 +3663,9 @@ let Quat = {
     orient: function(_this, points) {
     // apply the quaternion to multiple points at once. (for example,
     // orienting a 3d shape)
-        let i1 = 0;
-        let i2 = 0;
         let basis = Quat.basis(_this);
         let _points = [];
-        for(i1 = 0; i1 < points.length; i1++) {
+        for(let i1 = 0; i1 < points.length; i1++) {
             _points[i1] = Basis.apply(basis, points[i1]);
         }
         return _points;
@@ -3953,7 +4050,7 @@ const AAX = {
         color2: "body_exclusive",
         // the colors used in the image for 1 values and 2 values respectively.
         // - 1 pixels that have 1 or 2 neighbors on all cardinal sides will be
-        //   replaced with AAX.Color.part_interior.
+        //   replaced with AAX.Color.part_fill.
         perspective: "no_default",
         perspective_0: "",
         perspective_1: "",
@@ -4019,13 +4116,6 @@ const AAX = {
         //       - seven values: [6] is an orientation quaternion
         //         (shape_string lets you create them with yz/xz/xy rotations
         //         though)
-        //   - external
-        //     - groups
-        //     - points
-        //     =
-        //     - groups and points are objects indexed by body part, storing
-        //       arrays of indexes for which groups/points follow that body
-        //       part's scaling and orientation.
         // - orient: orientation quaternion, modified by the rotate or tilt
         //   pose tools.
         // - stretch, widen: scale factors. stretch expands it along the line
@@ -4082,6 +4172,263 @@ const AAX = {
     // - creates hide, perspective, silhouette, connection, color1,
     //   color2
     // - symmetrical duplicates
+    shape_templates: {
+    // most of these will be created from AAX.Body.templates.standard, in
+    // AAX.initialize.
+        sphere: `0, 0, 0, 8`,
+    },
+    body_read: {
+    // an object of functions used in Body.new and body maker.
+        comment_char: "//",
+        uncomment: (text) => uncomment(text, AAX.body_read.comment_char, "\n", true),
+        family: function(text) {
+        // reads a family-defining text field and converts it to an object of
+        // {parent, x, y, z} objects.
+        // - if there's an input error, it'll return a string describing it.
+            let i1 = 0;
+            text = AAX.body_read.uncomment(text).split("\n");
+            let array = [];
+            let lowest = Infinity;
+            for(i1 = 0; i1 < text.length; i1++) {
+                let line = text[i1];
+                let index = line.indexOf(":");
+                if(!line.trim()) {
+                    // make sure it doesn't error from lines that have nothing
+                    // but comments
+                }
+                else if(index === -1) {
+                    return "invalid input. a line in the family defining has no colon.";
+                }
+                else {
+                    let num = line.length - line.trimStart().length;
+                    lowest = Math.min(lowest, num);
+                    let name = line.slice(num, index);
+                    if(name === "standpoint") {
+    					return "invalid input. \"standpoint\" is a reserved word.";
+    				}
+    				else if(name in AAX.Body.prototype) {
+    				// matches an object/Body method/property. (ex: making a part
+                    // called "hasOwnProperty" will cover up the hasOwnProperty
+                    // method and make it unusable)
+    					return "invalid input. \"" + name + "\" is an invalid part name for technical reasons.";
+    				}
+                    array.push({
+                        name,
+                        num,
+                        content: line.slice(index + ":".length),
+                    })
+                }
+            }
+            for(i1 = 0; i1 < array.length; i1++) {
+                array[i1].num -= lowest;
+                array[i1].num = Math.min(array[i1].num, (i1 ? array[i1 - 1].num + 1 : 0));
+            }
+            let family = {};
+            let error = "";
+            function addbranch(index, parent) {
+                let name = array[index].name;
+                let num = array[index].num;
+                if(name in family) {
+                    error = "invalid input. there is more than one part named \"" + name + "\".";
+                    return;
+                };
+                let coor = AAX.strings.coor(array[index].content, .5);
+                if(!coor) {
+                    error = "invalid input. the " + name + " part has invalid coordinates. it must be three numbers.";
+                    return;
+                };
+                family[name] = {parent, x: coor[0], y: coor[1], z: coor[2]};
+                for(let i1 = index + 1; i1 < array.length; i1++) {
+                    let _num = array[i1].num - num;
+                    if(_num === 1) {
+                    // direct child
+                        addbranch(i1, name);
+                        if(error) {
+                            return;
+                        }
+                    }
+                    else if(_num <= 0) {
+                    // sibling or something
+                        i1 += array.length;
+                    }
+                }
+            }
+            for(i1 = 0; i1 < array.length; i1++) {
+                if(array[i1].num === 0) {
+                    addbranch(i1, "standpoint");
+                    if(error) {
+                        return error;
+                    }
+                }
+            }
+            return family;
+        },
+        image_split: function(text) {
+        // splits up an image_text field into an object indexed by part name.
+            text = text.split("\n");
+            let name = "";
+            let obj = {};
+            for(let i1 = 0; i1 < text.length; i1++) {
+                let line = AAX.body_read.uncomment(text[i1]).trim();
+                if(line.startsWith("[") && line.endsWith("]")) {
+                // name change
+                    name = line.slice(1, -1).trim();
+                }
+                else if(name) {
+                    obj[name] ??= "";
+                    obj[name] += (obj[name] ? "\n" : "") + text[i1];
+                    // don't use line. there's no reason to keep the
+                    // comments sliced out.
+                }
+            }
+            return obj;
+        },
+        extra_split: function(text) {
+            text = text.split("\n");
+            let name = "";
+            let obj = {};
+            for(let i1 = 0; i1 < text.length; i1++) {
+                let line = AAX.body_read.uncomment(text[i1]).trim();
+                let _line = text[i1];
+                let namechange = line.includes(":");
+                if(namechange) {
+                // name change
+                    let index = line.indexOf(":");
+                    name = line.slice(0, index).trim();
+                    line = line.slice(index + 1).trim();
+                    _line = _line.slice(_line.indexOf(":") + 1);
+                    // _line exists because i need an unaltered copy of the
+                    // line, but i also need to slice out the name/colon if
+                    // it's gonna be added to extra_text. how annoying.
+                };
+                if(name && (!namechange || line)) {
+                // it's fine to keep in empty lines, so it stays mostly the
+                // same as the input. but if it's the line with the colon,
+                // no.
+                    obj[name] ??= "";
+                    obj[name] += (obj[name] ? "\n" : "") + _line.trim();
+                };
+            }
+            return obj;
+        },
+        collect: function(text) {
+        // coalesces several of these functions into one interpretation that
+        // returns {parent, x, y, z, image_text, extra_text} objects.
+        // - from there, it can be converted into a Body, or a body maker
+        //   bodydata object.
+        // - returns a string if it runs into errors.
+            let i1 = 0;
+            let i2 = 0;
+            text = text.split("\n###\n");
+            let data = AAX.body_read.family(text[0]);
+            if(typeof data === "string") {
+                return data;
+            };
+            // field 1: family tree (names, parenting, coordinates)
+            let empty = true;
+            for(i1 in data) {
+                if(data.hasOwnProperty(i1)) {
+                    empty = false;
+                    data[i1].image_text = "";
+                    data[i1].extra_text = "";
+                };
+            }
+            if(empty) {
+                return "invalid input. there are no parts.";
+            };
+            for(i1 = 1; i1 < 3 && i1 < text.length; i1++) {
+                let obj = (
+                    i1 === 1 ? AAX.body_read.image_split(text[i1]) :
+                    // field 2: shapes/images
+                    i1 === 2 ? AAX.body_read.extra_split(text[i1]) :
+                    // field 3: extra parameters (symmetry, silhouettes, hide,
+                    // etc)
+                    null
+                );
+                let temp = i1 === 1 ? "image" : i1 === 2 ? "extra" : null;
+                for(i2 in obj) {
+                    if(obj.hasOwnProperty(i2)) {
+                        if(i2 in data) {
+                            data[i2][temp + "_text"] = obj[i2];
+                        }
+                        else {
+                            return "invalid input. the name \"" + i2 + "\" in the " + temp + " field doesn't match any body parts.";
+                        };
+                    }
+                }
+            }
+            return data;
+        },
+        extra_commands: function(string) {
+            //console.log(string);
+            let i1 = 0;
+            let i2 = 0;
+            let comment = AAX.body_read.comment_char;
+            let level = 0;
+            let ranges = [];
+            for(i1 = 0; i1 <= string.length; i1++) {
+                let left = string.slice(0, i1);
+                let right = string.slice(i1);
+                if(right.startsWith(comment)) {
+                // skip to the end of the comment.
+                    let temp = right.indexOf("\n");
+                    i1 += temp === -1 ? string.length + 1 : temp - 1;
+                    // it's a comment if it's in or after a comment char but
+                    // before a \n. (the \n doesn't count as part of the
+                    // comment, i mean.)
+                }
+                else {
+                    if(left.endsWith(")")) {
+                        level--;
+                        if(!level) {
+                            ranges.push(i1);
+                        }
+                    };
+                    if(right.startsWith("(")) {
+                        if(!level) {
+                            ranges.push(i1);
+                        }
+                        level++;
+                    };
+                }
+            };
+            let array = [];
+            if(ranges.length%2) {
+                ranges.splice(ranges.length - 1, 1);
+            };
+            for(i1 = 0; i1 < ranges.length; i1 += 2) {
+                let name = string.slice(0, ranges[i1]);
+                for(i2 = name.length - 1; i2 >= 0; i2--) {
+                    if(!name[i2].trim()) {
+                        name = name.slice(i2 + 1);
+                        i2 = 0;
+                    }
+                }
+                if(name) {
+                    let start = ranges[i1] - name.length;
+                    let end = ranges[i1 + 1] + 1;
+                    array.push({
+                        name,
+                        // what kind of command it is
+                        start, end,
+                        // index ranges to slice out to remove this command
+                        // entirely
+                        content: AAX.body_read.uncomment(string.slice(ranges[i1] + 1, ranges[i1 + 1] - 1)),
+                        // text inside the parentheses.
+                    });
+                }
+            }
+            //console.log(array);
+            return array;
+        },
+        symmetry_prefixes: function(content) {
+            content = content.split(",");
+            content[1] ??= "";
+            let prefix1 = content[0].trim() || AAX.prefix1;
+            let prefix2 = content[1].trim() || AAX.prefix2;
+            return prefix1 === prefix2 ? [AAX.prefix1, AAX.prefix2] : [prefix1, prefix2];
+        },
+    },
     Body: class {
         constructor() {
         // never ever use this directly, because, well... look at it.
@@ -4119,142 +4466,22 @@ const AAX = {
 			let i2 = 0;
 			let i3 = 0;
 			let i4 = 0;
-			let loop = new Loop("AAX.Body.new");
-			text = uncomment(text).split("\n###\n");
-			if(text.length < 1) {
-				return "invalid input. (incorrect number of sections.)";
-			};
-			for(i1 = 0; i1 < text.length; i1++) {
-				loop.tick(1);
-				if(i1 === 0) {
-				// spaces at the beginning of lines are part of the family
-				// syntax.
-					let index = text[i1].length - text[i1].trimStart().length;
-					let loopexit = false;
-					for(; index > 0 && !loopexit; index--) {
-						loop.tick(2);
-						if(index !== 0) {
-							let char = text[i1][index - 1];
-							if(!char.trim() && ![" ", String.fromCharCode(9)].includes(char)) {
-								loopexit = true;
-							}
-						}
-					}
-					loop.end();
-					// index is now the index of the first letter, space or
-					// indent, but not other whitespace.
-					text[i1] = text[i1].slice(index).trimEnd();
-				}
-				else {
-					text[i1] = text[i1].trim();
-				}
-			}
-			loop.end();
-			// trimmed
-			let family = text[0].split(String.fromCharCode(10));
-			// field 1: family tree (parent, coordinates)
-			let lowest = null;
-			for(i1 = 0; i1 < family.length; i1++) {
-				loop.tick(1);
-				let indent = family[i1].length - family[i1].trimStart().length;
-				if(lowest === null || indent < lowest) {
-					lowest = indent;
-				};
-				let string = family[i1].trim();
-				let index = string.lastIndexOf(":");
-				if(index === -1) {
-					return "invalid input. (a line in the family tree area has no colon.)";
-				};
-				let name = string.slice(0, index).trim();
-				if(name === "standpoint") {
-					return "invalid input. (\"standpoint\" is a reserved word.)";
-				}
-				else if(name in AAX.Body.prototype) {
-				// matches an object/Body method/property. (ex: making a part
-                // called "hasOwnProperty" will cover up the hasOwnProperty
-                // method and make it unusable)
-					return "invalid input. (\"" + name + "\" is an invalid part name for technical reasons.)";
-				}
-				let coor = AAX.strings.coor(string.slice(index + 1));
-				if(!coor) {
-					return "invalid input. (the " + name + " part has invalid coordinates. it must be three numbers.)";
-				}
-				family[i1] = {
-					name,
-					generation: indent,
-					coor,
-				};
-			}
-			loop.end();
-			if(lowest) {
-				for(i1 = 0; i1 < family.length; i1++) {
-					loop.tick(1);
-					family[i1].generation -= lowest;
-				}
-				loop.end();
-			}
-			let obj = {};
-			// where all the parts are stored in, for now
-			for(i1 = 0; i1 < family.length; i1++) {
-				loop.tick(1);
-				obj[ family[i1].name ] = {
-					x: family[i1].coor[0],
-					y: family[i1].coor[1],
-					z: family[i1].coor[2],
-				};
-				let part = obj[ family[i1].name ];
-				for(i2 = i1 - 1; i2 >= 0; i2--) {
-				// search backward. the first one of a lower generation is the
-				// parent.
-					loop.tick(2);
-					if(family[i2].generation < family[i1].generation) {
-						part.parent = family[i2].name;
-						i2 = -1;
-						// exit
-					}
-				}
-				loop.end();
-				part.parent ??= "standpoint";
-				// if no parent exists, use standpoint.
-			};
-			loop.end();
+            let obj = AAX.body_read.collect(text);
+            // {parent, x, y, z, image_text, extra_text} objects
+            if(typeof obj === "string") {
+            // or a string, if it screwed up somewhere.
+                return obj;
+            };
+            for(i1 in obj) {
+                if(obj.hasOwnProperty(i1)) {
+                // uncomment
+                    obj[i1].image_text = AAX.body_read.uncomment(obj[i1].image_text);
+                    obj[i1].extra_text = AAX.body_read.uncomment(obj[i1].extra_text);
+                }
+            }
+            //
 			let has_shape = [];
 			// array of the names of parts with non-default shapes.
-			if(text.length >= 2) {
-			// field 2: shapes/images
-				let data = text[1].split(String.fromCharCode(10));
-				let start = null;
-				// line index for where all the image text for a part begins and
-				// ends.
-				let name = null;
-				// part that lines are associated with at the moment.
-				for(i1 = 0; i1 < data.length; i1++) {
-					loop.tick(1);
-					data[i1] = data[i1].trim();
-					let line = data[i1];
-					if(line.startsWith("[") && line.endsWith("]")) {
-						line = line.slice(1, -1).trim();
-						if(obj.hasOwnProperty(line)) {
-							if(start !== null) {
-							// if this isn't the first name you've encountered, save
-							// the area from here to the previous name under the
-							// previous name's part.
-								obj[name].imagetext = data.slice(start, i1);
-							};
-							start = i1;
-							name = line;
-						}
-						else {
-							return "invalid input. (the name \"" + line + "\" in the image field doesn't match any body parts.)";
-						}
-					}
-				}
-				loop.end();
-				if(start !== null && name !== null) {
-					obj[name].imagetext = data.slice(start, data.length);
-				};
-				// save the last image too.
-			}
 			for(i1 in obj) {
 				if(obj.hasOwnProperty(i1)) {
 				// convert all images. if they don't have images, at least make
@@ -4262,17 +4489,12 @@ const AAX = {
 				// - not gonna convert objects from text yet. can't do that
 				//   until it can figure out AAX.image_oddness, which it can't do
 				//   until it has perspective_coor filled.
-					loop.tick(1);
 					let part = obj[i1];
-					let image = structuredClone(part.imagetext) ?? null;
+					let image = part.image_text;
 					// shape/image defining code
-					delete part.imagetext;
+					delete part.image_text;
 					part.shape = {
 						points: [],
-						external: {
-							groups: {},
-							points: {},
-						},
 					};
 					part.image = {
 						front: null,
@@ -4293,46 +4515,51 @@ const AAX = {
 					// make sure all of these properties always exist, even if
 					// the user didn't define them
 					if(image) {
-						image = image.slice(1).join("\n").split("||");
-						// omit the part name, split into shape,
-						// unperspectived, and perspectived (also makes sure
-						// it isn't a reference)
-						if(image.length >= 1 && image[0].trim()) {
+                        image = image.split("||");
+						// split into shape, unperspectived, and perspectived
+                        for(i2 = 0; i2 < image.length; i2++) {
+                            if(i2 === 0) {
+                                image[i2] = image[i2].trim();
+                            }
+                            else {
+                                image[i2] = image[i2].split("|");
+                                for(i3 = 0; i3 < image[i2].length; i3++) {
+                                    image[i2][i3] = image[i2][i3].trim();
+                                }
+                            }
+                        }
+                        // split further, and trim it
+						if(image.length >= 1 && image[0]) {
 						// if there's a shape
 							let temp = AAX.strings.shape(image[0], obj, i1);
 							if(temp) {
 							// if it didn't error from invalid inputs, use that.
 								part.shape = structuredClone(temp);
-								has_shape[has_shape.length] = i1;
+								has_shape.push(i1);
 							}
 						};
-						if(image.length >= 2 && image[1].trim()) {
+						if(image.length >= 2 && image[1]) {
 						// if there's unperspectived images
-							part.image = {};
-							let string = image[1].split("|");
-							if(string.length >= 1 && string[0].trim()) {
-								part.image.front = string[0];
-							};
-							if(string.length >= 2 && string[1].trim()) {
-								part.image.right = string[1];
-							};
-							if(string.length > 2) {
+                            if(image[1].length > 2) {
 								return "invalid input. (there's more than two unperspectived images. the most there should be is a front image and right image.)";
 							};
+							if(image[1].length >= 1 && image[1][0]) {
+								part.image.front = image[1][0];
+							};
+							if(image[1].length >= 2 && image[1][1]) {
+								part.image.right = image[1][1];
+							};
 						};
-						if(image.length >= 3 && image[2].trim()) {
+						if(image.length >= 3 && image[2]) {
 						// if there's perspectived images
-							let string = image[2].split("|");
-							for(i2 = 0; i2 < Math.min(4, string.length); i2++) {
-								loop.tick(2);
-								if(string[i2].trim()) {
-									part.perspective[i2] = string[i2];
+                            if(image[2].length > 4) {
+                                return "invalid input. (there's more than four perspectived images. the most there should be is one for each view.)";
+                            };
+							for(i2 = 0; i2 < image[2].length && i2 < 4; i2++) {
+								if(image[2][i2]) {
+									part.perspective[i2] = image[2][i2];
 								};
 							}
-							loop.end();
-							if(string.length > 4) {
-								return "invalid input. (there's more than four perspectived images. the most there should be is one for each view.)";
-							};
 						}
 						if(image.length > 3) {
 							return "invalid input. (|| is used to divide shapes from unperspectived images and unperspectived images from perspectived images, but there's more than two for " + i1 + ".)";
@@ -4340,228 +4567,145 @@ const AAX = {
 					};
 				}
 			};
-			loop.end();
 			// by the end of this loop, part.image must exist, with
 			// a front and right, filled either by null or by text.
-			if(text.length >= 3) {
-			// field 3: properties (colors, connections, etc.)
-				let data = text[2].split(String.fromCharCode(10));
-				for(i1 = 1; i1 < data.length; i1++) {
-					loop.tick(1);
-					if(!data[i1].trim()) {
-						data.splice(i1, 1);
-						i1--;
-					}
-					else if(data[i1].trimStart().length < data[i1].length) {
-						data[i1 - 1] += data[i1];
-						data.splice(i1, 1);
-						i1--;
-					};
-				}
-				loop.end();
-				// lines that start with whitespace are added to previous lines.
-				// (that way, you can indent them if the line's getting way too
-				// long.)
-				for(i1 = 0; i1 < data.length; i1++) {
-					loop.tick(1);
-					let colon = data[i1].indexOf(":");
-					if(colon === -1) {
-						return "invalid input. (an unindented line in the properties area has no colon.)";
-					};
-					let name = data[i1].slice(0, colon).trim();
-					if(obj.hasOwnProperty(name)) {
-						obj[name].propertytext = trimspecial(data[i1].slice(colon + 1), " ")
-					}
-					else {
-						return "invalid input. (a line in the properties area is for a body part that wasn't in the family tree.)";
-					};
-				}
-				loop.end();
-				// save the text as a property, just like imagetext
-				function insideandout(string, find) {
-				// finds (find + "(") within string, and returns an object of
-				// the inside and outside of those parentheses. (or null if it
-				// doesn't find it.)
-					let index = string.indexOf(find + "(");
-					if(index !== -1) {
-						index = [
-							index,
-							index + string.slice(index).indexOf(")") + 1
-						];
-						return (
-							index[1] === -1
-							?
-							null
-							:
-							{
-								inside: string.slice(index[0] + find.length + 1, index[1] - 1),
-								outside: string.slice(0, index[0]) + string.slice(index[1]),
-							}
-						);
-					}
-					else {
-						return null;
-					}
-				};
-				for(i1 in obj) {
-					if(obj.hasOwnProperty(i1)) {
-						loop.tick(1);
-						let part = obj[i1];
-						let line = part.propertytext ?? "";
-						//console.log(i1 + ": " + line);
-						delete part.propertytext;
-						let temp = null;
-						for(i2 = 0; i2 < 2; i2++) {
-							loop.tick(2);
-							temp = insideandout(line, "color" + (i2 + 1));
-							if(temp) {
-								line = temp.outside;
-								temp = temp.inside.split(",");
-								for(i3 = 0; i3 < temp.length; i3++) {
-									loop.tick(3);
-									let num = Number(temp[i3]);
-									if(Number.isInteger(num) && num >= 0) {
-										temp[i3] = num;
-									};
-								}
-								loop.end();
-								// numberize if possible
-								if(temp.length) {
-									part["branch_color" + (i2 + 1)] = structuredClone(temp);
-								}
-							};
-							temp = insideandout(line, "color" + (i2 + 1) + "*");
-							if(temp) {
-								line = temp.outside;
-								temp = temp.inside;
-								let num = Number(temp);
-								if(Number.isInteger(num) && num >= 0) {
-									temp = num;
-								};
-								part["color" + (i2 + 1)] = temp;
-								//console.log(i1 + ": " + temp);
-							};
-						}
-						loop.end();
-						// branch_color, color
-						temp = insideandout(line, "silhouette");
-						if(temp) {
-							line = temp.outside;
-							temp = temp.inside;
-							const inheritance = !temp.startsWith("*");
-							if(!inheritance) {
-								temp = temp.slice(1);
-							};
-							let sub = 0;
-							// stands for "subgroup"
-							for(sub = temp.length - 1; sub >= 0 && temp[sub].toLowerCase() !== temp[sub].toUpperCase(); sub--) {
-							// find the last non-letter character
-								loop.tick(2);
-							}
-							loop.end();
-							sub++;
-							// so that it's at the end of that last non-letter, and
-							// can be used as a slice index
-							temp = [
-								temp.slice(0, sub),
-								temp.slice(sub)
-							];
-							let num = Number(temp[0]);
-							sub = temp[1];
-							if(!Number.isInteger(num) || num < 0) {
-								return "invalid input. (invalid silhouette group number. must be a positive integer.)";
-							};
-							part["branch_".repeat(inheritance) + "silhouette"] = [num, sub];
-						};
-						// silhouette, branch_silhouette
-						temp = insideandout(line, "perspective");
-						if(temp) {
-							line = temp.outside;
-							temp = temp.inside.split(",");
-							let coor = [
-								"auto",
-								"auto",
-								"auto",
-								"auto"
-							];
-							let numofautos = 0;
-							for(i2 = 0; i2 < 4; i2++) {
-								loop.tick(2);
-								let index = i2*2 - numofautos;
-								if(temp[index] === "auto") {
-									coor[i2] = "auto";
-									numofautos++;
-								}
-								else {
-									let num = [
-										Number(temp[index]),
-										Number(temp[index + 1])
-									];
-									if(isNaN(num[0]) || isNaN(num[1])) {
-										return "invalid input. (invalid perspective coordinates.)";
-									}
-									coor[i2] = structuredClone(num);
-								}
-							}
-							loop.end();
-							part.perspective.coor = structuredClone(coor);
-						};
-						// perspective coordinates
-						temp = insideandout(line, "capsule");
-						if(temp) {
-							line = temp.outside;
-							temp = AAX.posint(temp.inside);
-							if(isNaN(temp)) {
-								return "invalid input. (invalid capsule width.)";
-							};
-							part.connection = {
-								type: "capsule",
-								value: temp,
-							};
-						};
-						temp = insideandout(line, "generation");
-						if(temp) {
-							line = temp.outside;
-							let value = temp.inside.split(",");
-							value = [
-								Number(value[0]),
-								Number(value[1] ?? 0)
-							];
-							if(!Number.isInteger(value[0]) || !Number.isInteger(value[1])) {
-								return "invalid input. (generation connections are supposed to be integers representing how many generations back/forward you want the part to connect to.)";
-							}
-							else {
-								part.connection = {
-									type: "generation",
-									value,
-								};
-							}
-						};
-						// connection
-						for(i2 = 0; i2 < 2; i2++) {
-							loop.tick(2);
-							let word = ["hide", "no_mirror"][i2];
-							part[word] = line.includes(word + "()");
-							if(part[word]) {
-								line = line.replace(word + "()", "");
-							};
-						}
-						// hide, no_mirror
-						line = line.trim();
-						if(line) {
-							console.log(i1 + " has text of unknown meaning: `" + line + "`");
-						};
-					}
-				}
-				loop.end();
-			}
+            for(i1 in obj) {
+				if(obj.hasOwnProperty(i1) && obj[i1].extra_text) {
+                // run through all the possible commands extra_text can give.
+                    let part = obj[i1];
+                    //console.log(i1);
+                    let commands = AAX.body_read.extra_commands(part.extra_text);
+                    delete part.extra_text;
+                    part.hide = false;
+                    part.symmetry = null;
+                    for(i2 = 0; i2 < commands.length; i2++) {
+                        let ref = commands[i2];
+                        let content = ref.content;
+                        if(ref.name.startsWith("color")) {
+                            const branch = !ref.name.endsWith("*");
+                            const propertyname = branch ? "branch_" + ref.name : ref.name.slice(0, -1);
+                            let temp = ref.name.slice("color".length);
+                            if(temp === "1" || temp === "2" || temp === "1*" || temp === "2*") {
+                            // branch_color, color
+                                if(branch) {
+                                    content = content.split(",");
+                                    for(i3 = 0; i3 < content.length; i3++) {
+                                        let num = Number(content[i3]);
+                                        if(Number.isInteger(num) && num >= 0) {
+                                            content[i3] = num;
+                                        };
+                                    }
+                                    // numberize if possible
+                                    if(content.length) {
+                                        part[propertyname] = structuredClone(content);
+                                    }
+                                }
+                                else {
+                                    let num = Number(content);
+                                    if(Number.isInteger(num) && num >= 0) {
+                                        part[propertyname] = num;
+                                    };
+                                }
+                            }
+                        }
+                        else if(ref.name === "silhouette" || ref.name === "silhouette*") {
+                        // silhouette, branch_silhouette
+                            const branch = !ref.name.endsWith("*");
+                            let sub = 0;
+                            // stands for "subgroup"
+                            for(sub = content.length - 1; sub >= 0 && content[sub].toLowerCase() !== content[sub].toUpperCase(); sub--) {
+                            // find the last non-letter character
+                            }
+                            sub++;
+                            // so that it's at the end of that last non-letter, and
+                            // can be used as a slice index
+                            content = [
+                                content.slice(0, sub),
+                                content.slice(sub)
+                            ];
+                            let num = Number(content[0]);
+                            sub = content[1];
+                            if(!Number.isInteger(num) || num < 0) {
+                                return "invalid input. (invalid silhouette group number. must be a positive integer.)";
+                            };
+                            part[(branch ? "branch_" : "") + "silhouette"] = [num, sub];
+                        }
+                        else if(ref.name === "perspective") {
+                        // perspective.coor
+                            content = content.split(",");
+                            let coor = [
+                                "auto",
+                                "auto",
+                                "auto",
+                                "auto"
+                            ];
+                            let numofautos = 0;
+                            for(i3 = 0; i3 < 4; i3++) {
+                                let index = i3*2 - numofautos;
+                                if(content[index] === "auto") {
+                                    coor[i3] = "auto";
+                                    numofautos++;
+                                }
+                                else {
+                                    let num = [
+                                        Number(content[index]),
+                                        Number(content[index + 1])
+                                    ];
+                                    if(isNaN(num[0]) || isNaN(num[1])) {
+                                        return "invalid input. (invalid perspective coordinates.)";
+                                    }
+                                    coor[i3] = structuredClone(num);
+                                }
+                            }
+                            part.perspective.coor = structuredClone(coor);
+                        }
+                        else if(ref.name === "capsule") {
+                        // capsule connections
+                            content = AAX.posint(content);
+                            if(isNaN(content)) {
+                                return "invalid input. (invalid capsule width.)";
+                            };
+                            part.connection = {
+                                type: ref.name,
+                                value: content,
+                            };
+                        }
+                        else if(ref.name === "generation") {
+                        // generation connections
+                            content = content.split(",");
+                            content = [
+                                Number(content[0]),
+                                Number(content[1] ?? 0)
+                            ];
+                            if(!Number.isInteger(content[0]) || !Number.isInteger(content[1])) {
+                                return "invalid input. (generation connections are supposed to be integers representing how many generations back/forward you want the part to connect to.)";
+                            }
+                            else {
+                                part.connection = {
+                                    type: ref.name,
+                                    value: content,
+                                };
+                            }
+                        }
+                        else if(ref.name === "hide") {
+                            part[ref.name] = true;
+                        }
+                        else if(ref.name === "symmetry") {
+                            content = AAX.body_read.symmetry_prefixes(content);
+                            part.symmetry = {
+                                prefix1: content[0],
+                                prefix2: content[1],
+                            };
+                        };
+                    }
+                }
+            }
 			//
 			// text interpretation is done, time to convert it to a usable body.
 			//
 			let body = new AAX.Body();
 			// final product
 			for(i1 in obj) {
-				loop.tick(1);
 				if(obj.hasOwnProperty(i1)) {
 					body[i1] = {};
 					let part = body[i1];
@@ -4574,13 +4718,10 @@ const AAX = {
 						"hide"
 					];
 					for(i2 = 0; i2 < order.length; i2++) {
-						loop.tick(2);
 						part[ order[i2] ] = structuredClone( obj[i1][ order[i2] ] );
 					};
-					loop.end();
 				}
 			}
-			loop.end();
 			// now that every body part exists, we can do stuff like
 			// branch_color.
 			function branchassign(body, part, property, values) {
@@ -4590,7 +4731,6 @@ const AAX = {
 			//   generation. (ie if it's [1, 2], the named part will be 1, all
 			//   children will be 2, all grandchildren will be 1, etc)
 				let i1 = 0;
-				let loop = new Loop("AAX.Body.new branchassign");
 				if(!Array.isArray(values)) {
 					values = [values];
 				}
@@ -4600,21 +4740,20 @@ const AAX = {
 				values[values.length] = temp;
 				// cycle through
 				for (i1 in body) {
-					loop.tick(1);
 					if(body.hasOwnProperty(i1) && body[i1].parent === part) {
 						branchassign(body, i1, property, structuredClone(values));
 					};
 				}
-				loop.end();
 			};
-			let order = AAX.getdesc(body);
-			branchassign(body, order[0], "color1", [1, 2]);
-			branchassign(body, order[0], "color2", [0]);
-			branchassign(body, order[0], "silhouette", [[0, ""]]);
-			//console.log(body);
-			// set the default colors/silhouette
+            for(i1 in body) {
+                if(body.hasOwnProperty(i1) && body[i1].parent === "standpoint") {
+                // set the default colors/silhouette
+                    branchassign(body, i1, "color1", [1, 2]);
+                    branchassign(body, i1, "color2", [0]);
+                    branchassign(body, i1, "silhouette", [[0, ""]]);
+                }
+            }
 			for (i1 in body) {
-				loop.tick(1);
 				if (body.hasOwnProperty(i1)) {
 					if(obj[i1].hasOwnProperty("branch_color1")) {
 						branchassign(body, i1, "color1", obj[i1].branch_color1);
@@ -4625,15 +4764,10 @@ const AAX = {
 					if(obj[i1].hasOwnProperty("branch_silhouette")) {
 						branchassign(body, i1, "silhouette", [obj[i1].branch_silhouette]);
 					};
-					if(obj[i1].hasOwnProperty("no_mirror") && obj[i1].no_mirror) {
-						//branchassign(body, i1, "silhouette", obj[i1].no_mirror);
-					};
 				};
 			}
-			loop.end();
 			// a loop to set the branch stuff
 			for (i1 in body) {
-				loop.tick(1);
 				if (body.hasOwnProperty(i1)) {
 					if(obj[i1].hasOwnProperty("color1")) {
 						body[i1].color1 = obj[i1].color1;
@@ -4646,50 +4780,24 @@ const AAX = {
 					};
 				};
 			}
-			loop.end();
 			// a loop to set the non-branch stuff
 			function simpleshape(shape) {
-			// if a shape is a single point that doesn't use external, it
-			// returns that point.
+			// if a shape is a single point, it returns that point.
 				let point = null;
-				let loop = new Loop("AAX.Body.new simpleshape");
 				for(let i1 = 0; i1 < shape.points.length; i1++) {
 				// search every group
-					loop.tick(1);
 					for(let i2 = 0; i2 < shape.points[i1].length; i2++) {
 					// search every point
-						loop.tick(2);
 						if(point !== null) {
 						// this isn't the first point
 							return null;
 						}
 						point = structuredClone(shape.points[i1][i2]);
-						let ref = shape.external.points;
-						for(let i3 in ref) {
-							loop.tick(3);
-							if(ref.hasOwnProperty(i3) && ref[i3].includes(0)) {
-							// external-oriented
-								return null;
-							}
-						}
-						loop.end();
-						ref = shape.external.groups;
-						for(let i3 in ref) {
-							loop.tick(3);
-							if(ref.hasOwnProperty(i3) && ref[i3].includes(i1)) {
-							// external-oriented
-								return null;
-							}
-						}
-						loop.end();
 					}
-					loop.end();
 				}
-				loop.end();
 				return point;
 			}
 			for (i1 in body) {
-				loop.tick(1);
 				if (body.hasOwnProperty(i1)) {
 				// interpret images
 					let part = body[i1];
@@ -4698,7 +4806,6 @@ const AAX = {
 					// - if it's absent, connect to parents.
 					const oddness = AAX.oddness(body, i1);
 					for(i2 = -2; i2 < 4; i2++) {
-						loop.tick(2);
 						const imageobj = part[i2 < 0 ? "image" : "perspective"];
 						const view = i2 === -2 ? "front" : i2 === -1 ? "right" : i2;
 						if(imageobj[view] !== null) {
@@ -4718,8 +4825,9 @@ const AAX = {
 								// if the %2 doesn't match the %2 an image of
 								// this part's oddness should have, then the
 								// oddness must be different in that axis.
-								let rect = Raster.dimrect(...AAX.l_dim(image.length, old_oddness));
-								image = AAX.sq_raster.squarify(image, rect);
+								//let rect = Raster.dimrect(...AAX.l_dim(image.length, old_oddness));
+                                //image = AAX.sq_raster.squarify(image, rect);
+								image = AAX.sq_raster.squarify(image, [w, h]);
 								// make it a square image
 								image = AAX.sq_raster.changeoddness(image, old_oddness, oddness);
 								// make it match the ideal oddness
@@ -4753,60 +4861,87 @@ const AAX = {
 								let image = [];
 								for(i3 = 0; i3 < w*h; i3++) {
 								// empty image
-									loop.tick(3);
 									image[i3] = 0;
 								}
-								loop.end();
 								part.image[view] = Raster.ellipse(image, w, 0, 0, w - 1, h - 1);
 							};
 						};
 					}
-					loop.end();
 				}
 			}
-			loop.end();
-			for (i1 in body) {
-				loop.tick(1);
-				if (
-					body.hasOwnProperty(i1)
-					&&
-					(i1.startsWith("l_") || i1.startsWith("r_"))
-					&&
-					!body[i1].hasOwnProperty(AAX.sym_namer(i1))
-					&&
-					(!obj[i1].hasOwnProperty("no_mirror") || !obj[i1].no_mirror)
-				) {
-				// if it's a left/right part, doesn't already have a
-				// counterpart, and doesn't have a no_mirror command, make a
-				// symmetrical duplicate.
-				// - NOTE this needs to run in getdesc order. i'm only leaving
-				//   it alone because that's kind of required already, for field
-				//   1's family structure thing.
-				//   - if children are run before their parents, you could get
-				//     some symmetrical counterparts not getting made because
-				//     their parent hasn't been made yet.
-					const old_name = i1;
-					const new_name = AAX.sym_namer(i1);
-					const old_part = body[i1];
-					body[new_name] = structuredClone(old_part);
-					let new_part = body[new_name];
-					new_part.parent = AAX.sym_namer(old_part.parent);
-					// parent
-					if(!old_part.silhouette[1] && old_part.silhouette[0]) {
-					// put them in different silhouette subgroups
-						old_part.silhouette[1] = old_name[0];
-						new_part.silhouette[1] = new_name[0];
+            //
+            let order = AAX.getdesc(body);
+            let symmetry = {};
+            for(i1 = 0; i1 < order.length; i1++) {
+                let _i1 = order[i1];
+                if(obj[_i1].symmetry) {
+                    symmetry[_i1] = {
+                        prefix1: obj[_i1].symmetry.prefix1,
+                        prefix2: obj[_i1].symmetry.prefix2,
+                        origin: true,
+                        // whether it's the start of the symmetry branch or not.
+                        // (used to figure out whether the parent is prefixed.)
+                    };
+                    let desc = AAX.getdesc(body, _i1);
+                    for(i2 = 0; i2 < desc.length; i2++) {
+                        let _i2 = desc[i2];
+                        obj[_i2].symmetry = null;
+                        // redundancy could get really stupid
+                        symmetry[_i2] = {
+                            prefix1: symmetry[_i1].prefix1,
+                            prefix2: symmetry[_i1].prefix2,
+                            origin: false,
+                        };
+                    }
+                }
+            }
+            for(i1 in symmetry) {
+                if(symmetry.hasOwnProperty(i1)) {
+                    let name1 = symmetry[i1].prefix1 + i1;
+                    let name2 = symmetry[i1].prefix2 + i1;
+                    body[name1] = body[i1];
+                    delete body[i1];
+                    body[name2] = structuredClone(body[name1]);
+                    // biifurcate
+                    if(!symmetry[i1].origin) {
+                    // this is the child of a symmetry part, so the parent names
+                    // should be adjusted to their symmetry names
+                        let temp = symmetry[i1].prefix1 + body[name1].parent;
+                        if(body.hasOwnProperty(temp)) {
+                            body[name1].parent = temp;
+                        }
+                        else {
+                            console.log("this shouldn't happen");
+                        }
+                        temp = symmetry[i1].prefix2 + body[name2].parent;
+                        if(body.hasOwnProperty(temp)) {
+                            body[name2].parent = temp;
+                        }
+                        else {
+                            console.log("this shouldn't happen");
+                        }
+                    };
+                    if(body[name1].silhouette[0] && !body[name1].silhouette[1]) {
+                    // if they're not in group 0 (probably don't want them
+                    // differentiated) and they don't have a subgroup already,
+                    // (the user probably already did something with that,
+                    // which shouldn't be disturbed) put them in different
+                    // silhouette subgroups.
+                        let temp = symmetry[i1].prefix1;
+                        for(i2 = 0; i2 < temp.length; i2++) {
+                            body[name1].silhouette[1] += temp[i2].toLowerCase() === temp[i2].toUpperCase() ? "" : temp[i2];
+                        }
+                        temp = symmetry[i1].prefix2;
+                        for(i2 = 0; i2 < temp.length; i2++) {
+                            body[name2].silhouette[1] += temp[i2].toLowerCase() === temp[i2].toUpperCase() ? "" : temp[i2];
+                        }
+                        // have it match the prefixes, with all non-letters
+                        // removed for aesthetics
 					};
-					if(!body.hasOwnProperty(new_part.parent)) {
-						delete body[new_name];
-					}
-					else {
-						AAX.mirror(body, new_name, "x");
-						// coordinates, image, perspective
-					};
-				}
-			}
-			loop.end();
+                    AAX.mirror(body, name2, "x");
+                    // coordinates, image, perspective
+                }
+            }
 			return body;
         }
         static clone(body) {
@@ -4828,7 +4963,7 @@ const AAX = {
   thumb_2:		-10, -8, 0
    thumb_3:		-2, -6, 0
     thumb_4:	0, -6, 0
- index_1:		-9, -25, -1
+ index_1:		-9, -24, -1
   index_2:		0, -12, 0
    index_3:		0, -6, 0
     index_4:	0, -4, 0
@@ -4836,11 +4971,11 @@ const AAX = {
   middle_2:		0, -14, 0
    middle_3:	0, -6, 0
     middle_4:	0, -4, 0
- ring_1:		7, -23, -1
+ ring_1:		6, -23, -1
   ring_2:		0, -11, 0
    ring_3:		0, -6, 0
     ring_4:		0, -4, 0
- pinkie_1:		14, -19, 1
+ pinkie_1:		13, -19, 1
   pinkie_2:		0, -6, 0
    pinkie_3:	0, -5, 0
     pinkie_4:	0, -5, 0
@@ -4929,92 +5064,42 @@ pinkie_1:
 //pinkie_3:
 //pinkie_4:	`,
 			stocky:
-`pelvis:        0, -35, 0
- midsection:   0, -8, 5
- torso:        0, -19, 1
-  neckbase:    0, -6, -3
-   headbase:   0, -8, 1
-    head:      0, -10, 2
-  manubrium:   0, 0, 6
-   l_shoulder: -15, 4, -8
-    l_elbow:   -1.5, 14.5, -1.5
-     l_wrist:  0.5, 13.5, 0.5
-      l_hand:  1, 2, 1
- l_hip:        -7, 3, 0
-  l_knee:      -0.5, 14.5, 0.5
-   l_ankle:    0.5, 13.5, -0.5
-    l_toe:     -1, 1, 8
+`pelvis: 0, -53, 0
+ midsection: 0, -12, 8
+ torso: 0, -28, 2
+  neckbase: 0, -9, -5
+   headbase: 0, -15, 2
+    head: 0, -12, 3
+  manubrium: 0, 0, 9
+   shoulder: -23, 6, -13
+    elbow: -1.5, 19.5, -1.5
+     wrist: 0.5, 18.5, 0.5
+      hand: 1, 3, 1
+ hip: -11, 5, 0
+  knee: -0.5, 21.5, 0.5
+   ankle: 0.5, 20.5, -0.5
+    toe: -1, 1, 12
 ###
-[ head ]
-||
----------------------------
----------------------------
----------------------------
----------------------------
----------------------------
-----------%%%%%%%----------
---------%%%%%%%%%%%--------
--------%%%%%%%%%%%%%-------
-------%%%%%%%%%%%%%%%------
-------%%%%%%%%%%%%%%%------
------%%%%%%%%%%%%%%%%%-----
------%%%%%%%%%%%%%%%%%-----
------%%%%%%%%%%%%%%%%%-----
------%%%%%%%%*%%%%%%%%-----
------%%%%%%%%%%%%%%%%%-----
------%%%%%%%%%%%%%%%%%-----
------%%%%%%%%%%%%%%%%%-----
------%%%%%%%%%%%%%%%%%-----
------%%%%%%%%%%%%%%%%%-----
-------%%%%%%%%%%%%%%%------
-------%%%%%%%%%%%%%%%------
--------%%%%%%%%%%%%%-------
--------%%%%%%%%%%%%%-------
---------%%%%%%%%%%%--------
----------%%%%%%%%%---------
------------%%%%%-----------
----------------------------
-|
----------------------------
----------------------------
----------------------------
----------------------------
----------------------------
-----------%%%%%%%----------
---------%%%%%%%%%%%--------
--------%%%%%%%%%%%%%-------
-------%%%%%%%%%%%%%%%------
-------%%%%%%%%%%%%%%%------
------%%%%%%%%%%%%%%%%%-----
------%%%%%%%%%%%%%%%%%-----
------%%%%%%%%%%%%%%%%%-----
------%%%%%%%%*%%%%%%%%-----
------%%%%%%%%%%%%%%%%%-----
------%%%%%%%%%%%%%%%%%-----
------%%%%%%%%%%%%%%%%%-----
------%%%%%%%%%%%%%%%%%-----
------%%%%%%%%%%%%%%%%------
------%%%%%%%%%%%%%%%%------
------%%%%%%%%%%%%%%%-------
-------%%%%%%%%%%%%%--------
-------%%%%%%%%%%%%---------
-------%%%%%%%%%%%----------
--------%%%%%%%%------------
--------%%%%%---------------
----------------------------
-[ torso ]
--6, -9, 2
+[ pelvis ]
+// structured sort of like the midsection
+-12, -12, 2
 x
--12, -3, -8
+-9, -3, 11
 x
-yz
-xyz
--6, 13, -4
+-6, 6, 11
 x
+-6, 12, -2
+x
+-9, -6, -11
+x
+// two rings of points
+-18, 0, 0
+x
+// the tip
 [ midsection ]
-0, -8, 0
+0, -12, 0
 y
--8, -4, 4
+-12, -6, 6
 z
 y
 yz
@@ -5022,149 +5107,152 @@ x
 xz
 xy
 xyz
-[ pelvis ]
-// structured sort of like the midsection
--8, -8, 1
+[ torso ]
+-9, -14, 3
 x
--6, -2, 7
+-18, -5, -12
 x
--4, 4, 7
+yz
+xyz
+-9, 20, -6
 x
--4, 8, -1
-x
--6, -4, -7
-x
-// two rings of points
--12, 0, 0
-x
-// the tip
-[ l_shoulder ]
-0, 0, 0, 10, 10, 10
-[ l_elbow ]
-0, 0, 0, 9, 9, 9
-[ l_wrist ]
-0, 0, 0, 8, 8, 8
-[ l_hand ]
-0, 0, 0, 10, 12, 10
-[ l_hip ]
-0, 0, 0, 10, 10, 10
-[ l_knee ]
-0, 0, 0, 9, 9, 9
-[ l_ankle ]
-0, 0, 0, 8, 8, 8
-[ l_toe ]
-0, 0, 0, 10, 6, 6
+[ head ]
+[ shoulder ]
+0, 0, 0, 15, 15, 15
+[ elbow ]
+0, 0, 0, 14, 14, 14
+[ wrist ]
+0, 0, 0, 12, 12, 12
+[ hand ]
+0, 0, 0, 15, 18, 15
+[ hip ]
+0, 0, 0, 15, 15, 15
+[ knee ]
+0, 0, 0, 14, 14, 14
+[ ankle ]
+0, 0, 0, 12, 12, 12
+[ toe ]
+0, 0, 0, 15, 9, 9
 ###
-midsection:	color1*(3)
+midsection:
+	color1*(3)
 torso:
 	color1(2, 1)
 	generation(1, 2)
-neckbase:	generation(0)
-headbase:	capsule(6)
+neckbase:
+	generation(0)
+headbase:
+	capsule(16)
 head:
 	generation(0)
 	silhouette(0b)
-manubrium:	generation(0)
-l_shoulder:
+manubrium:
+	generation(0)
+shoulder:
+	symmetry()
 	color1(3, 4)
 	silhouette(1)
-l_hand:		generation(0)
-l_hip:
+	generation(0)
+hand:
+	generation(0)
+hip:
+	symmetry()
 	generation(0)
 	silhouette(2)
-l_knee:		generation(2)`,
+knee:
+	generation(2)`,
 			standard:
-`pelvis:           0,  -25,    0
- midsection:      0,   -2,    2
- torso:           0,   -7,    0.5
-  neckbase:       0,   -6,   -0.5
-   headbase:      0,   -4,    0
-    head:         0,   -8,    0
-  manubrium:      0,   -3,    2.5
-   l_shoulder:   -6,    3,   -3
-    l_elbow:     -2,    8,   -1
-     l_wrist:    -1.5,  7.5, -1.5
-      l_hand:     0,    2.5,  0.5
- l_hip:          -3,    2,    1
-  l_knee:        -0.5, 10.5, -0.5
-   l_ankle:      -0.5, 10.5, -0.5
-    l_toe:       -0.5,  0.5,  4.5
+`pelvis: 0, -38, 0
+ midsection: 0, -3, 3
+ torso: 0, -10, 0.5
+  neckbase: 0, -9, -0.5
+   headbase: 0, -6, 0
+    head: 0, -12, 0
+  manubrium: 0, -5, 4.5
+   shoulder: -9, 5, -5
+    elbow: -3, 12, -2
+     wrist: -2.5, 11.5, -1.5
+      hand: 0, 3.5, 0.5
+ hip: -5, 3, 2
+  knee: -0.5, 16.5, -1.5
+   ankle: -0.5, 15.5, -0.5
+    toe: -0.5, 0.5, 6.5
 ###
 [ pelvis ]
--2, 1, 3
+-3, 2, 4
 x
--3, -1, 3
+-5, -2, 4
 x
 // front
-0, 3, -1
--2, -3, -3
+0, 4, -2
+-3, -4, -4
 x
--4, 1, -1
+-6, 1, -2
 x
 // back
 [ midsection ]
-0, -4, 0
+0, -6, 0
 y
-// point
-0, -2, -2
+// tips
+0, -3, -3
 y
--2, -2, 2
+-3, -3, 3
 x
 y
 xy
--4, -2, 0
+-6, -3, 0
 x
 y
 xy
 // vertical pentagonal prism
 [ torso ]
-0, -1, 4
+0, -2, 6
 // front point
--2, -5, 2
+-3, -8, 3
 x
--6, -1, 2
+-9, -2, 1
 x
 // front
--4, 5, -2
+-6, 8, -3
 x
 // bottom
--2, -3, -4
+-3, -5, -6
 x
--6, 1, -4
+-9, 2, -6
 x
-0, 1, -4
+0, 2, -6
 // back
 [ neckbase ]
 0, 0, 0
 [ headbase ]
 0, 0, 0
 [ head ]
-0, -5, 5
+0, -8, 8
 z
 //
-0, -8, 0
--5, -7, 0
+0, -12, 0
+-8, -11, 0
 x
--8, -2, 3//-8, -4, 4
+-12, -3, 5
 x
 z
 xz
--5, -1, 8
+-8, -2, 12
 x
 z
 xz
 // top-front and top-back heptagons
-0, 7, 8
+0, 11, 12
 //
--8, 3, 3//-8, 3, 4
+-12, 5, 5
 x
--5, 8, 1
+-8, 12, 2
 x
-0, 11, 5
+0, 17, 8
 // bottom-front heptagon
-0, 9, -3
+0, 14, -5
 //
--8, 3, -1//-8, 3, -1
+-12, 5, -2
 x
 // bottom-back heptagon
 // notes for making a jaw:
@@ -5176,64 +5264,81 @@ x
 //   origin)
 [ manubrium ]
 0, 0, 0
-[ l_shoulder ]
-0, 0, 0, 4
-[ l_elbow ]
-0, 0, 0, 4
-[ l_wrist ]
-||
-----------
-----------
-----------
-----%%----
----%%%%---
----%%%%---
----%%%%---
----%%%%---
----%%%%---
-----%%----
-|
-----------
-----------
-----------
-----%%----
----%%%%---
---%%%%%---
---%%%%%---
---%%%%%---
---%%%%%---
----%%%----
-[ l_hand ]
-0, 0, 0
-[ l_hip ]
+[ shoulder ]
 0, 0, 0, 6
-[ l_knee ]
-0, 0, 0, 4
-[ l_ankle ]
-0, 0, 0, 4
-[ l_toe ]
-0, 0, 0, 3, 1, 1
+[ elbow ]
+0, 0, 0, 6
+[ wrist ]
+||
+----------------
+----------------
+----------------
+----------------
+----------------
+-------%%-------
+------%%%%------
+-----%%%%%%-----
+-----%%%%%%-----
+-----%%%%%%-----
+-----%%%%%%-----
+-----%%%%%%-----
+-----%%%%%%-----
+-----%%%%%%-----
+------%%%%------
+-------%%-------
+|
+----------------
+----------------
+----------------
+----------------
+----------------
+------%%%-------
+-----%%%%%------
+----%%%%%%%-----
+---%%%%%%%%-----
+---%%%%%%%%-----
+---%%%%%%%%-----
+---%%%%%%%%-----
+---%%%%%%%%-----
+---%%%%%%%%-----
+----%%%%%%------
+-----%%%%-------
+[ hand ]
+0, 0, 0
+[ hip ]
+0, 0, 0, 9
+[ knee ]
+0, 0, 0, 6
+[ ankle ]
+0, 0, 0, 6
+[ toe ]
+0, 0, 0, 5, 2, 2
 ###
 midsection:
 	color1*(3)
 torso:
 	color1(2, 1)
 	generation(1, 2)
-neckbase:	generation(0)
+neckbase:
+	generation(0)
 headbase:
-	capsule(6)
+	capsule(8)
 head:
 	generation(0)
 	silhouette(0b)
-manubrium:	generation(0)
-l_shoulder:
+manubrium:
+	generation(0)
+shoulder:
+	symmetry()
 	color1(3, 4)
 	silhouette(1)
-l_hand:
+    generation(0)
+hand:
 	generation(0)
-l_hip:
+hip:
+	symmetry()
 	color1(1, 2)
-l_knee:
+knee:
 	generation(2)
 	silhouette(2)`,
 		}
@@ -5918,23 +6023,15 @@ l_knee:
                 //       what it is
             };
             //
-            if(property === "shape") {
+            if(
+                property === "shape"
+                ||
+                property === "orient" || property === "stretch" || property === "widen"
+            ) {
             // cache.oriented is obsolete
                 this.clearcache("orientedshape");
             }
-            else if(["orient", "stretch", "widen"].includes(property)) {
-            // cache.oriented is obsolete, but other parts' shapes are also
-            // affected if they invoke this part in their .external
-                this.clearcache("orientedshape");
-                let array = this.shapedependents;
-                let pose = this.pose;
-                for(let i1 = 0; i1 < array.length; i1++) {
-                    loop.tick(1);
-                    pose[ array[i1] ].clearcache("orientedshape");
-                }
-                loop.end();
-            }
-            else if(["x", "y", "z"].includes(property)) {
+            else if(property === "x" || property === "y" || property === "z") {
                 this.clearcache(
                     (this.stretch === 1 && this.widen === 1)
                     ?
@@ -6045,117 +6142,12 @@ l_knee:
             //   rid of redirects. real values will just clone themselves,
             //   so there's no change.
         }
-        get orientparts() {
-        // an array of part names, matching the .shape_points. for each
-        // point, there's a string for which part's stretch/widen/orient it
-        // should use.
-        // - returns "skip" if there are no externals. that will be true
-        //   most of the time, so oriented shape takes a shortcut.
-            let i1 = 0;
-            let i2 = 0;
-            let i3 = 0;
-            let loop = new Loop("AAX.Part.orientparts");
-            if(!this.shape) {
-                console.log("this shouldn't happen");
-                return;
-            };
-            let shape = this.shape;
-            if(objectisempty(shape.external.groups) && objectisempty(shape.external.points)) {
-                return "skip";
-            };
-            let array = [];
-            for(i1 = 0; i1 < shape.points.length; i1++) {
-                loop.tick(1);
-                array[i1] = [];
-                for(i2 = 0; i2 < shape.points[i1].length; i2++) {
-                    loop.tick(2);
-                    array[i1][i2] = this.name;
-                }
-                loop.end();
-            }
-            loop.end();
-            // start with all of them following the main part
-            let pose = this.pose;
-            let ref = shape.external.groups;
-            for(i1 in ref) {
-                loop.tick(1);
-                if(ref.hasOwnProperty(i1) && pose.hasOwnProperty(i1) && i1 !== this.name) {
-                // for each external part
-                    for(i2 = 0; i2 < ref[i1].length; i2++) {
-                    // for each group named in that external part...
-                        loop.tick(2);
-                        let ref2 = array[ ref[i1][i2] ];
-                        for(i3 = 0; i3 < ref2.length; i3++) {
-                        // for each point in that group...
-                            loop.tick(3);
-                            ref2[i3] = i1;
-                        }
-                        loop.end();
-                    }
-                    loop.end();
-                };
-            }
-            loop.end();
-            ref = shape.external.points;
-            for(i1 in ref) {
-                loop.tick(1);
-                if(ref.hasOwnProperty(i1) && pose.hasOwnProperty(i1) && i1 !== this.name) {
-                // for each external part
-                    for(i2 = 0; i2 < ref[i1].length; i2++) {
-                    // for each point that part claims
-                        loop.tick(2);
-                        let temp = AAX.points_linear_index(points, ref[i1][i2]);
-                        // the indexes are linear, so
-                        array[ temp[0] ][ temp[1] ] = i1;
-                    }
-                    loop.end();
-                };
-            }
-            loop.end();
-            // now it's a perfect matching array for which part's
-            // stretch/widen/orient to use for each point.
-            return array;
-        }
-        get shapedependents() {
-        // returns an array of parts that use this part in their .external.
-        // all of these parts have to have their cache.oriented cleared if
-        // this part's orient/stretch/widen changes.
-            let array = [];
-            let pose = this.pose;
-            let name = this.name;
-            let loop = new Loop("AAX.Part.shapedependents");
-            for(let i1 in pose) {
-                loop.tick(1);
-                if(
-                    pose.hasOwnProperty(i1) && i1 !== name
-                    &&
-                    (
-                        (
-                            pose[i1].shape.external.points.hasOwnProperty(name)
-                            &&
-                            pose[i1].shape.external.points[name].length
-                        )
-                        ||
-                        (
-                            pose[i1].shape.external.groups.hasOwnProperty(name)
-                            &&
-                            pose[i1].shape.external.groups[name].length
-                        )
-                    )
-                ) {
-                    array[array.length] = i1;
-                }
-            }
-            loop.end();
-            return array;
-        }
         get orientedshape() {
         // returns the shape.points, after orienting the points/groups/etc
         // according to the relevant parts' stretch/widen/orient.
             let i1 = 0;
             let i2 = 0;
             let loop = new Loop("AAX.Part.orientedshape");
-            let orientparts = this.orientparts;
             let shape = this.shape;
             let points = structuredClone(shape.points);
             // - groups separated by breaks (each of these is drawn
@@ -6202,49 +6194,15 @@ l_knee:
                 }
                 return _point;
             };
-            if(orientparts === "skip") {
-            // means there's no externals. every point should follow the
-            // main part's orient/etc.
-                const basis = Quat.basis(this.orient);
-                const stretch = this.stretch;
-                const widen = this.widen;
-                const line = getline(this);
-                for(i1 = 0; i1 < points.length; i1++) {
-                    loop.tick(1);
-                    for(i2 = 0; i2 < points[i1].length; i2++) {
-                        loop.tick(2);
-                        points[i1][i2] = applyedits(points[i1][i2], stretch, widen, line, basis, this.orient);
-                    }
-                    loop.end();
-                }
-                loop.end();
-                return points;
-            };
-            //
-            const pose = this.pose;
-            //
-            const basis = {};
-            const stretch = {};
-            const widen = {};
-            const line = {};
-            const orient = {};
+            const basis = Quat.basis(this.orient);
+            const stretch = this.stretch;
+            const widen = this.widen;
+            const line = getline(this);
             for(i1 = 0; i1 < points.length; i1++) {
                 loop.tick(1);
                 for(i2 = 0; i2 < points[i1].length; i2++) {
                     loop.tick(2);
-                    let ext_name = orientparts[i1][i2];
-                    let ext = pose[ext_name];
-                    //
-                    orient[ext_name] ??= ext.orient;
-                    basis[ext_name] ??= Quat.basis(orient[ext_name]);
-                    stretch[ext_name] ??= ext.stretch;
-                    widen[ext_name] ??= ext.widen;
-                    if(!line.hasOwnProperty(ext_name)) {
-                        line[ext_name] = getline(ext);
-                    };
-                    // create these if they don't exist (line is different
-                    // because null is an accepted value.)
-                    points[i1][i2] = applyedits(points[i1][i2], stretch[ext_name], widen[ext_name], line[ext_name], basis[ext_name], orient[ext_name]);
+                    points[i1][i2] = applyedits(points[i1][i2], stretch, widen, line, basis, this.orient);
                 }
                 loop.end();
             }
@@ -6318,7 +6276,7 @@ l_knee:
                 abscoor[2] + (perspectived ? drawsettings.viewer.central_z : 0)
             ];
             // version with the same floats as abscoor + perspective_coor
-            let data = Raster.from3d(points, drawsettings.fineness ? drawsettings.fineness : 32, _abscoor, perspectived ? drawsettings.viewer : null, "aa");
+            let data = Raster.from3d(points, drawsettings.fineness || 8, _abscoor, perspectived ? drawsettings.viewer : null, "aa");
             // within and rect that these shapes cover.
             //console.log(data.rect);
             if(!data.raster.length) {
@@ -6504,6 +6462,65 @@ l_knee:
     },
     poseclone: (tool, body, pose) => AAX.posefromobj(tool, body, AAX.poseobj(pose)),
     // makes a duplicate of the specified pose.
+    posetoshape: function(pose) {
+    // converts a pose to a shape.
+        let i1 = 0;
+        let i2 = 0;
+        let i3 = 0;
+        let partshapes = {};
+        // the parts
+        for(i1 in pose) {
+            partshapes[i1] = [];
+            let ref = pose[i1].orientedshape;
+            for(i2 = 0; i2 < ref.length; i2++) {
+                for(i3 = 0; i3 < ref[i2].length; i3++) {
+                    partshapes[i1].push(Points.add(structuredClone(ref[i2][i3]), pose[i1].abscoor));
+                }
+            }
+            // combine all groups, and add abscoor
+            if(!partshapes[i1].length) {
+                partshapes[i1][0] = [0, 0, 0];
+            };
+        }
+        let groups = [];
+        for(i1 in pose) {
+            if(pose.hasOwnProperty(i1) && !pose[i1].hide) {
+            // now, combine those shapes according to how the parts' connection
+            // properties work. (skip hidden parts.)
+                let conn = pose[i1].connection;
+                if(conn.type === "generation") {
+                    groups.push([]);
+                    let ref = groups[groups.length - 1];
+                    let list = AAX.getanc(pose, i1);
+                    list = [i1].concat( list.slice(list.length - conn.value[0]) ).concat( AAX.getdesc(pose, i1, conn.value[1]) );
+                    for(i2 = 0; i2 < list.length; i2++) {
+                    // combine the partshapes of itself and all applicable
+                    // ancestors and descendants.
+                        let _i2 = list[i2];
+                        let shape = partshapes[_i2];
+                        for(i3 = 0; i3 < shape.length; i3++) {
+                            ref.push(structuredClone(shape[i3]));
+                        }
+                    }
+                }
+                else if(conn.type === "capsule") {
+                    groups[groups.length - 1] = structuredClone(partshapes[i1]);
+                    let parent = pose[i1].parent;
+                    if(parent !== "standpoint") {
+                        let start = pose[i1].abscoor;
+                        let end = pose[pose[i1].parent].abscoor;
+                        start.push(conn.value);
+                        end.push(conn.value);
+                        groups[groups.length - 1].push(start);
+                        groups[groups.length - 1].push(end);
+                    };
+                };
+            }
+        }
+        return {
+            points: groups,
+        };
+    },
     poseobj: function(pose) {
     // used in poseclone, and states in general. a collection of Part.partobjs,
     // a trimmed-down version of a pose. used to store poses that aren't
@@ -6945,16 +6962,17 @@ l_knee:
         // used in the constructor, and when checking if a property name is
         // valid
             cell: {
-                w: 6*8,
-                h: 9*8,
+                w: 112,
+                h: 144,
             },
-            grid: [4, 4, 0],
+            //grid: [4, 4, 0],
+            grid: [8, 3, 0],
             // like how it works in face3d, each number is a multiplier of the
             // previous. except for 0, that's special. [4, 4, 0] means "draw
             // lines every 4 pixels, every 4*4 pixels, and at the standpoint."
             standpoint: {
                 x: 0,
-                y: 3*8,
+                y: 56,
             },
             // the coordinates relative to the top left corner of the cell.
             // - these are relative to the center of the cell. .initialize will
@@ -6971,8 +6989,9 @@ l_knee:
             },
             // xz/yz rotation, the viewer/vanishing point autoperspective will
             // use
-            fineness: 32,
-            // the level of detail for the spheroids
+            fineness: 4,
+            // the level of detail for the spheroids. a quarter-curve has this
+            // many sides.
             background: "grid",
             // "gridless": fill the image, tint the side views
             // "grid": draw a grid too
@@ -7066,7 +7085,16 @@ l_knee:
     Color: class {
     // class for storing colors for armature-related drawings
         constructor() {
-            Object.assign(this, AAX.Color.template)
+            let ref = AAX.Color.template;
+            for(let i1 in ref) {
+                if(ref.hasOwnProperty(i1)) {
+                    this[i1] = structuredClone(ref[i1]);
+                }
+            }
+            //Object.assign(this, AAX.Color.template);
+            // i would use Object.assign, but it doesn't clone properties. so,
+            // .interface and .buttons would end up being references to the
+            // template's .interface and .buttons.
         }
         static template = {
             background: "#ffe7d7",
@@ -7091,7 +7119,6 @@ l_knee:
             // - and the legs should be indistinguishable from the body, but
             //   for some poses you might want to do the same thing it does
             //   to the arms.
-            silhouette_fill: "#ffffff",
             //silhouette: ["#2f2f5f", "#9fcfff", "#cf9fff"],
             //silhouette: ["#2f2f5f", "#2f2f5f", "#2f475f", "#472f5f"],
             parts: [
@@ -7103,8 +7130,8 @@ l_knee:
                 "#007fef", // azure
                 "#7f00ef" // purple
             ],
-            part_interior: "white",
-            // insides of parts
+            part_fill: ["#fff", "#ddd", "#bbb"],
+            // insides of parts and silhouettes
             skeleton: "black",
             perspective: "#ff6f00",//"black",
             // color of lines it draws between perspectived and
@@ -7151,6 +7178,28 @@ l_knee:
                 });
             }
         }
+        let temp = AAX.body_read.image_split(AAX.Body.templates.standard.split("###")[1]);
+        let array = ["pelvis", "midsection", "torso", "head"];
+        for(i1 = 0; i1 < array.length; i1++) {
+        // create shape templates from the standard body.
+            let _i1 = array[i1];
+            AAX.shape_templates[_i1] = temp[_i1].split("\n||\n")[0];
+            if(_i1 === "head") {
+                AAX.Body.templates.stocky = AAX.Body.templates.stocky.replace("[ " + _i1 + " ]", "[ " + _i1 + " ]\n" + AAX.shape_templates[_i1]);
+            }
+        }
+        array = [];
+        for(i1 in AAX.Color.template) {
+            if(AAX.Color.template.hasOwnProperty(i1)) {
+                if(i1 === "silhouette" || i1 === "interface") {
+                // insert gaps
+                    array.push(null);
+                }
+                array.push(i1);
+            }
+        }
+        AAX.ui.color_area.actions.push(["row", array, "r", 1, 4]);
+        // finish colors
     },
     abscoor: function(body, part) {
     // returns the absolute coordinates of the specified part.
@@ -7421,13 +7470,414 @@ l_knee:
         // button
         lineheight: 8,
         charwidth: 4,
-        drawinfo: {
-        // generally, these return an object rather than drawing directly.
-        // ctx tool suffix
-
+        button_text: function(ctx, rect, left, center, right) {
+        // draws the text for the button, in the current strokeStyle.
+        // - left, center, and right should be strings or string arrays for what
+        //   text goes with what alignment.
+            let i1 = 0;
+            let i2 = 0;
+            left = typeof left === "string" ? [left] : Array.isArray(left) ? left : [];
+            center = typeof center === "string" ? [center] : Array.isArray(center) ? center : [];
+            right = typeof right === "string" ? [right] : Array.isArray(right) ? right : [];
+            let rect_center = Rect.center(rect);
+            let styletemp = ctx.fillStyle;
+            ctx.fillStyle = ctx.strokeStyle;
+            let aligntemp = ctx.textAlign;
+            for(i1 = 0; i1 < 3; i1++) {
+                let text = i1 === 0 ? left : i1 === 1 ? center : i1 === 2 ? right : null;
+                ctx.textAlign = i1 === 0 ? "left" : i1 === 1 ? "center" : i1 === 2 ? "right" : "left";
+                for(i2 = 0; i2 < text.length; i2++) {
+                    let line = text[i2] + "";
+                    // stringify
+                    let x = rect.x + rect.w*i1/2 + AAX.ui.margin[0]*(1 - i1);
+                    if(i1 === 1) {
+                    // convoluted bullshit to make sure it isn't blurry when
+                    // it's centered
+                        let temp = line.length;
+                        temp = temp ? !((temp*(AAX.ui.charwidth + 1) - 1)%2) : true;
+                        temp /= 2;
+                        x = Math.ceil(x - temp) + temp;
+                        // round it to a .5 if the number of pixels is even, .0
+                        // if it's odd. why isn't it the other way around? who
+                        // knows! why is it better centered with ceil than
+                        // floor? who knows!
+                        // - this is my least favorite kind of math, and as long
+                        //   as the problem is solved, i don't care.
+                    };
+                    ctx.fillText(
+                        line,
+                        x,
+                        Math.floor(rect_center[1] + AAX.ui.margin[1] + AAX.ui.block*(i2 - (text.length - 1)/2))
+                    );
+                }
+            }
+            ctx.fillStyle = styletemp;
+            ctx.textAlign = aligntemp;
+        },
+        color_area: {
+            prefix: "color",
+            direction: "d",
+            h: 4,
+            actions: [],
+            // finished in initialize
+            heading: 1,
+        },
+        draw: {
+            drawsettings: function(ctx, rect, drawsettings, suffix, type, _suffix) {
+            // - type: how it should be drawn.
+            //   - "row": the suffix and values are written on the same line,
+            //     the values being separated by commas.
+            //   - "double": the suffix and values are on different lines.
+            //   - "fancy": the suffix and each value are written on different
+            //     lines, with prefixes like "x:" or "y:".
+                let i1 = 0;
+                let template = AAX.DrawSettings.template;
+                if(suffix === "background") {
+                    AAX.ui.button_text(ctx, rect, drawsettings[suffix]);
+                    return;
+                }
+                else if(typeof template[suffix] === "boolean" || suffix in AAX.valid) {
+                    AAX.ui.button_text(ctx, rect, suffix.replaceAll("_", " "));
+                    return;
+                };
+                type = (
+                    ["row", "double", "fancy"].includes(type) ? type :
+                    (suffix === "cell" || suffix === "vp" || suffix === "camera") ? "fancy" :
+                    "row"
+                );
+                // if type is omitted, use whatever armature artist uses.
+                //
+                let prefixes = [];
+                let values = [];
+                if(Array.isArray(drawsettings[suffix])) {
+                // array (of varying length.)
+                    if(type === "fancy") {
+                        type = "double";
+                    }
+                    values = drawsettings[suffix];
+                }
+                else if(typeof drawsettings[suffix] === "object") {
+                // object
+                    for(i1 in drawsettings[suffix]) {
+                        if(drawsettings[suffix].hasOwnProperty(i1)) {
+                            prefixes.push(i1 + ":");
+                            let temp = drawsettings[suffix][i1];
+                            if(suffix === "camera") {
+                                temp = Math.round(Angle.convert(temp));
+                            };
+                            values.push(temp + "");
+                        };
+                    }
+                }
+                else {
+                // primitive
+                    if(type === "fancy") {
+                        type = "double";
+                    }
+                    values.push(drawsettings[suffix]);
+                };
+                //
+                if(suffix === "standpoint") {
+                    values[0] -= drawsettings.cell.w/2;
+                    values[1] -= drawsettings.cell.h/2;
+                }
+                else if(suffix === "vp") {
+                    values[0] -= drawsettings.standpoint.x;
+                    values[1] -= drawsettings.standpoint.y;
+                };
+                //
+                let left = [];
+                let center = [];
+                let right = [];
+                left.push(
+                    typeof _suffix === "string" ? _suffix :
+                    suffix.replaceAll("_", " ") + (type === "fancy" ? "" : ":")
+                );
+                //
+                if(type === "row" || type === "double") {
+                    if(type === "double") {
+                        right.push("");
+                        left.push("");
+                    }
+                    right.push(values.join(","));
+                }
+                else if(type === "fancy") {
+                    right.push("");
+                    for(i1 = 0; i1 < prefixes.length; i1++) {
+                        left.push(prefixes[i1]);
+                        right.push(values[i1]);
+                    }
+                }
+                else {
+                    console.log("this shouldn't happen");
+                }
+                // grid
+                // standpoint
+                // range
+                // cell
+                // vp
+                // camera
+                // fineness
+                AAX.ui.button_text(ctx, rect, left, center, right);
+            },
+            color: function(ctx, rect, color, suffix) {
+                let num = Number( suffix.slice(suffix.lastIndexOf("_") + 1) );
+                if(suffix.includes("_") && !isNaN(num)) {
+                // one index of a non-variable length array
+                    ctx.fillStyle = color[suffix.split("_").slice(0, -1).join("_")][num];
+                    ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+                }
+                else if(Array.isArray(color[suffix])) {
+                // variable length array
+                    for(let i1 = 0; i1 < color[suffix].length; i1++) {
+                        ctx.fillStyle = color[suffix][i1];
+                        ctx.fillRect(
+                            rect.x,
+                            rect.y + rect.h*i1/color[suffix].length,
+                            rect.w,
+                            rect.h/color[suffix].length
+                        );
+                    }
+                }
+                else {
+                // single color
+                    ctx.fillStyle = color[suffix];
+                    ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+                }
+                Rect.fauxstroke(rect, ctx);
+            },
         },
         action: {
-
+        // an object of functions used when you click the buttons.
+        // - NOTE: they always a boolean for whether to skip refresh. use it.
+        // - NOTE: they do NOT edit whatever refresh-skipping variable you have.
+        //   do that yourself.
+            color: function(color, suffix, rect, click) {
+                let prompttext = "";
+                let addendum = "\n\nenter a blank string to reset it to the default color.";
+                if(["grid", "parts", "silhouette", "part_fill"].includes(suffix)) {
+                    prompttext = "enter the colors for the ";
+                    prompttext += (
+                        suffix === "grid" ? "grids" :
+                        suffix === "parts" ? "parts" :
+                        suffix === "silhouette" ? "silhouette groups" :
+                        suffix === "part_fill" ? "part/silhouette interiors" :
+                        ""
+                    );
+                    prompttext += ", separated by asterisks.";
+                    //let temp = String.fromCharCode(10) + String.fromCharCode(9);
+                    let temp = " ";
+                    temp = " (current:" + temp + color[suffix].join(" *" + temp) + ")";
+                    prompttext += "\n\n" + temp;
+                    prompttext += addendum;
+                    let input = prompt(prompttext);
+                    if(typeof input !== "string") {
+                        return true;
+                    };
+                    if(input.trim()) {
+                        input = input.split("*");
+                        for(let i1 = 0; i1 < input.length; i1++) {
+                            input[i1] = input[i1].trim();
+                            // this is unnecessary but it bothers me.
+                        };
+                        color[suffix] = structuredClone(input);
+                    }
+                    else {
+                        color[suffix] = structuredClone(AAX.Color.template[suffix]);
+                    };
+                }
+                else {
+                    prompttext = "enter the";
+                    let place = color;
+                    let _place = AAX.Color.template;
+                    let name = suffix;
+                    if(["interface", "buttons"].includes(suffix)) {
+                        place = place[suffix];
+                        _place = _place[suffix];
+                        let length = _place.length;
+                        let ref = aa.ui.buttons[button];
+                        name = Math.floor(length*(click[1] - rect.y)/rect.h);
+                        if(name >= 0 && name < length) {
+                            prompttext += " " + ["primary", "secondary", "tertiary"][name] + " color for the";
+                            if(suffix === "interface") {
+                                prompttext += " clickable interface.";
+                            }
+                            else if(suffix === "buttons") {
+                                prompttext += " ui buttons.";
+                            };
+                        }
+                        else {
+                            console.log("this shouldn't happen");
+                        }
+                    }
+                    else if(suffix === "side_tint") {
+                        prompttext += " color it tints the left/right view backgrounds in.";
+                    }
+                    else {
+                        prompttext += " color it draws the " + name.replaceAll("_", " ");
+                        if(suffix === "perspective") {
+                            prompttext += " lines";
+                        };
+                        prompttext += " in.";
+                        // fill
+                        // nodes
+                        // skeleton
+                        // perspective
+                    };
+                    prompttext += " (current: " + place[name] + ")";
+                    prompttext += addendum;
+                    let input = prompt(prompttext);
+                    if(typeof input !== "string") {
+                        return true;
+                    };
+                    place[name] = input.trim() ? input : _place[name];
+                }
+                return false;
+            },
+            drawsettings: function(drawsettings, suffix) {
+                let i1 = 0;
+                if(["cell", "standpoint", "vp", "camera", "grid", "fineness"].includes(suffix)) {
+                    let prompttext = null;
+                    if(suffix === "cell") {
+                        prompttext = `enter the new width and height of the cell, separated by a comma.`;
+                    }
+                    else if(suffix === "standpoint") {
+                        prompttext = `enter two coordinates for the standpoint, separated by a comma, and relative to the center of the cell.`;
+                    }
+                    else if(suffix === "vp") {
+                        prompttext = `enter two coordinates for the vanishing point, separated by a comma, and relative to the standpoint point.`;
+                    }
+                    else if(suffix === "camera") {
+                        prompttext = `enter an xz and yz angle for it to rotate the armature by, separated by a comma, and measured in degrees.`;
+                    }
+                    else if(suffix === "grid") {
+                        prompttext = `enter new grid increments, separated by commas.\n\neach number is a multiplier, so "4, 3, 7" would create lines at every 4 pixels, every 4*3 pixels, and every 4*3*7 pixels. enter 0 anywhere in the list to draw a single set of lines at the standpoint.`;
+                    }
+                    else if(suffix === "fineness") {
+                        prompttext = `enter the level of detail for the spheroids. basically, how many sides a quarter of a circle has. higher numbers are more taxing.`;
+                    };
+                    if(suffix === "grid") {
+                        prompttext += `\n\nremember that you have to edit the grid colors to match, so that there's a color for every increment. otherwise, there will be no visible change.`;
+                    }
+                    else if(suffix === "fineness") {
+                        //prompttext += `\n\nif fineness is 0, it will use an alternate algorithm that's guaranteed to be as high-detail as possible, but can be taxing if the spheroid is too big.`;
+                    }
+                    else {
+                        prompttext += `\n\nyou can leave a value as it was by not typing anything in that place.`;
+                        // not happy with that wording.
+                    };
+                    let input = prompt(prompttext);
+                    if(typeof input === "string" && (input.includes(",") || ["grid", "camera", "fineness"].includes(suffix))) {
+                        if(suffix === "fineness") {
+                            input = Number(input);
+                            if(!Number.isInteger(Math.round(input))) {
+                            // avoid non-numbers and values like Infinity or NaN
+                                return true;
+                            }
+                            input = Math.round(Math.abs(input));
+                            // positive integer divisible by 4
+                        }
+                        else {
+                            input = !input.trim() ? [] : input.split(",");
+                            for(i1 = 0; i1 < (suffix === "grid" ? input.length : 2); i1++) {
+                                if(suffix !== "grid" && (i1 >= input.length || !input[i1].trim())) {
+                                    input[i1] = "no change";
+                                    // this way you can set just the yz angle by typing ", 30". stuff like that.
+                                }
+                                else {
+                                    input[i1] = Number(input[i1]);
+                                    if(
+                                        isNaN(input[i1])
+                                        ||
+                                        (suffix === "cell" && input[i1] < 2)
+                                        ||
+                                        (suffix === "grid" && input[i1] < 0)
+                                    ) {
+                                        return true;
+                                    };
+                                    if(suffix === "cell") {
+                                        input[i1] = Math.floor(input[i1]/2)*2;
+                                    }
+                                    else if(suffix !== "camera") {
+                                        input[i1] = Math.round(input[i1]);
+                                    };
+                                    // no decimals allowed for most of these
+                                }
+                            }
+                        }
+                        //
+                        if(["grid", "fineness"].includes(suffix)) {
+                            drawsettings[suffix] = structuredClone(input);
+                        }
+                        else {
+                            for(i1 = 0; i1 < 2; i1++) {
+                                if(input[i1] !== "no change") {
+                                    if(suffix === "cell") {
+                                    // adjust coordinates so that standpoint and
+                                    // vanishing point stay in the same place.
+                                    // - sort of.
+                                        let temp = drawsettings.cell["wh"[i1]];
+                                        drawsettings.cell["wh"[i1]] = input[i1];
+                                        let _temp = drawsettings.standpoint["xy"[i1]];
+                                        // standpoint
+                                        drawsettings.vp["xy"[i1]] -= _temp;
+                                        // the vanishing point should stay in
+                                        // about the same place, relative to
+                                        // standpoint. subtrct it, and add it
+                                        // back after it's modified.
+                                        _temp -= temp/2;
+                                        // make it relative to the center
+                                        _temp *= drawsettings.cell["wh"[i1]]/temp;
+                                        // multiply it, to match the cell size
+                                        // change (you want it to stay in about
+                                        // the same place in the cell, right?)
+                                        _temp = drawsettings.cell["wh"[i1]]/2 + Math.trunc(_temp);
+                                        // truncate it so it's integers, add it
+                                        // to the new cell center
+                                        drawsettings.standpoint["xy"[i1]] = _temp;
+                                        drawsettings.vp["xy"[i1]] += _temp;
+                                    }
+                                    else if(suffix === "standpoint") {
+                                        let temp = drawsettings.standpoint["xy"[i1]];
+                                        drawsettings.standpoint["xy"[i1]] = drawsettings.cell["wh"[i1]]/2 + input[i1];
+                                        drawsettings.vp["xy"[i1]] = drawsettings.standpoint["xy"[i1]] + (drawsettings.vp["xy"[i1]] - temp);
+                                        // same here.
+                                    }
+                                    else if(suffix === "vp") {
+                                        drawsettings.vp["xy"[i1]] = drawsettings.standpoint["xy"[i1]] + input[i1];
+                                    }
+                                    else if(suffix === "camera") {
+                                        input[i1] = (posmod(input[i1], 360)/360)*2*Math.PI;
+                                        // make them radians between 0 and 2 pi
+                                        drawsettings.camera["xy"[i1] + "z"] = input[i1];
+                                    };
+                                }
+                            }
+                        };
+                    }
+                }
+                else if(suffix === "range") {
+                    let input = prompt(`input a new range for the perspective.\n\ndepending on whether something is 0 degrees or 180 degrees from the vanishing point, it'll be between 0 and this many pixels away from it. smaller numbers have more curvature.\n\ntype "none" to have no perspective, just camera xz/yz.`);
+                    if(input === "none") {
+                        drawsettings.range = input;
+                    }
+                    else {
+                        input = AAX.strings.float(input);
+                        if(input && input > 0) {
+                        // must be positive
+                            drawsettings.range = input;
+                        };
+                    };
+                }
+                else if(AAX.valid.hasOwnProperty(suffix)) {
+                    let index = AAX.valid[suffix].indexOf(drawsettings[suffix]);
+                    drawsettings[suffix] = AAX.valid[suffix][(index + 1)%AAX.valid[suffix].length];
+                }
+                else if(typeof drawsettings[suffix] === "boolean") {
+                    drawsettings[suffix] = !drawsettings[suffix];
+                };
+                return false;
+            },
         },
     },
     camerarotations: function(point, view, xz, yz, etc) {
@@ -7462,6 +7912,45 @@ l_knee:
             :
             _point
         );
+    },
+    writecoordinates: function(div, text) {
+    // used in armature artist and body maker to draw coordinates and/or node
+    // names under the canvas.
+    // - you can enter arrays or coordinate arrays. it interprets null as "reset
+    //   to default", which is generally however many line breaks guarantees
+    //   that the stuff after this won't be moving back and forth.
+        if(Array.isArray(text)) {
+            if(text.length === 3 && typeof text[0] === "number" && typeof text[1] === "number" && typeof text[2] === "number") {
+                text = [
+                    "x: " + text[0],
+                    "y: " + text[1],
+                    "z: " + text[2]
+                ];
+            };
+            text = text.join("\n");
+        }
+        else if(text === null) {
+            text = "";
+        }
+        else if(typeof text === "number") {
+            text += "";
+        };
+        text = text.split("\n");
+        if(text.length > 3) {
+            text = text.slice(0, 3);
+        }
+        else if(text.length < 3) {
+            text[0] ??= "";
+            text[1] ??= "";
+            text[2] ??= "";
+        };
+        for(let i1 = 0; i1 < text.length; i1++) {
+            if(!text[i1]) {
+                text[i1] = "&#160;";
+            };
+        }
+        text = text.join("<br>");
+        div.innerHTML = text;
     },
     coortocanvas: function(cell, standpoint, point, view, nonulls, viewoffset) {
     // input a 3d point and desired view, and it'll give the coordinates
@@ -7503,6 +7992,47 @@ l_knee:
             [!!viewoffset*view*cell.w + coor[0], coor[1]]
         );
     },
+    coorfromcanvas: function(cell, standpoint, x, y, view) {
+    // returns an object of two coordinates, based on where you clicked the
+    // canvas.
+    // - view: if specified, it won't calculate view automatically. (this
+    //   way, if you want to get the coordinates of a view 0 click that
+    //   drifted off to view 1, it won't screw up.)
+        view ??= Math.floor(x/cell.w);
+        let temp = AAX.coortocanvas(cell, standpoint, [0, 0, 0], view, true, true);
+        let coor = [
+            x - temp[0],
+            y - temp[1]
+        ];
+        if([1, 2].includes(view)) {
+            coor[0] *= -1;
+        };
+        return {
+            ["xz"[view%2]]: coor[0],
+            y: coor[1],
+        };
+    },
+    noderect: function(x, y) {
+        return {
+            x: Math.floor(x),
+            y: Math.floor(y),
+            w: 1 + !!(x%1),
+            h: 1 + !!(y%1),
+        };
+    },
+    getnode: function(nodes, view, name) {
+	// returns the node of the given view and name.
+		let ref = nodes[view];
+		for(let i1 = 0; i1 < ref.length; i1++) {
+			if(ref[i1].name === name) {
+				return ref[i1];
+			}
+		}
+		console.log("this shouldn't happen");
+		return null;
+    },
+    noderadius: 1,
+    // how close a click has to be to count as clicking a node.
     draw_background: function(ctx, drawsettings, color, perspectived, numofcells) {
         let i1 = 0;
         let i2 = 0;
@@ -7613,14 +8143,811 @@ l_knee:
         }
         loop.end();
     },
+    draw: function(
+        ctx, drawsettings, color, perspectived, numofcells,
+        pose, nodes, strokecache, rotatecoor, basis
+    ) {//yyyaad
+    // draws or redraws the main canvas, the one with the multiview on it.
+    // - NOTE it also defines the nodes.
+    // - rotatecoor: the return of an aa.rotatecoor running, with the
+    //   absolute argument as true. used in the rotate pose tool's mid-click
+    //   visualization. parts in here will be drawn differently.
+    // - basis: used to draw axes.
+        //let time = new Date().valueOf();
+        let i1 = 0;
+        let i2 = 0;
+        let i3 = 0;
+        let i4 = 0;
+        let loop = new Loop("AAX.draw", 10000);
+        let view = 0;
+        let ds = drawsettings;
+        numofcells ??= 4;
+        nodes ??= {};
+        let coortocanvas = (point, view, nonulls, viewoffset) => AAX.coortocanvas(ds.cell, ds.standpoint, point, view, nonulls, viewoffset);
+        let nodeline = function(x1, y1, x2, y2, view, viewoffset) {
+            let center = coortocanvas([0, 0, 0], view, true, viewoffset);
+            center[0] += .5;
+            center[1] += .5;
+            linespecial(ctx, x1, y1, x2, y2, center);
+        };
+        let getnode = (view, name) => AAX.getnode(nodes, view, name);
+        let imagedata = [];
+        for(i1 = 0; i1 < numofcells; i1++) {
+            loop.tick(1);
+            imagedata[i1] = ctx.getImageData(i1*ds.cell.w, 0, ds.cell.w, ds.cell.h);
+        }
+        loop.end();
+        let abs = AAX.all_abs(pose);
+        // all absolute coordinates
+        rotatecoor ??= {};
+        basis ??= {};
+        // so i don't have to tack on "typeof rotatecoor !== "object" ||"
+        // onto everything.
+        let fulcrum_name = null;
+        // name of the fulcrum. only used in rotatecoor code
+        if(!objectisempty(rotatecoor)) {
+        // absolutes the coordinates.
+        // - thanks to getdesc, it should iterate in an order where the
+        //   parent will always have been rotated and absoluted first.
+            rotatecoor = structuredClone(rotatecoor);
+            // unreference it
+            for(part in rotatecoor) {
+                loop.tick("part");
+                if(rotatecoor.hasOwnProperty(part)) {
+                    let parent = pose[part].parent;
+                    fulcrum_name ??= parent;
+                    // the first properties should be children of the
+                    // fulcrum
+                    if(parent === fulcrum_name) {
+                        parent = pose[parent].abscoor;
+                    }
+                    else if(rotatecoor.hasOwnProperty(parent)) {
+                        parent = rotatecoor[parent];
+                    }
+                    else {
+                        console.log("this shouldn't happen");
+                    };
+                    rotatecoor[part][0] += parent[0];
+                    rotatecoor[part][1] += parent[1];
+                    rotatecoor[part][2] += parent[2];
+                }
+            }
+            loop.end();
+        };
+        ctx.canvas.width = ds.cell.w;
+        ctx.canvas.height = ds.cell.h;
+        function visible(part, element) {
+        // returns a boolean for whether a given element and part should be
+        // drawn, based on .hide and rotatecoor. (but NOT the booleans in
+        // drawsettings.)
+            if(part.hide && ds.total_hide) {
+                return false;
+            }
+            else if(["silhouette", "parts", "perspective"].includes(element)) {
+                return !rotatecoor.hasOwnProperty(part.name) && !part.hide;
+            }
+            else if(element === "skeleton") {
+                if(
+                    part.parent === "standpoint"
+                    ||
+                    rotatecoor.hasOwnProperty(part.name)
+                    ||
+                    (
+                        part.pose[part.parent].hide
+                        &&
+                        ds.total_hide
+                    )
+                ) {
+                    return false;
+                };
+                let hidden = part.hide;
+                if(hidden) {
+                // override if it has descendants that aren't hidden
+                    let temp = AAX.getdesc(pose, part.name);
+                    let i1 = 0;
+                    for(i1 = 0; hidden && i1 < temp.length; i1++) {
+                        loop.tick(1);
+                        if(!pose[ temp[i1] ].hide) {
+                            hidden = false;
+                        };
+                    }
+                    loop.end();
+                };
+                return !hidden;
+            }
+            else if(element === "nodes") {
+                return !rotatecoor.hasOwnProperty(part.name);
+            };
+        };
+        function drawbasis(_basis, coor, view, axis) {
+        // _basis should be the basis for a single part, not the whole
+        // object.
+        // - coor: coordinates of the start of the axes. (don't include view
+        //   offset.)
+            let i1 = 0;
+            let loop = new Loop("AAX.draw drawbasis");
+            const styletemp = ctx.strokeStyle;
+            ctx.strokeStyle = color.interface[2];
+            let __basis = revolve(view*Math.PI/2, _basis, null, "xz");
+            //revolve(angle, points, center, format)
+            let check = Basis.check(__basis);
+            if(check) {
+            // log it if the lengths are wrong, or the angles between axes
+            // aren't perpendicular
+                console.log(check);
+                console.log(view);
+                console.log(__basis);
+            }
+            const length = Math.hypot(
+                ds.cell.w,
+                ds.cell.h
+            );
+            // longest possible line within the cell
+            const length2 = 8;
+            // circles are drawn on the lines to measure foreshortening.
+            // this is how far along the line they should be.
+            let center = coortocanvas([0, 0, 0], view, true);
+            __basis[0][3] = "x";
+            __basis[1][3] = "y";
+            __basis[2][3] = "z";
+            __basis.sort((a, b) => a[2] - b[2]);
+            // z sort
+            for(i1 = 0; i1 < 3 + (false && axis !== null); i1++) {
+                loop.tick(1);
+                let pole = (
+                    i1 === 3
+                    ?
+                    [
+                        roundspecial(axis[0]),
+                        roundspecial(axis[1])
+                    ]
+                    :
+                    [
+                        roundspecial(__basis[i1][0]),
+                        roundspecial(__basis[i1][1])
+                    ]
+                );
+                ctx.strokeStyle = i1 === 3 ? color.interface[2] : ["red", "green", "blue"][ "xyz".indexOf(__basis[i1][3]) ];
+                if(pole[0] || pole[1]) {
+                // skip it if it's perpendicular to the camera
+                    circledraw(
+                        ctx,
+                        coor[0] + pole[0]*length2,
+                        coor[1] + pole[1]*length2,
+                        2,
+                        false
+                    );
+                    let hypot = Math.hypot(...pole);
+                    pole[0] /= hypot;
+                    pole[1] /= hypot;
+                    // make hypot 1
+                    // - draw the circle first, since that's meant to show
+                    //   foreshortening and this will negate that.
+                    linespecial(
+                        ctx,
+                        ...coor,
+                        coor[0] + pole[0]*length,
+                        coor[1] + pole[1]*length,
+                        center
+                    );
+                }
+                else {
+                    //console.log(view + " " + "xyz"[i1]);
+                    circledraw(ctx, ...coor, 2, false);
+                    //console.log(i1 + ": " + pole);
+                };
+            }
+            loop.end();
+            ctx.strokeStyle = styletemp;
+        };
+        function partimage(part, view) {
+            if(view === "front" || view === "right") {
+                console.log("this should only be run with 0-3 view numbers.");
+                return;
+            }
+            const _view = perspectived ? view : view%2 ? "right" : "front";
+            let image = (
+                strokecache
+                &&
+                strokecache.hasOwnProperty(part.name)
+                &&
+                strokecache[part.name].hasOwnProperty(view)
+                ?
+                strokecache[part.name][view]
+                :
+                part[(perspectived ? "perspective_" : "image_") + _view]
+            );
+            // use the strokecache, if possible.
+            if(!perspectived && view >= 2) {
+                const w = AAX.l_dim(image.length, part.image_oddness(_view))[0];
+                image = Raster.xmirror(image, w);
+            }
+            return image;
+        }
+        function onesilhouette(partname, view, multiple) {
+        // returns the _2dPoly for the given part, with an
+        // offset applied.
+        // - multiple: Raster._2dPoly argument. remember, this makes it an
+        //   array of shapes instead of just one.
+            let loop = new Loop("AAX.draw onesilhouette");
+            let part = pose[partname];
+            if(view === "front" || view === "right") {
+                console.log("this should only be run with 0-3 view numbers.");
+                return;
+            }
+            const _view = perspectived ? view : view%2 ? "right" : "front";
+            let shape = partimage(part, view);
+            shape = Raster._2dPoly(shape, part.dim(_view, shape.length), multiple);
+            if(!shape.length && part.image_source(_view)) {
+            // parts with no shape should at least have this.
+                shape = [[0, 0]];
+                if(multiple) {
+                    shape = [shape];
+                };
+            }
+            let node = getnode(view, partname);
+            node = [
+                node.x - view*ds.cell.w,
+                node.y,
+            ];
+            // reverse view offset
+            for(let i1 = 0; i1 < shape.length; i1++) {
+            // add offset so it's relative to the corner of the cell instead of
+            // relative to the node
+                loop.tick(1);
+                if(multiple) {
+                    for(let i2 = 0; i2 < shape[i1].length; i2++) {
+                        loop.tick(2);
+                        shape[i1][i2][0] += node[0];
+                        shape[i1][i2][1] += node[1];
+                    }
+                    loop.end();
+                }
+                else {
+                    shape[i1][0] += node[0];
+                    shape[i1][1] += node[1];
+                }
+            }
+            loop.end();
+            return shape;
+        }
+        function drawpart(part, view, filltype, x, y) {
+        // draws a part onto the canvas coordinates specified.
+        // - perspectived: whether to use the perspectived images or not. it
+        //   will also add the perspective coordinates to x/y.
+        // - filltype:
+        //   - falsy: all pixels are drawn
+        //   - "fill only": only the fill color is drawn
+        //   - "no fill": fill is not drawn
+        //   =
+        //   - those last two are used if ds.parts === "overlap"
+            let i1 = 0;
+            let loop = new Loop("AAX.draw drawpart", 100000);
+            if(((x ?? null) === null) || ((y ?? null) === null)) {
+                let temp = coortocanvas(part.abscoor, view, true);
+                x = temp[0];
+                y = temp[1];
+                if(perspectived) {
+                    let coor = part["perspective_coor_" + view];
+                    x += coor[0];
+                    y += coor[1];
+                };
+            }
+            const _view = perspectived ? view : view%2 ? "right" : "front";
+            // number if perspectived, string if not
+            let image = partimage(part, view);
+            let oddness = part.image_oddness(_view);
+            let temp = AAX.l_size(image.length, oddness);
+            if(temp === null) {
+                console.log({name: part.name, view, image, image_oddness: part.image_oddness(_view)});
+            };
+            //temp = aa.rect(temp, oddness);
+            //const w = temp.w;
+            //const h = temp.h;
+            //x += temp.x;
+            //y += temp.y;
+            const w = AAX.onedim(temp, oddness[0]);
+            const h = AAX.onedim(temp, oddness[1]);
+            x += -(w - 1)/2;
+            y += -(h - 1)/2;
+            // it should start at the top-left corner, not the center
+            if(x%1 || y%1) {
+                console.log(part.name + " view " + view + ": the x and y for the image drawing are not integers (" + x + ", " + y + ")");
+            };
+            //
+            image = AAX.sq_raster.fill(image, w);
+            //console.log(part.name + " " + view);
+            //console.log(image);
+            //console.log(image);
+            let palette = {
+                1: part.color1,
+                2: part.color2,
+                fill: AAX.getfill(color, part.pose, part.name),
+            };
+            if(w*h !== image.length) {
+                console.log(part.name + " image length does not match the w*h. it's probably that changeoddness or changedimensions isn't being run when it should.");
+            };
+            for(i1 = 0; i1 < image.length; i1++) {
+                loop.tick(1);
+                if(
+                    image[i1]
+                    &&
+                    (
+                        !filltype
+                        ||
+                        (filltype === "fill only" && image[i1] === "fill")
+                        ||
+                        (filltype === "no fill" && image[i1] !== "fill")
+                    )
+                ) {
+                    let _x = i1%w;
+                    let _y = Math.floor(i1/w);
+                    ctx.fillStyle = palette[image[i1]];
+                    ctx.fillRect(x + _x, y + _y, 1, 1);
+                };
+            }
+            loop.end();
+        };
+        for(view = 0; view < numofcells; view++) {
+            loop.tick("view");
+            ctx.putImageData(imagedata[view], 0, 0);
+            nodes[view] = [];
+            let _nodes = nodes[view];
+            // used in the clickable interface. objects of x, y, name, and a
+            // reference to their parent's node, sorted by z order.
+            const stems = {};
+            // an object of the node coordinates for the standpoint children
+            for(i1 in pose) {
+                loop.tick(1);
+                if(pose.hasOwnProperty(i1)) {
+                    let coor = coortocanvas(pose[i1].abscoor, view, true, true);
+                    // no null, view offset
+                    if(perspectived) {
+                        let _coor = pose[i1]["perspective_coor_" + view];
+                        coor[0] += _coor[0];
+                        coor[1] += _coor[1];
+                    };
+                    _nodes[_nodes.length] = {
+                        x: coor[0],
+                        y: coor[1],
+                        z: ds.screen_z(abs[i1], view, perspectived),
+                        name: i1,
+                    };
+                    if(pose[i1].parent === "standpoint") {
+                        stems[i1] = structuredClone(coor);
+                    };
+                }
+            }
+            loop.end();
+            _nodes.sort(function(a, b) {
+                let temp = a.z - b.z;
+                return (
+                    roundspecial(temp)
+                    ?
+                    temp
+                    :
+                    (
+                        Math.hypot(
+                            b.x - stems[ AAX.getstem(pose, b.name) ][0],
+                            b.y - stems[ AAX.getstem(pose, b.name) ][1]
+                        )
+                        -
+                        Math.hypot(
+                            a.x - stems[ AAX.getstem(pose, a.name) ][0],
+                            a.y - stems[ AAX.getstem(pose, a.name) ][1]
+                        )
+                    )
+                );
+                // if they're the same, prioritize nodes that are closer to
+                // the standpoint child. (this sounds neurotic, but
+                // otherwise the layering near the pelvis is l_hip, pelvis,
+                // r_hip or something like that.)
+            });
+            // now it's an array of the order to draw parts in, taking into
+            // account view number and xz/yz rotation.
+            for(i1 = 0; i1 < _nodes.length; i1++) {
+                loop.tick(1);
+                let parent = pose[ _nodes[i1].name ].parent;
+                if(parent === "standpoint") {
+                    _nodes[i1].parent = parent;
+                }
+                else {
+                    for(i2 = 0; i2 < _nodes.length; i2++) {
+                        loop.tick(2);
+                        if(_nodes[i2].name === parent) {
+                            _nodes[i1].parent = _nodes[i2];
+                            i2 += _nodes.length;
+                        }
+                    }
+                    loop.end();
+                    if(!_nodes[i1].hasOwnProperty("parent")) {
+                        console.log("this shouldn't happen");
+                    };
+                }
+            }
+            loop.end();
+            // create .parent, a reference to the node for the parent.
+            if(ds.silhouette !== "off" && strokecache === null) {
+            // silhouette can be kind of intensive, so i don't want it to
+            // draw per frame.
+                let stems = AAX.getchildren(pose);
+                let rect = {
+                    x: 0, y: 0,
+                    w: ds.cell.w, h: ds.cell.h,
+                };
+                // used to convert coordinates
+                let outlines = [];
+                // indexed by AAX.getstemnum numbers. each item is an array for
+                // every single pixel. if there's an outline on that spot, the
+                // value will be that group number. otherwise, it'll be -1.
+                const sl_center = coortocanvas([0, 0, 0], view, true);
+                let single = {};
+                // indexed by part name. objects that describe which pixels each
+                // part's silhouette covers. (including area added by
+                // connections.)
+                for(i1 = 0; i1 < stems.length; i1++) {
+                    let _i1 = stems[i1];
+                    let parts = [_i1].concat(AAX.getdesc(pose, _i1));
+                    let temp = {};
+                    for(i2 = 0; i2 < parts.length; i2++) {
+                        let _i2 = parts[i2];
+                        temp[_i2] = onesilhouette(_i2, view);
+                    }
+                    let groups = [];
+                    // - [silhouette groups]
+                    //   - [silhouette subgroups]
+                    for(i2 = 0; i2 < parts.length; i2++) {
+                        let _i2 = parts[i2];
+                        if(visible(pose[_i2], "silhouette")) {
+                            let group = ds.silhouette === "overlap" ? pose[_i2].silhouette : [0, ""];
+                            for(i3 = groups.length; i3 <= group[0]; i3++) {
+                                groups.push({});
+                            }
+                            groups[ group[0] ][ group[1] ] ??= [];
+                            // it'll be an array of _2dPoly.getdatas, for now
+                            //
+                            let shape = [];
+                            let list = pose[_i2].silhouettelist;
+                            for(i3 = 0; i3 < list.length; i3++) {
+                                shape = shape.concat(temp[ list[i3] ]);
+                            }
+                            single[_i2] = _2dPoly.getdata(_2dPoly.convexed(shape), true, sl_center);
+                            if(pose[_i2].connection.type === "capsule" && pose[_i2].parent !== "standpoint") {
+                            // add capsule
+                                let r = pose[_i2].connection.value/2;
+                                let start = getnode(view, _i2);
+                                let end = getnode(view, pose[_i2].parent);
+                                start = [
+                                    start.x - view*ds.cell.w,
+                                    start.y
+                                ];
+                                end = [
+                                    end.x - view*ds.cell.w,
+                                    end.y
+                                ];
+                                // start and end of the capsule
+                                let temp = Raster.capsule(...start, ...end, r);
+                                single[_i2] = _2dPoly.mergedata([
+                                    single[_i2],
+                                    {
+                                        rect: {x: temp.x, y: temp.y, w: temp.w, h: temp.h},
+                                        within: temp.raster,
+                                    }
+                                ]);
+                                // merge without convexing
+                            }
+                            groups[ group[0] ][ group[1] ].push( structuredClone(single[_i2]) );
+                            // add to the data for this combo
+                            single[_i2] = {
+                                x: single[_i2].rect.x,
+                                y: single[_i2].rect.y,
+                                w: single[_i2].rect.w,
+                                h: single[_i2].rect.h,
+                                array: structuredClone(single[_i2].within),
+                            };
+                            // convert to a better format
+                        }
+                    }
+                    //
+                    outlines[i1] = [];
+                    for(i2 = 0; i2 < rect.w*rect.h; i2++) {
+                        outlines[i1].push(-1);
+                    }
+                    // - 0 or higher: silhouette group number
+                    // - -1: empty
+                    // - -2: filled
+                    for(i2 = groups.length - 1; i2 >= 0; i2--) {
+                    // iterate backwards, so lower group numbers cover up higher
+                    // group numbers' outlines.
+                        for(i3 in groups[i2]) {
+                            if(groups[i2].hasOwnProperty(i3)) {
+                            // combine the _2dPoly.getdatas, and add the
+                            // outlines to outline.
+                                let temp = _2dPoly.mergedata(groups[i2][i3]);
+                                let _rect = temp.rect;
+                                let array = temp.within;
+                                let _array = Raster.outline(array, _rect.w);
+                                for(i4 = 0; i4 < array.length; i4++) {
+                                    if(array[i4]) {
+                                        let index = Rect.getindex(rect, ...Rect.getcoor(_rect, i4));
+                                        if(index !== -1) {
+                                        // if it's within the cell
+                                            if(_array[i4]) {
+                                            // designate this pixel as an
+                                            // outline of group i2
+                                                outlines[i1][index] = i2;
+                                            }
+                                            else if(outlines[i1][index] === -1) {
+                                            // if it's empty and not an outline,
+                                            // designate it as fill
+                                                outlines[i1][index] = -2;
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                if(stems.length === 1) {
+                // you don't gotta figure out layering if there's only one body.
+                    let array = outlines[0];
+                    for(i1 = 0; i1 < array.length; i1++) {
+                        if(array[i1] !== -1) {
+                            let coor = Rect.getcoor(rect, i1);
+                            let num = array[i1];
+                            ctx.fillStyle = (
+                                num === -2 ? color.part_fill[0] :
+                                num in color.silhouette ? color.silhouette[num] : "gray"
+                            );
+                            ctx.fillRect(...coor, 1, 1);
+                        };
+                    }
+                }
+                else if(stems.length > 2) {
+                    let coverage = [];
+                    for(i1 = 0; i1 < rect.w*rect.h; i1++) {
+                        coverage.push(-1);
+                    }
+                    // another per-pixel array. what this one stores is which stem
+                    // the frontmost part on this pixel belongs to.
+                    for(i1 = 0; i1 < _nodes.length; i1++) {
+                        // iterate in z order, and fill coverage.
+                        let _i1 = _nodes[i1].name;
+                        if(_i1 in single) {
+                            let num = AAX.getstemnum(pose, _i1);
+                            let _rect = single[_i1];
+                            let array = _rect.array;
+                            for(i2 = 0; i2 < array.length; i2++) {
+                                if(array[i2]) {
+                                    // if the part covers this spot:
+                                    let index = Rect.getindex(rect, ...Rect.getcoor(_rect, i2));
+                                    // Rect.getcoor is the coordinates relative to
+                                    // the corner of the cell, Rect.getindex is
+                                    // which index of image.array that should be.
+                                    // (-1 if it's out of bounds.)
+                                    if(index !== -1) {
+                                        coverage[index] = num;
+                                    };
+                                };
+                            }
+                        }
+                    }
+                    for(i1 = 0; i1 < coverage.length; i1++) {
+                        if(coverage[i1] !== -1) {
+                            // draw. finally. christ.
+                            let coor = Rect.getcoor(rect, i1);
+                            let num = coverage[i1];
+                            // stem number
+                            let _num = outlines[num][i1];
+                            // silhouette group
+                            ctx.fillStyle = (
+                                _num === -2 ? color.part_fill[num%color.part_fill.length] :
+                                _num in color.silhouette ? color.silhouette[_num] : "gray"
+                            );
+                            ctx.fillRect(...coor, 1, 1);
+                        };
+                    }
+                }
+                else {
+                // zero part bodies and stemless bodies shouldn't be possible.
+                    console.log("this shouldn't happen");
+                }
+            };
+            for(i1 = 0; i1 < _nodes.length; i1++) {
+                loop.tick(1);
+                if(basis.hasOwnProperty(_nodes[i1].name)) {
+                    drawbasis(
+                        basis[_nodes[i1].name],
+                        [_nodes[i1].x - view*ds.cell.w, _nodes[i1].y],
+                        view,
+                        Quat.axis_magnitude(pose[ _nodes[i1].name ].orient).axis
+                    );
+                }
+            }
+            loop.end();
+            if(ds.parts === "overlap") {
+                for(i1 = 0; i1 < _nodes.length; i1++) {
+                    loop.tick(1);
+                    let part = pose[ _nodes[i1].name ];
+                    if(visible(part, "parts")) {
+                        drawpart(part, view, "fill only", _nodes[i1].x - view*ds.cell.w, _nodes[i1].y);
+                        // drawpart can fill in the coordinates on its own, but
+                        // waste not want not.
+                    }
+                }
+                loop.end();
+            };
+            if(ds.parts !== "off") {
+            // draw parts
+                for(i1 = 0; i1 < _nodes.length; i1++) {
+                    loop.tick(1);
+                    let part = pose[ _nodes[i1].name ];
+                    if(visible(part, "parts")) {
+                        drawpart(part, view, (ds.parts === "overlap" ? "no fill" : null), _nodes[i1].x - view*ds.cell.w, _nodes[i1].y);
+                    }
+                }
+                loop.end();
+            };
+            if(ds.skeleton) {
+            // draw skeleton
+                ctx.strokeStyle = color.skeleton;
+                for(i1 = 0; i1 < _nodes.length; i1++) {
+                    loop.tick(1);
+                    let part = pose[ _nodes[i1].name ];
+                    if(visible(part, "skeleton")) {
+                        nodeline(
+                            _nodes[i1].parent.x - view*ds.cell.w,
+                            _nodes[i1].parent.y,
+                            _nodes[i1].x - view*ds.cell.w,
+                            _nodes[i1].y,
+                            view,
+                        );
+                    }
+                }
+                loop.end();
+            };
+            if(ds.perspective) {
+            // draw perspective
+                ctx.strokeStyle = color.perspective;
+                for(i1 = 0; i1 < _nodes.length; i1++) {
+                    loop.tick(1);
+                    let part = pose[ _nodes[i1].name ];
+                    if(visible(part, "perspective")) {
+                        const rotated_coor = coortocanvas(AAX.camerarotations(part.abscoor, null, ds.xz, ds.yz, "same floats"), view, true, false);
+                        // rotated unperspectived coordinates. (it should
+                        // start here so that the lines point to the
+                        // vanishing point.)
+                        //const rect = AAX.noderect(...rotated_coor);
+                        //ctx.strokeRect(rect.x - .5, rect.y - .5, rect.w + 1, rect.h + 1);
+                        // testing code. the rotated coordinates don't
+                        // actually display anywhere.
+                        let perspectived_coor = coortocanvas(part.abscoor, view, true, false);
+                        let temp = part["perspective_coor_" + view];
+                        perspectived_coor[0] += temp[0];
+                        perspectived_coor[1] += temp[1];
+                        nodeline(
+                            ...rotated_coor,
+                            ...perspectived_coor,
+                            view
+                        );
+                    }
+                }
+                loop.end();
+            };
+            if(ds.nodes) {
+            // draw nodes
+                ctx.fillStyle = color.nodes;
+                for(i1 = 0; i1 < _nodes.length; i1++) {
+                    loop.tick(1);
+                    let part = pose[ _nodes[i1].name ];
+                    if(visible(part, "nodes")) {
+                    // draw nodes even if the part is hidden
+                        const rect = AAX.noderect(_nodes[i1].x, _nodes[i1].y);
+                        //ctx.fillRect(_nodes[i1].x - view*ds.cell.w + rect.x, _nodes[i1].y + rect.y, rect.w, rect.h);
+                        ctx.fillRect(rect.x - view*ds.cell.w, rect.y, rect.w, rect.h);
+                    }
+                }
+                loop.end();
+            };
+            if(!objectisempty(rotatecoor)) {
+            // the code in here only happens for rotatecoor.
+                let fulcrum = null;
+                // screen coordinates of the fulcrum's node
+                for(i1 = 0; i1 < _nodes.length; i1++) {
+                    loop.tick(1);
+                    if(_nodes[i1].name === fulcrum_name) {
+                        fulcrum = [_nodes[i1].x - view*ds.cell.w, _nodes[i1].y];
+                        // negate the view offset (that was
+                        // added earlier, for the clickable
+                        // interface's sake.)
+                    }
+                }
+                loop.end();
+                if(fulcrum === null) {
+                    console.log("this shouldn't happen");
+                };
+                let _rotatecoor = {};
+                // object for the coortocanvas-ed coordinates.
+                ctx.strokeStyle = color.interface[0];
+                for(i1 in rotatecoor) {
+                    loop.tick(1);
+                    if(rotatecoor.hasOwnProperty(i1)) {
+                        _rotatecoor[i1] = coortocanvas(rotatecoor[i1], view, true, false);
+                        let parent = pose[i1].parent;
+                        if(parent === fulcrum_name) {
+                        // probably the fulcrum. that isn't included in the
+                        // rotatecoor object because it doesn't move.
+                            parent = fulcrum;
+                        }
+                        else if(rotatecoor.hasOwnProperty(parent)) {
+                            if(!_rotatecoor.hasOwnProperty(parent)) {
+                            // it should be in getdesc order, so parents should
+                            // be put in _rotatecoor before their children.
+                                console.log("this shouldn't happen");
+                            };
+                            parent = _rotatecoor[parent];
+                        }
+                        else {
+                            console.log("this shouldn't happen");
+                        };
+                        //console.log("===" + i1 + "===");
+                        //console.log(parent);
+                        //console.log(_rotatecoor[i1]);
+                        nodeline(
+                            ...parent,
+                            ..._rotatecoor[i1],
+                            view
+                        );
+                    }
+                }
+                loop.end();
+                // draw lines
+                fulcrum = AAX.noderect(...fulcrum);
+                ctx.fillStyle = color.interface[0];
+                ctx.fillRect(fulcrum.x - 2, fulcrum.y - 2, fulcrum.w + 4, fulcrum.h + 4);
+                for(i1 in _rotatecoor) {
+                    loop.tick(1);
+                    if(_rotatecoor.hasOwnProperty(i1)) {
+                        _rotatecoor[i1] = AAX.noderect(_rotatecoor[i1][0], _rotatecoor[i1][1]);
+                        ctx.fillRect(_rotatecoor[i1].x - 1, _rotatecoor[i1].y - 1, _rotatecoor[i1].w + 2, _rotatecoor[i1].h + 2);
+                    }
+                }
+                loop.end();
+                // draw node outlines
+                ctx.fillStyle = color.interface[1];
+                ctx.fillRect(fulcrum.x, fulcrum.y, fulcrum.w, fulcrum.h);
+                for(i1 in _rotatecoor) {
+                    loop.tick(1);
+                    if(_rotatecoor.hasOwnProperty(i1)) {
+                        ctx.fillRect(_rotatecoor[i1].x, _rotatecoor[i1].y, _rotatecoor[i1].w, _rotatecoor[i1].h);
+                    }
+                }
+                loop.end();
+                // draw node interiors
+            }
+            //
+            imagedata[view] = ctx.getImageData(0, 0, ds.cell.w, ds.cell.h);
+        }
+        loop.end();
+        ctx.canvas.width = numofcells*ds.cell.w;
+        ctx.clearRect(0, 0, numofcells*ds.cell.w, ds.cell.h);
+        for(view = 0; view < numofcells; view++) {
+            loop.tick("view");
+            ctx.putImageData(imagedata[view], view*ds.cell.w, 0);
+        }
+        loop.end();
+        //console.log("AAX.draw took " + (new Date().valueOf() - time)/1000 + " seconds.");
+    },
     posint: (num) => Math.abs(Math.round(typeof num === "string" ? Number(num) : num)),
     strings: {
     // functions for interpreting strings as values. usually, stuff used in the
     // bodytext interpreter
         coor: function(string, roundfactor) {
-            // converts a string of coordinates into an array of numbers.
-            roundfactor ??= 2;
-            // means it rounds to the nearest .5.
+        // converts a string of coordinates into an array of numbers.
+        // - roundfactor: if it's .5, it'll round to the nearest .5. etc. (if
+        //   it's zero or it isn't a number, it won't round it at all.)
+            roundfactor = typeof roundfactor === "number" ? roundfactor : 0;
             let coor = (
                 Array.isArray(string)
                 ?
@@ -7631,18 +8958,16 @@ l_knee:
             if(coor.length !== 3) {
                 return null;
             };
-            coor = [
-                Math.round(Number(coor[0])*roundfactor)/roundfactor,
-                Math.round(Number(coor[1])*roundfactor)/roundfactor,
-                Math.round(Number(coor[2])*roundfactor)/roundfactor
-            ];
-            return (
-                (isNaN(coor[0]) || isNaN(coor[1]) || isNaN(coor[2]))
-                ?
-                null
-                :
-                coor
-            );
+            for(let i1 = 0; i1 < 3; i1++) {
+                coor[i1] = Number(coor[i1]);
+                if(roundfactor) {
+                    coor[i1] = Math.round(coor[i1]/roundfactor)*roundfactor;
+                };
+                if(isNaN(coor[i1])) {
+                    return null;
+                };
+            }
+            return coor;
         },
         dimension: function(string) {
             // interprets a string of one dimension or three, and returns one
@@ -7663,7 +8988,7 @@ l_knee:
             return string;
         },
         float: function(string) {
-            // allows fractions, returns null if it's NaN, Infinity, empty, etc
+        // allows fractions, returns null if it's NaN, Infinity, empty, etc
             if(!string || typeof string !== "string") {
                 return null;
             }
@@ -7735,20 +9060,13 @@ l_knee:
             loop.end();
             return tilt;
         },
-        shape: function(string, body, partname) {
-            // body and partname aren't strictly necessary, they just prevent
-            // bullshit external part names
+        shape: function(string) {
             let i1 = 0;
             let i2 = 0;
             let i3 = 0;
             let loop = new Loop("AAX.strings.shape");
-            partname ??= null;
             let shape = {
                 points: [],
-                external: {
-                    groups: {},
-                    points: {},
-                },
             };
             let total = 0;
             // number of points in finished groups.
@@ -7757,57 +9075,24 @@ l_knee:
             // last point that wasn't a duplicate or inversion. (array of group
             // index and point index.)
             for(i1 = 0; i1 < string.length; i1++) {
-                // |s split them into groups
+            // |s split them into groups
                 loop.tick(1);
                 shape.points[i1] = [];
-                string[i1] = string[i1].trim().split(String.fromCharCode(10));
+                string[i1] = string[i1].trim().split("\n");
                 for(i2 = 0; i2 < string[i1].length; i2++) {
                     // line breaks split it up into points
                     loop.tick(2);
                     string[i1][i2] = string[i1][i2].trim();
-                    if(i2 === 0 && (!body || body.hasOwnProperty(string[i1][i2])) && string[i1][i2] !== partname) {
-                        // if the group starts with a line of
-                        // another body part, (whether right
-                        // after the | or on its own line)
-                        // create a shape.external property that
-                        // says this group of points belongs to
-                        // that part.
-                        let ref = shape.external.groups;
-                        ref[ string[i1][i2] ] ??= [];
-                        ref[ string[i1][i2] ][ ref[ string[i1][i2] ].length ] = i1;
-                    }
-                    else if(string[i1][i2]) {
-                        // skip blank lines. those could be
-                        // interpreted as "copy point 0", which
-                        // bothers me for some reason
+                    if(string[i1][i2]) {
+                    // skip blank lines. those could be interpreted as "copy
+                    // point 0". benign, but inefficient
                         let point = string[i1][i2];
-                        let temp = [point.indexOf(":"), point.indexOf(",")];
-                        temp = (
-                            temp[1] !== -1
-                            &&
-                            temp[1] < temp[0]
-                            ?
-                            -1
-                            :
-                            temp[0]
-                        );
-                        // make it if the first comma is before the colon.
-                        // (since colons are used in spheroid orientation
-                        // syntax.)
-                        let _external = temp === -1 ? partname : point.slice(0, temp).trim();
-                        if(temp !== -1) {
-                            point = point.slice(temp + 1).trim();
-                        };
-                        // if it has a colon, interpret it
-                        // as a point that follows another
-                        // part's orient/stretch/widen
-                        temp = shape.points[i1].length;
-                        // store the previous length so it
-                        // can tell if a point was added
-                        // this loop
+                        let temp = shape.points[i1].length;
+                        // store the previous length so it can tell if a point
+                        // was added this loop
                         if(point.includes(",")) {
                             point = point.split(",");
-                            let coor = AAX.strings.coor(point.slice(0, 3), 1);
+                            let coor = AAX.strings.coor(point.slice(0, 3));
                             let dim = AAX.strings.dimension(point.slice(3, 6));
                             // makes sure they're valid,
                             // returns null if they're not
@@ -7883,17 +9168,6 @@ l_knee:
                                 // inversion
                             };
                         };
-                        if(shape.points[i1].length > temp && (!body || body.hasOwnProperty(_external)) && _external !== partname) {
-                            // if a point was added, this point
-                            // was specified as following
-                            // another part's orient/etc, and
-                            // the part exists and isn't the
-                            // current part, add it to an array
-                            // of linear indexes.
-                            let ref = shape.external.points;
-                            ref[_external] ??= [];
-                            ref[_external][ ref[_external].length ] = total + shape.points[i1].length - 1;
-                        };
                     };
                 };
                 loop.end();
@@ -7902,6 +9176,67 @@ l_knee:
             loop.end();
             return shape;
         },
+    },
+    shapetostring: function(shape) {
+        let i1 = 0;
+        let i2 = 0;
+        let i3 = 0;
+        let text = [];
+        for(i1 = 0; i1 < shape.points.length; i1++) {
+            let group = shape.points[i1];
+            if(i1) {
+                text.push("|");
+            }
+            let invert_base = null;
+            // used when making point inversions. the last point that was
+            // written as numbers, not inversion letters.
+            for(i2 = 0; i2 < group.length; i2++) {
+                let point = group[i2];
+                let invert = "";
+                if(invert_base && compareobject(point.slice(3), invert_base.slice(3))) {
+                // check if this point can be made into an inversion of the
+                // previous, and find out what axes it has to be inverted with.
+                    let nah = false;
+                    for(i3 = 0; i3 < 3 && !nah; i3++) {
+                        if(point[i3] === invert_base[i3]) {
+                            // this needs to go before the negative check, so
+                            // that, if the coordinates are zero and therefore
+                            // both are true, it'll opt for less letters.
+                        }
+                        else if(point[i3] === -invert_base[i3]) {
+                            invert += "xyz"[i3];
+                        }
+                        else {
+                        // at least one coordinate matches neither invert_base
+                        // nor the inversion of invert_base.
+                            nah = true;
+                        }
+                    }
+                };
+                if(invert) {
+                    text.push(invert);
+                }
+                else {
+                    let line = [];
+                    for(i3 = 0; i3 < point.length; i3++) {
+                        if(i3 < 6) {
+                            line.push(point[i3]);
+                        }
+                        else if(i3 === 6 && Quat.valid(point[i3])) {
+                            for(let i4 in point[i3]) {
+                                line.push(i4 + ": " + point[i3][i4]);
+                            }
+                        }
+                        else {
+                            console.log("this shouldn't happen");
+                        }
+                    }
+                    text.push(line.join(", "));
+                    invert_base = point;
+                }
+            }
+        }
+        return text.join("\n");
     },
     getchildren: function(body, part) {
         let i1 = 0;
@@ -7970,6 +9305,9 @@ l_knee:
     // returns the standpoint child.
     // - come to think of it, getanc isn't used for anything but this. oh
     //   well.
+    getstemnum: (body, part) => AAX.getchildren(body, "standpoint").indexOf(AAX.getstem(body, part)),
+    getfill: (color, body, part) => color.part_fill[AAX.getstemnum(body, part)%color.part_fill.length],
+    // returns the appropriate part_fill color to use for the given part.
     valid: {
     // stores arrays for which values are accepted, whether to check for
     // validity or iterate through them. mostly for drawsettings.
@@ -8089,6 +9427,10 @@ l_knee:
         :
         name
     ),
+    // obsolete.
+    prefix1: "l_",
+    prefix2: "r_",
+    // used in bodytext's symmetry command. the default prefixes.
     mirror: function(body, name, axis) {
     // mirrors an entire part, editing it directly.
     // - body: body or pose
@@ -8110,36 +9452,6 @@ l_knee:
                 loop.tick(2);
                 ref[i1][i2][num] *= -1;
             }
-        }
-        loop.end();
-        for(i1 = 0; i1 < 2; i1++) {
-        // mirror shape.external
-            loop.tick(1);
-            ref = part[(isbody ? "" : "_") + "shape"].external[i1 ? "points" : "groups"];
-            let obj = {};
-            for(i2 in ref) {
-                loop.tick(2);
-                if(ref.hasOwnProperty(i2)) {
-                    let sym_name = AAX.sym_namer(i2);
-                    if(body.hasOwnProperty(sym_name)) {
-                    // if it didn't do this, you could run into trouble if
-                    // there's a l_elbow but not a r_elbow, like for a
-                    // one-armed character.
-                        sym_name = i2;
-                    }
-                    obj[sym_name] = structuredClone(ref[i2]);
-                }
-            }
-            loop.end();
-            part[(isbody ? "" : "_") + "shape"].external[i1 ? "points" : "groups"] = structuredClone(obj);
-            // it seems roundabout to make a whole new object, but the logic
-            // gets tricky otherwise.
-            // - have to make sure that if there's externals for both
-            //   l_elbow and r_elbow already, they switch, but only once
-            // - have to make sure anything that was already swapped isn't
-            //   iterated over again.
-            // =
-            // - it's not impossible but it sucks.
         }
         loop.end();
         // shape
@@ -8332,6 +9644,112 @@ l_knee:
             :
             point[0]
         );
+    },
+    shape_radius: function(points) {
+    // used in body maker. the radius of the tightest sphere the shape could fit
+    // in.
+    // - NOTE: does NOT account for spheroid rotation.
+    // - returns null if the shape has no points.
+        let radius = null;
+        for(let i1 = 0; i1 < points.length; i1++) {
+            for(let i2 = 0; i2 < points[i1].length; i2++) {
+                let point = points[i1][i2];
+                if(point.length < 3) {
+                    console.log("this shouldn't happen");
+                }
+                else {
+                    let coor = point.slice(0, 3);
+                    let hypot = Math.hypot(...coor);
+                    if(point.length === 4) {
+                        hypot += Math.abs(point[3])/2;
+                    }
+                    else if(point.length > 4) {
+                        let temp = Points.normalized(coor);
+                        for(let i3 = 0; i3 < 3; i3++) {
+                            temp[i3] *= Math.abs(point[3 + i3] ?? point[3])/2;
+                        }
+                        hypot += Math.hypot(...temp);
+                    }
+                    radius = Math.max(radius ?? 0, hypot);
+                }
+            }
+        }
+        return radius;
+    },
+    shape_bounds: function(points) {
+    // used in body maker. the edges of the smallest box the shape could fit in.
+    // - NOTE: again, it does NOT account for spheroid rotation.
+    // - returns null if the shape has no points.
+        let bounds = null;
+        for(let i1 = 0; i1 < points.length; i1++) {
+            for(let i2 = 0; i2 < points[i1].length; i2++) {
+                let point = points[i1][i2];
+                if(point.length < 3) {
+                    console.log("this shouldn't happen");
+                }
+                else {
+                    let coor = point.slice(0, 3);
+                    bounds ??= {
+                        l: coor[0], r: coor[0],
+                        u: coor[1], d: coor[1],
+                        b: coor[2], f: coor[2],
+                    };
+                    for(let i3 = 0; i3 < 3; i3++) {
+                        let dim = Math.abs(point[3 + i3] ?? (point[3] ?? 0))/2;
+                        bounds["lub"[i3]] = Math.min(bounds["lub"[i3]], coor[i3] - dim);
+                        bounds["rdf"[i3]] = Math.max(bounds["rdf"[i3]], coor[i3] + dim);
+                    }
+                }
+            }
+        }
+        return bounds;
+    },
+    filedate: function() {
+    // returns a date string, to use in file names.
+        let temp = new Date();
+        temp = [temp.getFullYear().toString(), (temp.getMonth() + 1).toString(), temp.getDate().toString()];
+        for(let i1 = 1; i1 < temp.length; i1++) {
+            temp[i1] = "0".repeat(2 - temp[i1].length) + temp[i1];
+        }
+        return temp.join("_");
+    },
+    save: function(filename, text) {
+    // saves a string as a txt file.
+        let blob = new Blob([ text ], {type: "text/plain"});
+        let url = URL.createObjectURL(blob);
+        let downloader = document.createElement("a");
+        downloader.href = url;
+        //browser.downloads.download({url: url, filename: filename});
+        //URL.revokeObjectURL(url);
+        // - this is what mdn says to use, but it doesn't work on android.
+        //   so why do they recommend it.
+        downloader.download = filename;
+        downloader.click();
+    },
+    load: function(code) {
+    // what happens when the load button is clicked. it asks for a file,
+    // then runs your function on it.
+        let input = document.createElement("input");
+        input.type = "file";
+        input.accept = ".txt";
+        input.oninput = function() {
+            code(input.files[0]);
+        };
+        input.click();
+    },
+    dragndrop: function(canvas, code) {
+    // adds drag n drop file loading to the given canvas.
+    // - code should be a (file) function.
+        canvas.ondragover = function(e) {
+            e.preventDefault();
+        };
+        canvas.ondrop = function(e) {
+            let files = e.dataTransfer.items;
+            if(files.length >= 1 && files[0].kind === "file") {
+                code(files[0].getAsFile());
+            };
+            e.preventDefault();
+        };
     },
 };
 AAX.initialize();
@@ -9699,7 +11117,7 @@ let Rect = {
             }
         }
     },
-    fromslice(rect, direction, dimension, target, prefix, suffix) {
+    fromslice: function(rect, direction, dimension, target, prefix, suffix) {
     // slices away some of an edge, and optionally, makes a button from that
     // edge.
     // - if suffix is an array, it'll use divide.
@@ -9743,6 +11161,10 @@ let Rect = {
         };
         return _rect;
     },
+    expand_all: function(rect, amount) {
+        amount ??= 1;
+        return Rect.new(rect.x - amount, rect.y - amount, rect.w + 2*amount, rect.h + 2*amount);
+    },
     neighbor: function(rect, direction, w, h) {
         let _rect = structuredClone(rect);
         _rect.w = w ?? _rect.w;
@@ -9784,7 +11206,7 @@ let Rect = {
             let u = Math.min(Rect.u(_rect), y);
             let d = Math.max(Rect.d(_rect), y);
             _rect.y = u;
-            _rect.w = d - u;
+            _rect.h = d - u;
         };
         return _rect;
     },
@@ -9792,6 +11214,7 @@ let Rect = {
     r: (rect) => rect.x + rect.w,
     u: (rect) => rect.y,
     d: (rect) => rect.y + rect.h,
+    edges: (rect) => [Rect.l(rect), Rect.r(rect), Rect.u(rect), Rect.d(rect)],
     ui: function(areas, omit) {
     // a very meaty function that creates an entire ui at once.
     // - that is, an object of rects, each representing a button, and named with
@@ -10162,6 +11585,46 @@ let Rect = {
         ctx.fillRect(rect.x + rect.w, rect.y, 1, rect.h + 1);
         ctx.fillStyle = temp;
     },
+    abs: function(rect) {
+        let temp = [Rect.l(rect), Rect.u(rect)];
+        return {
+            x: temp[0],
+            y: temp[1],
+            w: Rect.r(rect) - temp[0],
+            h: Rect.d(rect) - temp[1],
+        };
+    },
+    round_in: (rect) => Rect.fromedges(
+        Math.ceil(Rect.l(rect)),
+        Math.floor(Rect.r(rect)),
+        Math.ceil(Rect.u(rect)),
+        Math.floor(Rect.d(rect))
+    ),
+    // rounds edges to integers in whichever direction will make the rectangle
+    // smaller.
+    round_out: (rect) => Rect.fromedges(
+        Math.floor(Rect.l(rect)),
+        Math.ceil(Rect.r(rect)),
+        Math.floor(Rect.u(rect)),
+        Math.ceil(Rect.d(rect))
+    ),
+    // rounds edges to integers in whichever direction will make the rectangle
+    // bigger.
+    getcoor: (_this, index) => (
+        (!Number.isInteger(index) || index < 0 || index >= _this.w*_this.h) ? null :
+        [
+            _this.x + index%_this.w,
+            _this.y + Math.floor(index/_this.w)
+        ]
+    ),
+    getindex: (_this, x, y) => (
+        (
+            x < _this.x || x >= _this.x + _this.w
+            ||
+            y < _this.y || y >= _this.y + _this.h
+        ) ? -1 :
+        _this.w*(Math.floor(y) - _this.y) + (Math.floor(x) - _this.x)
+    ),
 }
 class DrawApp {
 // used to create drawing apps, for use in various tools.
