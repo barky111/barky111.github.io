@@ -466,7 +466,7 @@ let _2dPoly = {
             _points[i1] = (
                 viewer
                 ?
-                perspectiveconvert(viewer, ..._points[i1])
+                viewer.convert(..._points[i1])
                 :
                 _points[i1]
             ).slice(0, 2);
@@ -1467,15 +1467,15 @@ const Raster = {
         // - then value2 pixels get .5'd and rounded. if it's within the
         //   rectangle, that pixel is set as 2.
             if(_this[i1]) {
-                const point = revolve(
-                    angle,
+                const point = rotate(
                     [
                         i1%w,
                         Math.floor(i1/w),
                         0
                     ],
-                    [x, y, 0],
-                    "xy"
+                    "xy",
+                    angle,
+                    [x, y, 0]
                 ).slice(0, 2);
                 const x_range = [
                     Math.ceil((point[0] - Math.SQRT2) - .5) + .5,
@@ -2418,8 +2418,8 @@ class Viewer {
 				this.z,
 				Angle.get(...line)
 			);
-			// z is negative because of how perspectiveconvert uses viewer.z - z, when
-			// x and y are _ - viewer._
+			// z is negative because of how convert uses viewer.z - z, when x
+			// and y are _ - viewer._
 		};
 		return line.planeintersect(plane);
     }
@@ -2497,11 +2497,6 @@ class Line {
 // - this is very closely related to the Plane class below. many of both
 //   classes' functions revolve around the line/plane perpendicular to it.
     constructor(x, y, z, angle) {
-        if(noargumentscheck([x, y, z, angle])) {
-        // create an empty object that another object's contents can be
-        // pasted into
-            return;
-        }
         this.x = x;
         this.y = y;
         this.z = z;
@@ -2542,7 +2537,7 @@ class Line {
     // revolves a point or points around the Line.
     // - angle: this is the amount to revolve, not a 3d angle. a number from
     //   0 to 2 pi.
-        return revolve(angle, points, [this.x, this.y, this.z], this.angle);
+        return rotate(points, this.angle, angle, [this.x, this.y, this.z]);
     }
     findposition(number) {
     // 0: the line's coordinates
@@ -2865,11 +2860,6 @@ class Plane {
 // coordinate by the plane's modifier and adding the plane's offset equals
 // 0.
     constructor(x, y, z, offset) {
-        if(noargumentscheck([x, y, z, offset])) {
-        // create an empty object that another object's contents can be
-        // pasted into
-            return;
-        }
         this.x = x;
         this.y = y;
         this.z = z;
@@ -2904,18 +2894,18 @@ class Plane {
             return [0, 0, 0];
         }
     }
-    line(coord1, coord2, missingaxis, shush) {
+    line() {
+    // returns a new Line that's perpendicular to this plane and intersects at
+    // this.origin.
+    // at the point specified.
+    // - uses planepoint.
+        return new Line(...this.origin(), Angle.get(this.x, this.y, this.z));
+    }
+    linefrompoint(coord1, coord2, missingaxis, shush) {
     // returns a new Line that's perpendicular to this plane and intersects
     // at the point specified.
     // - uses planepoint.
-        let point = (
-            noargumentscheck(coord1, coord2, missingaxis, shush)
-            ?
-            this.origin()
-            :
-            this.planepoint(coord1, coord2, missingaxis, shush)
-        );
-        return new Line(point[0], point[1], point[2], Angle.get(this.x, this.y, this.z));
+        return new Line(...this.planepoint(coord1, coord2, missingaxis, shush), Angle.get(this.x, this.y, this.z));
     }
     planepoint(coord1, coord2, missingaxis, shush) {
     // enter two coordinates and a missing axis, it'll fill the third with
@@ -3226,7 +3216,7 @@ let Angle = {
 // - this was gonna be a class, but... nah. it's really annoying to have the
 //   old array format and new object format coexist, and you gotta worry
 //   about classes getting lost in JSON.stringify/JSON.parse cycles too.
-//   it's more trouble than it's worth, the only reason i wanted a class was
+//   it's more trouble than it's worth. the only reason i wanted a class was
 //   because the names/syntax of my global functions sucked.
 // - relative angles
     get: function(x, y, z, shush) {
@@ -3259,42 +3249,18 @@ let Angle = {
         //angle[2] = 0;
         return Angle.correct(angle);
     },
-    getwithroll: function(numsatel) {
-    // this interprets your input as an array of two points: an angle
-    // numbers and a roll satellite. it returns an angle with roll.
-        let angle = Angle.get(...numsatel[0]);
-        angle[2] = [
-            numsatel[1][0] - numsatel[0][0],
-            numsatel[1][1] - numsatel[0][1],
-            numsatel[1][2] - numsatel[0][2],
-        ];
-        angle[2] = Angle.get(...angle[2]);
-        angle[2] = rollinverse(angle, angle[2]);
-        return angle;
-    },
-    numbers: function(_this, satellite) {
+    numbers: function(_this) {
     // gives numbers equivalent to cos and sin, but for 3d. numbers between
     // -1 and 1, that represent where a point on a sphere of 1 radius would
     // be.
     // - satellite: if true, this will return two points, one of them being
     //   the angle numbers of the rolldirection plus the original angle
     //   numbers
-        if(satellite) {
-            let points = [];
-            points[0] = Angle.numbers(_this);
-            points[1] = Angle.numbers(rolldirection(_this));
-            points[1][0] += points[0][0];
-            points[1][1] += points[0][1];
-            points[1][2] += points[0][2];
-            return points;
-        }
-        else {
-            return [
-                Math.cos(_this[0])*Math.cos(_this[1]),
-                Math.sin(_this[0])*Math.cos(_this[1]),
-                Math.sin(_this[1])
-            ];
-        }
+        return [
+            Math.cos(_this[0])*Math.cos(_this[1]),
+            Math.sin(_this[0])*Math.cos(_this[1]),
+            Math.sin(_this[1])
+        ];
     },
     correct: function(_this) {
     // corrects it if it's out of bounds, like if you just added two angles
@@ -3305,9 +3271,6 @@ let Angle = {
         // make sure xy angle is a positive number
         angle[1] = Math.sign(angle[1])*posmod(Math.abs(angle[1]), 2*Math.PI);
         // z is now between -2 pi and 2 pi.
-        if(angle[2] || angle[2] === 0) {
-            angle[2] = posmod(angle[2], 2*Math.PI);
-        }
         for (i1 = 0; i1 < 4; i1++) {
         // but it should be between -pi/2 and pi/2.
             if(
@@ -3334,22 +3297,15 @@ let Angle = {
         }
         return angle;
     },
-    invert: function(_this, includeroll) {
+    invert: function(_this) {
     // creates an angle that points in the opposite direction.
-        if(typeof _this === "number") {
-            return posmod(_this + Math.PI, 2*Math.PI);
-        };
-        let angle = [
-            posmod(_this[0] + Math.PI, 2*Math.PI),
-            -_this[1]
-        ];
-        if(_this[2] || _this[2] === 0) {
-            angle[2] = (includeroll ? posmod(_this[2] + Math.PI, 2*Math.PI) : _this[2]);
-        }
-        else if(includeroll) {
-            angle[2] = Math.PI;
-        };
-        return angle;
+        return (
+            typeof _this === "number"
+            ?
+            posmod(_this + Math.PI, 2*Math.PI)
+            :
+            [posmod(_this[0] + Math.PI, 2*Math.PI), -_this[1]]
+        );
     },
     compare: function(_this, angle2) {
     // gives the 2d angle between this and the angle specified.
@@ -3407,28 +3363,12 @@ let Angle = {
         //   the cosine of the z angle. i could maybe maybe math that out
         //   with trial and error but guess what's easier and more reliable
     },
-    rand: function(includeroll) {
+    rand: function() {
     // constructs a random angle.
-        let angle = [
+        return [
             Math.random()*2*Math.PI,
             (Math.random() - .5)*Math.PI
         ];
-        if(includeroll) {
-            angle[2] = Math.random()*2*Math.PI;
-        };
-        return angle;
-    },
-    linerevolve: function(_this, points, center) {
-    // uses roll as the amount to revolve by.
-        return revolve(0, points, center, objecttoarray(_this));
-    },
-    orient: function(_this, points, center) {
-    // how 3d shape orientation works is, plot an angle numbers and
-    // satellite, revolve those for every revolve applied to the shape, and
-    // convert it back to a number to get an absolute angle you can use to
-    // recreate that orientation. this applies that orientation.
-        let _points = revolve([_this[0], _this[1]], structuredClone(points), center);
-        return revolve(_this[2] ?? 0, _points, center, [_this[0], _this[1]]);
     },
     convert: function(_this, to, from) {
     // convert from radians, degrees, or circumferences to another one of
@@ -3550,6 +3490,11 @@ let Quat = {
 //   - check out the 3Blue1Brown youtube channel and the multiplication
 //     table at the top of the quaternion wikipedia page. it's pretty hard
 //     to figure out even then.
+// - NOTE: there is a special, original property, "flip".
+//   - it's a boolean that just means, when you're using it to make a basis or
+//     orient a point, you should invert all coordinates.
+//   - that's because this is the only way to create a quaternion that's x
+//     mirrored, y mirrored, etc.
     new: function(axis, magnitude, inverse) {
     // create from a line revolve
     // - inverse: applies the inverse of the given Quat to the axis angle
@@ -3578,6 +3523,7 @@ let Quat = {
             x: magnitude[1]*num[0],
             y: magnitude[1]*num[1],
             z: magnitude[1]*num[2],
+            flip: false,
         };
     },
     arc: function(angle1, angle2) {
@@ -3609,6 +3555,7 @@ let Quat = {
             x: w*_x + x*_w + y*_z - z*_y,
             y: w*_y + y*_w + z*_x - x*_z,
             z: w*_z + z*_w + x*_y - y*_x,
+            flip: invertboolean(_this.flip, quat.flip),
         };
     },
     multiply: (_this, quat) => Quat.local_multiply(_this, Quat.local_multiply(quat, Quat.invert(_this))),
@@ -3627,11 +3574,15 @@ let Quat = {
     //     local version. the nonlocal versions are modified versions, where
     //     the first quaternion's influence is reverted.
     invert: function(_this) {
+    // creates a quaternion that does the opposite of what the given quaternion
+    // does. (ie: applying the both original and this should leave it
+    // unchanged.)
         return {
             w: _this.w,
             x: -_this.x,
             y: -_this.y,
             z: -_this.z,
+            flip: _this.flip,
         };
     },
     apply: function(_this, point) {
@@ -3643,21 +3594,21 @@ let Quat = {
             x: point[0],
             y: point[1],
             z: point[2],
+            flip: false,
         });
         temp = Quat.local_multiply(temp, Quat.invert(_this));
-        return [
+        temp = [
             temp.x,
             temp.y,
             temp.z
-        ];
+        ]
+        return _this.flip ? Points.multiply(temp, -1) : temp;
     },
-    basis: function(_this) {
-        return [
-            Quat.apply(_this, [1, 0, 0]),
-            Quat.apply(_this, [0, 1, 0]),
-            Quat.apply(_this, [0, 0, 1])
-        ];
-    },
+    basis: (_this) => [
+        Quat.apply(_this, [1, 0, 0]),
+        Quat.apply(_this, [0, 1, 0]),
+        Quat.apply(_this, [0, 0, 1])
+    ],
     // creates a basis, a set of three three-coordinate points representing
     // how much x/y/z a unit of x, y, or z should translate to.
     orient: function(_this, points) {
@@ -3678,6 +3629,7 @@ let Quat = {
             x: _this.x/length,
             y: _this.y/length,
             z: _this.z/length,
+            flip: _this.flip,
         };
     },
     magnitude: (_this) => 2*Math.acos(_this.w),
@@ -3685,7 +3637,7 @@ let Quat = {
     axis_magnitude: function(_this) {
         let magnitude = Quat.magnitude(_this);
         let axis = Math.sin(magnitude);
-        if(axis && _this.x && _this.y && _this.z) {
+        if(axis && (_this.x || _this.y || _this.z)) {
             axis = Angle.get(
                 _this.x/axis,
                 _this.y/axis,
@@ -3707,7 +3659,8 @@ let Quat = {
         "w: " + _this.w,
         "x: " + _this.x,
         "y: " + _this.y,
-        "z: " + _this.z
+        "z: " + _this.z,
+        "flip: " + _this.flip
     ].join("\n"),
     valid: (_this) => (
         typeof _this === "object"
@@ -3719,11 +3672,17 @@ let Quat = {
         typeof _this.y === "number"
         &&
         typeof _this.z === "number"
+        &&
+        typeof _this.flip === "boolean"
     ),
     dot: (quat1, quat2) => quat1.w*quat2.w + quat1.x*quat2.x + quat1.y*quat2.y + quat1.z*quat2.z,
     slerp: function(quat1, quat2, num) {
     // 0 makes something like quat1, 1 makes something like quat2.
     // - NOTE: remember to normalize it.
+    // - NOTE: if quat1 and quat2 have different .flip, flip will change
+    //   arbitrarily at .5. ...that isn't exactly ideal, but flip isn't a very
+    //   animatable property to begin with. just bear in mind that flip to !flip
+    //   transitions will look kind of stupid.
         let dot = Quat.dot(quat1, quat2);
         let quat = structuredClone(dot < 0 ? Quat.invert(quat2) : quat2);
         dot = Math.abs(dot);
@@ -3740,9 +3699,61 @@ let Quat = {
             x: scale1*quat1.x + scale2*quat.x,
             y: scale1*quat1.y + scale2*quat.y,
             z: scale1*quat1.z + scale2*quat.z,
+            flip: (num < .5 ? quat1 : quat2).flip,
         };
     },
     rand: () => Quat.new(Angle.rand(), 2*Math.PI*Math.random()),
+    mirror: {
+        x: function(_this) {
+        // rotates and flips it so that the basis' x coordinates are the opposite of
+        // what they were before.
+            if(!_this) {
+                return {w: 0, x: 1, y: 0, z: 0, flip: true};
+            };
+            let quat = Quat.rotate(_this, "yz", Math.PI);
+            // 180 degree rotation is equivalent to inverting two axes. rotating 180
+            // yz wil invert the y and z.
+            quat.flip = !quat.flip;
+            // then, inverting the flip will invert ALL axes. y and z go back to
+            // normal, leaving only x inverted. elegant.
+            return quat;
+        },
+        y: function(_this) {
+            if(!_this) {
+                return {w: 0, x: 0, y: -1, z: 0, flip: true};
+            };
+            let quat = Quat.rotate(_this, "xz", Math.PI);
+            quat.flip = !quat.flip;
+            return quat;
+        },
+        z: function(_this) {
+            if(!_this) {
+                return {w: 0, x: 0, y: 0, z: 1, flip: true};
+            };
+            let quat = Quat.rotate(_this, "xy", Math.PI);
+            quat.flip = !quat.flip;
+            return quat;
+        },
+        multi: function(_this, x, y, z) {
+            let quat = structuredClone(_this ?? Quat.new());
+            let invert = (x ? "x" : "") + (y ? "y" : "") + (z ? "z" : "");
+            if(invert.length === 3) {
+                quat.flip = !quat.flip;
+            }
+            else if(invert.length === 2) {
+                quat = Quat.rotate(quat, invert, Math.PI);
+            }
+            else if(invert.length === 1) {
+                quat = Quat.mirror[invert](quat);
+            };
+            return quat;
+        },
+    },
+    flipped: function(_this) {
+        let quat = structuredClone(_this);
+        quat.flip = !quat.flip;
+        return quat;
+    },
 };
 
 
@@ -4100,6 +4111,7 @@ const AAX = {
         //   approximation of a neck.)
         shape: "",
         orient: "pose_getset",
+        mirror: "body_exclusive",
         stretch: "pose_getset",
         widen: "pose_getset",
         // stuff involving 3d shapes:
@@ -4123,6 +4135,9 @@ const AAX = {
         //   - if stretch isn't applicable, (parent and child are on the same
         //     spot, or parent is standpoint) widen is used as an overall scale
         //     factor.
+        // - mirror: boolean for whether this is the mirrored counterpart of
+        //   another part. if so, orient has to have Quat.mirror.x run on it
+        //   when a Part is made.
         cache: "pose_exclusive",
         // this one is special.
         // - what "cache" means for this project is, "data that is stored
@@ -4720,6 +4735,7 @@ const AAX = {
 					for(i2 = 0; i2 < order.length; i2++) {
 						part[ order[i2] ] = structuredClone( obj[i1][ order[i2] ] );
 					};
+                    part.mirror = false;
 				}
 			}
 			// now that every body part exists, we can do stuff like
@@ -4938,8 +4954,33 @@ const AAX = {
                         // have it match the prefixes, with all non-letters
                         // removed for aesthetics
 					};
+                    body[name2].mirror = true;
+                    // makes sure the part's orient starts as a Quat.mirror.x().
                     AAX.mirror(body, name2, "x");
                     // coordinates, image, perspective
+                }
+            }
+            //
+            for(i1 in body) {
+                if(body.hasOwnProperty(i1)) {
+                    for(i2 in AAX.part_properties) {
+                        if(
+                            AAX.part_properties.hasOwnProperty(i2)
+                            &&
+                            !i2.includes("_")
+                            &&
+                            !(i2 in body[i1])
+                            &&
+                            AAX.part_properties[i2].type !== "pose_exclusive"
+                            &&
+                            AAX.part_properties[i2].type !== "pose_getset"
+                        ) {
+                        // doublecheck that each part is complete
+                            console.log("this shouldn't happen");
+                            console.log(i1);
+                            console.log(i2);
+                        }
+                    }
                 }
             }
 			return body;
@@ -5176,7 +5217,7 @@ knee:
  hip: -5, 3, 2
   knee: -0.5, 16.5, -1.5
    ankle: -0.5, 15.5, -0.5
-    toe: -0.5, 0.5, 6.5
+    toe: -0.5, 1.5, 6.5
 ###
 [ pelvis ]
 -3, 2, 4
@@ -5242,26 +5283,25 @@ x
 z
 xz
 // top-front and top-back heptagons
-0, 11, 12
+0, 11, 12 // jaw
 //
 -12, 5, 5
 x
--8, 12, 2
-x
-0, 17, 8
+-8, 12, 2 // jaw
+x // jaw
+0, 17, 8 // jaw (bottom)
 // bottom-front heptagon
 0, 14, -5
 //
--12, 5, -2
-x
+-12, 5, -2 // jaw fulcrum
+x // jaw fulcrum
 // bottom-back heptagon
-// notes for making a jaw:
-// - make a head child whose relative coordinates are [0, 2, -1], aligning with
-//   [-6, 2, -1] and its x inversion
-// - [0, 5, 6] should be duplicated to this shape
-// - [-4, 6, 1], its x inversion, and [0, 8, 4] should be moved to it (account
-//   for the fact that they're relative to [0, 2, -1] now instead of the head's
-//   origin)
+//|
+//0, 0, 0, 10
+//-8, -14, 8
+//|
+//0, 0, 0, 10
+//8, -14, 8
 [ manubrium ]
 0, 0, 0
 [ shoulder ]
@@ -5324,7 +5364,7 @@ neckbase:
 headbase:
 	capsule(8)
 head:
-	generation(0)
+	capsule()
 	silhouette(0b)
 manubrium:
 	generation(0)
@@ -5383,7 +5423,7 @@ knee:
             this.name = name;
             this.cache = structuredClone(AAX.cache_init);
             // initialize pose_exclusive properties
-            this._orient = Quat.new();
+            this._orient = body[name].mirror ? Quat.mirror.x() : Quat.new();
             this._stretch = 1;
             this._widen = 1;
             // create the underscored values of pose_getset properties
@@ -6183,14 +6223,22 @@ knee:
                 // scale
                 _point = Basis.apply(basis, _point).concat(point.slice(3));
                 // orient coordinates
-                if(_point.length >= 6) {
-                // orient orient. (apply view rotation, part orientation.)
+                if(_point.length >= 5) {
+                // orient orient, for any point that isn't a perfect sphere.
+                    _point[5] ??= _point[4];
                     _point[6] ??= Quat.new();
-                    _point[6] = Quat.local_multiply(quat, _point[6])
-                    // start with view rotation, modify by part .orient,
-                    // modify by spheroid orient
-                    //_point[6] = Quat.multiply(_point[6], quat);
-                    //_point[6] = Quat.rotate(_point[6], "xz", view*Math.PI/2);
+                    _point[6] = Quat.local_multiply(quat, _point[6]);
+                    // rotate the quaternion by the part's quaternion
+                    if(line && stretch < 0) {
+                        _point[6].flip = !_point[6].flip;
+                    };
+                    if(widen < 0) {
+                        _point[6].flip = !_point[6].flip;
+                    };
+                    // inverting .flip will invert the basis it creates, so you
+                    // should do that if stretch or widen is negative.
+                    // - the same is true of the part quaternion's flip, but
+                    //   local_multiply already applies that.
                 }
                 return _point;
             };
@@ -6242,7 +6290,7 @@ knee:
                 xz = posmod(xz, 2*Math.PI);
             }
             //orientedshape ??= this.orientedshape;
-            //let points = revolve(view*Math.PI/2, orientedshape, null, "xz");
+            //let points = rotate(orientedshape, "xz", view*Math.PI/2);
             this.cache.oriented ??= this.orientedshape;
             let points = structuredClone(this.cache.oriented);
             for(i1 = 0; i1 < points.length; i1++) {
@@ -6251,8 +6299,8 @@ knee:
                 //let sizemod = AAX.camerarotations(this.abscoor, view, xz, yz)[2];
                 //sizemod = viewer.z_size(viewer.central_z + sizemod);
                 //
-                points[i1] = revolve(xz, points[i1], null, "xz");
-                points[i1] = revolve(yz, points[i1], null, "yz");
+                points[i1] = rotate(points[i1], "xz", xz);
+                points[i1] = rotate(points[i1], "yz", yz);
                 for(i2 = 0; i2 < points[i1].length; i2++) {
                     let ref = points[i1][i2];
                     //for(i3 = 0; i3 < ref.length && i3 < 6; i3++) {
@@ -6267,7 +6315,7 @@ knee:
                     }
                 }
             }
-            const abscoor = revolve(view*Math.PI/2, this.abscoor, null, "xz");
+            const abscoor = rotate(this.abscoor, "xz", view*Math.PI/2);
             // rotated absolute coordinates
             let temp = this["perspective_coor_" + view];
             const _abscoor = [
@@ -6469,17 +6517,28 @@ knee:
         let i3 = 0;
         let partshapes = {};
         // the parts
+        let all_abs = AAX.all_abs(pose);
         for(i1 in pose) {
             partshapes[i1] = [];
             let ref = pose[i1].orientedshape;
             for(i2 = 0; i2 < ref.length; i2++) {
                 for(i3 = 0; i3 < ref[i2].length; i3++) {
-                    partshapes[i1].push(Points.add(structuredClone(ref[i2][i3]), pose[i1].abscoor));
+                    let point = structuredClone(ref[i2][i3]);
+                    point[0] += all_abs[i1][0];
+                    point[1] += all_abs[i1][1];
+                    point[2] += all_abs[i1][2];
+                    partshapes[i1].push(point);
+                    // using Points.add would screw up things past the first
+                    // three items.
+                    //partshapes[i1].push(Points.add(structuredClone(ref[i2][i3]), all_abs[i1]));
                 }
             }
             // combine all groups, and add abscoor
             if(!partshapes[i1].length) {
-                partshapes[i1][0] = [0, 0, 0];
+            // this would add one point at the center of shapeless parts, but...
+            // nah. it looks better and clearer without that. it's more
+            // intuitive for those parts to be omitted entirely.
+                //partshapes[i1].push(structuredClone(all_abs[i1]));
             };
         }
         let groups = [];
@@ -6504,15 +6563,25 @@ knee:
                     }
                 }
                 else if(conn.type === "capsule") {
-                    groups[groups.length - 1] = structuredClone(partshapes[i1]);
+                // capsule makes the part's silhouette concave.
+                    let ref = pose[i1].orientedshape;
+                    for(i2 = 0; i2 < ref.length; i2++) {
+                        groups.push([]);
+                        for(i3 = 0; i3 < ref[i2].length; i3++) {
+                            let point = structuredClone(ref[i2][i3]);
+                            point[0] += all_abs[i1][0];
+                            point[1] += all_abs[i1][1];
+                            point[2] += all_abs[i1][2];
+                            groups[groups.length - 1].push(point);
+                        }
+                    }
                     let parent = pose[i1].parent;
-                    if(parent !== "standpoint") {
+                    if(conn.value && parent !== "standpoint") {
                         let start = pose[i1].abscoor;
                         let end = pose[pose[i1].parent].abscoor;
                         start.push(conn.value);
                         end.push(conn.value);
-                        groups[groups.length - 1].push(start);
-                        groups[groups.length - 1].push(end);
+                        groups.push([start, end]);
                     };
                 };
             }
@@ -6982,7 +7051,7 @@ knee:
                 y: 0,
             },
             // vanishing point
-            range: 180,
+            range: 216,
             camera: {
                 xz: 0,//2*Math.PI/8,
                 yz: 0,
@@ -7069,7 +7138,7 @@ knee:
                 // the central_z is the z where sizes will be about the same as they
                 // are in 2d, so adding this will make it so things more or less
                 // stay put if their z is 0.
-                // - and add the standpoint too, since that's how perspectiveconvert
+                // - and add the standpoint too, since that's how Viewer.convert
                 //   expects it.
                 _point = viewer.convert(..._point);
             };
@@ -7514,9 +7583,62 @@ knee:
             ctx.fillStyle = styletemp;
             ctx.textAlign = aligntemp;
         },
+        basis: function(ctx, x, y, r, basis) {
+        // draws a basis.
+            const styletemp = [ctx.fillStyle, ctx.strokeStyle];
+            ctx.strokeStyle = aa.color.buttons[2];
+            circledraw(ctx, x, y, r, false);
+            let _basis = structuredClone(basis);
+            _basis[0][3] = "x";
+            _basis[1][3] = "y";
+            _basis[2][3] = "z";
+            _basis.sort((a, b) => a[2] - b[2]);
+            // z sort
+            for(let i1 = 0; i1 < 3; i1++) {
+                let axis = "xyz".indexOf(_basis[i1][3]);
+                let color = ["0", "0", "0"];
+                color[axis] = "F";
+                ctx.strokeStyle = "#" + color.join("");
+                //ctx.strokeStyle = ["red", "green", "blue"][ axis ];
+                let back = _basis[i1][2] < 0;
+                linespecial(ctx,
+                    x + (back ? 2/3 : 0)*r*_basis[i1][0], y + (back ? 2/3 : 0)*r*_basis[i1][1],
+                    x + r*_basis[i1][0], y + r*_basis[i1][1],
+                    [x, y]
+                );
+            };
+            ctx.fillStyle = styletemp[0];
+            ctx.strokeStyle = styletemp[1];
+            // draw orient sphere
+        },
+        rotate_axis_setter_disabled: function(pose, partname, basis, select_axis, suffix) {
+        // returns true if the given axis setter button should be disabled.
+        // - basis: aa.control.rotate.basis
+        // - select_axis: aa.control.rotate.select
+        // - NOTE: does not account for whether custom is the current rotate
+        //   type. (all of them should be disabled if not.)
+            if(suffix === "child") {
+                if(!AAX.getchildren(pose, partname).length) {
+                    return true;
+                };
+                let child = AAX.getchildren(pose, partname)[0];
+                return !Math.hypot(...pose[child].relcoor);
+            }
+            else if(suffix === "parent") {
+                return !Math.hypot(...pose[partname].relcoor);
+            }
+            else if(suffix === "cross") {
+                return Points.parallel(
+                    basis[posmod(select_axis + 1, 3)],
+                    basis[posmod(select_axis + 2, 3)]
+                );
+            };
+            return false;
+        },
         color_area: {
             prefix: "color",
-            direction: "d",
+            direction: "r",
+            adjust: 2,
             h: 4,
             actions: [],
             // finished in initialize
@@ -7862,7 +7984,7 @@ knee:
                         drawsettings.range = input;
                     }
                     else {
-                        input = AAX.strings.float(input);
+                        input = readnumber(input);
                         if(input && input > 0) {
                         // must be positive
                             drawsettings.range = input;
@@ -7889,16 +8011,14 @@ knee:
         yz ??= 0;
         etc ??= [];
         etc = Array.isArray(etc) ? etc : [etc];
-        let _point = revolve(
-            yz,
-            revolve(
-                xz + (view ?? 0)*Math.PI/2,
+        let _point = rotate(
+            rotate(
                 point,
-                false,
-                "xz"
+                "xz",
+                xz + (view ?? 0)*Math.PI/2
             ),
-            false,
-            "yz"
+            "yz",
+            yz
         );
         return (
             etc.includes("same floats")
@@ -8268,8 +8388,7 @@ knee:
             let loop = new Loop("AAX.draw drawbasis");
             const styletemp = ctx.strokeStyle;
             ctx.strokeStyle = color.interface[2];
-            let __basis = revolve(view*Math.PI/2, _basis, null, "xz");
-            //revolve(angle, points, center, format)
+            let __basis = rotate(_basis, "xz", view*Math.PI/2);
             let check = Basis.check(__basis);
             if(check) {
             // log it if the lengths are wrong, or the angles between axes
@@ -8605,36 +8724,56 @@ knee:
                             }
                             groups[ group[0] ][ group[1] ] ??= [];
                             // it'll be an array of _2dPoly.getdatas, for now
-                            //
-                            let shape = [];
-                            let list = pose[_i2].silhouettelist;
-                            for(i3 = 0; i3 < list.length; i3++) {
-                                shape = shape.concat(temp[ list[i3] ]);
+                            if(pose[_i2].connection.type === "capsule") {
+                                let image = partimage(pose[_i2], view);
+                                let dim = pose[_i2].dim(perspectived ? view : view%2 ? "right" : "front", image.length);
+                                // gotta convert view to "front"/"right", to
+                                // match where the image came from. if
+                                // applicable.
+                                single[_i2] = {
+                                    rect: Raster.dimrect(...dim),
+                                    within: Raster.rewrite(image, (value) => !!value),
+                                };
+                                // _2dPoly.getdata format.
+                                let node = getnode(view, _i2);
+                                single[_i2].rect.x += node.x - view*ds.cell.w;
+                                single[_i2].rect.y += node.y;
+                                // make it relative to the top left corner of
+                                // the cell
+                                if(pose[_i2].connection.value && pose[_i2].parent !== "standpoint") {
+                                // add capsule
+                                    let r = pose[_i2].connection.value/2;
+                                    let start = getnode(view, _i2);
+                                    let end = getnode(view, pose[_i2].parent);
+                                    start = [
+                                        start.x - view*ds.cell.w,
+                                        start.y
+                                    ];
+                                    end = [
+                                        end.x - view*ds.cell.w,
+                                        end.y
+                                    ];
+                                    // start and end of the capsule
+                                    let temp = Raster.capsule(...start, ...end, r);
+                                    single[_i2] = _2dPoly.mergedata([
+                                        single[_i2],
+                                        {
+                                            rect: {x: temp.x, y: temp.y, w: temp.w, h: temp.h},
+                                            within: temp.raster,
+                                        }
+                                    ]);
+                                    // merge without convexing
+                                }
+                                //console.log(_i2);
+                                //console.log(Raster.totext(single[_i2].within, single[_i2].rect.w));
                             }
-                            single[_i2] = _2dPoly.getdata(_2dPoly.convexed(shape), true, sl_center);
-                            if(pose[_i2].connection.type === "capsule" && pose[_i2].parent !== "standpoint") {
-                            // add capsule
-                                let r = pose[_i2].connection.value/2;
-                                let start = getnode(view, _i2);
-                                let end = getnode(view, pose[_i2].parent);
-                                start = [
-                                    start.x - view*ds.cell.w,
-                                    start.y
-                                ];
-                                end = [
-                                    end.x - view*ds.cell.w,
-                                    end.y
-                                ];
-                                // start and end of the capsule
-                                let temp = Raster.capsule(...start, ...end, r);
-                                single[_i2] = _2dPoly.mergedata([
-                                    single[_i2],
-                                    {
-                                        rect: {x: temp.x, y: temp.y, w: temp.w, h: temp.h},
-                                        within: temp.raster,
-                                    }
-                                ]);
-                                // merge without convexing
+                            else {
+                                let shape = [];
+                                let list = pose[_i2].silhouettelist;
+                                for(i3 = 0; i3 < list.length; i3++) {
+                                    shape = shape.concat(temp[ list[i3] ]);
+                                }
+                                single[_i2] = _2dPoly.getdata(_2dPoly.convexed(shape), true, sl_center);
                             }
                             groups[ group[0] ][ group[1] ].push( structuredClone(single[_i2]) );
                             // add to the data for this combo
@@ -8761,7 +8900,7 @@ knee:
                         basis[_nodes[i1].name],
                         [_nodes[i1].x - view*ds.cell.w, _nodes[i1].y],
                         view,
-                        Quat.axis_magnitude(pose[ _nodes[i1].name ].orient).axis
+                        Quat.axis(pose[ _nodes[i1].name ].orient)
                     );
                 }
             }
@@ -9008,56 +9147,75 @@ knee:
             );
         },
         tilt: function(string) {
-            // array should be an array of strings that start with yz, xz,
-            // or xy, a colon, then a 0 to 1 number. it'll create a
-            // quaternion from that.
-            if(!Array.isArray(string)) {
-                string = string.split(",");
-            };
-            let loop = new Loop("AAX.strings.tilt");
-            if(
-                string.length >= 4
-                &&
-                string[0].startsWith("w:")
-                &&
-                string[1].startsWith("x:")
-                &&
-                string[2].startsWith("y:")
-                &&
-                string[3].startsWith("z:")
-            ) {
-                // written as a quaternion
-                for(let i1 = 0; i1 < 4; i1++) {
-                    loop.tick(1);
-                    string[i1] = AAX.strings.float(string[i1].slice(2));
-                    if(string[i1] === null) {
-                        return null;
-                    }
+        // creates a quaternion from the string.
+            let i1 = 0;
+            string = string.split(",");
+            let invert = [];
+            // array of which flip/mirror command, if any, each line had.
+            // - -1: none
+            // - 0, 1, 2: x/y/z mirror
+            // - this is such a stupid way to structure things, but it's the
+            //   best way to be sure it always does whatever the user
+            //   expected...
+            let literal = [];
+            // used to tell whether it's the {w, x, y, z} style instead of
+            // rotations, and what those values are.
+            for(i1 = 0; i1 < string.length; i1++) {
+                string[i1] = string[i1].trim();
+                if(string[i1].endsWith(" mirror")) {
+                    let temp = string[i1].slice(0, -" mirror".length);
+                    let axis = temp.length === 1 ? "xyz".indexOf(temp) : -1;
+                    invert.push(axis);
                 }
-                loop.end();
-                return {
-                    w: string[0],
-                    x: string[1],
-                    y: string[2],
-                    z: string[3],
+                else {
+                    if(literal) {
+                        if(literal.length < 4 && string[i1].startsWith("wxyz"[literal.length] + ":")) {
+                            literal.push(readnumber(string[i1].slice(2)));
+                        }
+                        else {
+                            literal = null;
+                        };
+                    }
+                    invert.push(-1);
+                }
+            }
+            if(literal && literal.length === 4 && !literal.includes(null)) {
+            // written as a quaternion
+                let quat = {
+                    w: literal[0],
+                    x: literal[1],
+                    y: literal[2],
+                    z: literal[3],
+                    flip: false,
                 };
+                let _invert = [false, false, false];
+                for(i1 = 0; i1 < invert.length; i1++) {
+                    if(invert[i1] !== -1) {
+                        _invert[ invert[i1] ] = !_invert[ invert[i1] ];
+                    };
+                }
+                return Quat.mirror.multi(quat, ..._invert);
             };
             let tilt = null;
             for(let i1 = 0; i1 < string.length; i1++) {
-                loop.tick(1);
-                let rotation = string[i1].split(":");
-                if(rotation.length >= 2) {
-                    let axis = rotation[0].trim();
-                    let angle = AAX.strings.float(rotation[1]);
-                    // can use fractions
-                    if(["yz", "xz", "xy"].includes(axis) && angle%1) {
-                        angle = posmod(angle, 1)*2*Math.PI;
-                        tilt ??= Quat.new();
-                        tilt = Quat.rotate(tilt, axis, angle);
-                    };
+                string[i1] = string[i1].trim();
+                if(invert[i1] !== -1) {
+                    tilt ??= Quat.new();
+                    tilt = Quat.mirror["xyz"[ invert[i1] ]](tilt);
+                }
+                else {
+                    let rotation = string[i1].split(":");
+                    if(rotation.length >= 2) {
+                        let axis = rotation[0].trim();
+                        let angle = posmod(readnumber(rotation[1]) ?? 0, 1);
+                        // can use fractions
+                        if(["yz", "xz", "xy"].includes(axis) && angle) {
+                            tilt ??= Quat.new();
+                            tilt = Quat.rotate(tilt, axis, 2*Math.PI*angle);
+                        };
+                    }
                 }
             }
-            loop.end();
             return tilt;
         },
         shape: function(string) {
@@ -9096,7 +9254,7 @@ knee:
                             let dim = AAX.strings.dimension(point.slice(3, 6));
                             // makes sure they're valid,
                             // returns null if they're not
-                            let tilt = AAX.strings.tilt(point.slice(6));
+                            let tilt = AAX.strings.tilt(point.slice(6).join(","));
                             // quaternion
                             if(coor) {
                                 point = structuredClone(coor);
@@ -9114,11 +9272,11 @@ knee:
                         }
                         else {
                             // duplicate or inversion of a previous point.
-                            let invert = [];
+                            let invert = [false, false, false];
                             for(i3 = 0; i3 < 3; i3++) {
                                 loop.tick(3);
                                 if(point.startsWith("xyz"[i3])) {
-                                    invert[invert.length] = i3;
+                                    invert[i3] = !invert[i3];
                                     point = point.slice(1);
                                 }
                             }
@@ -9160,12 +9318,26 @@ knee:
                                 // this also catches uses of lastreal before the
                                 // first real point.
                                 shape.points[i1][ temp ] = structuredClone(shape.points[ index[0] ][ index[1] ]);
-                                for(i3 = 0; i3 < invert.length; i3++) {
-                                    loop.tick(3);
-                                    shape.points[i1][ temp ][ invert[i3] ] *= -1;
+                                let point = shape.points[i1][ temp ];
+                                for(i3 = 0; i3 < 3; i3++) {
+                                    if(invert[i3]) {
+                                    // position inversion
+                                        point[i3] *= -1;
+                                    }
                                 }
-                                loop.end();
-                                // inversion
+                                if(point.length >= 7) {
+                                // quaternion inversion
+                                // - technically, if it has more than one
+                                //   dimension at all, it should get a
+                                //   quaternion, so it can be flipped.
+                                // - but these are spheroids. perfectly
+                                //   symmetrical shapes. if there's no previous
+                                //   rotations giving it asymmetry, there's no
+                                //   point inverting that nonexistent asymmetry.
+                                    //point[5] ??= point[4];
+                                    //point[6] ??= Quat.new();
+                                    point[6] = Quat.mirror.multi(point[6], ...invert);
+                                };
                             };
                         };
                     };
@@ -9229,6 +9401,8 @@ knee:
                         }
                         else {
                             console.log("this shouldn't happen");
+                            console.log("i: " + [i1, i2, i3].join(", "));
+                            console.log(structuredClone(point));
                         }
                     }
                     text.push(line.join(", "));
@@ -9325,6 +9499,10 @@ knee:
         connection: ["generation", "capsule"],
         view: ["front", "right", 0, 1, 2, 3],
         refresh: ["draw", "ui", "states"],
+        part_properties: ["", "no_default", "body_exclusive", "pose_exclusive", "pose_getset"],
+        // valid part_properties types
+        rotate_type: ["true", "local", "custom"],
+        rotate_axis_setters: "parent child cross true local written".split(" "),
     },
     cache_init: {
         oriented: null,
@@ -9445,16 +9623,6 @@ knee:
         // x, y, z
         let ref = part[(isbody ? "" : "_") + "shape"].points;
         let num = "xyz".indexOf(axis);
-        for(i1 = 0; i1 < ref.length; i1++) {
-            loop.tick(1);
-            for(i2 = 0; i2 < ref[i1].length; i2++) {
-            // mirror all points
-                loop.tick(2);
-                ref[i1][i2][num] *= -1;
-            }
-        }
-        loop.end();
-        // shape
         if(part.image.front) {
             const w = AAX.dim(body, name, "front")[0];
             //const w = AAX.dim(body, name, "front", part.image.front.length)[0];
@@ -9703,15 +9871,6 @@ knee:
             }
         }
         return bounds;
-    },
-    filedate: function() {
-    // returns a date string, to use in file names.
-        let temp = new Date();
-        temp = [temp.getFullYear().toString(), (temp.getMonth() + 1).toString(), temp.getDate().toString()];
-        for(let i1 = 1; i1 < temp.length; i1++) {
-            temp[i1] = "0".repeat(2 - temp[i1].length) + temp[i1];
-        }
-        return temp.join("_");
     },
     save: function(filename, text) {
     // saves a string as a txt file.
@@ -11716,4 +11875,3030 @@ function buttontext(settings, ctx, rect, text, right_text, centering) {
     //
     ctx.fillStyle = old_fill;
     ctx.textAlign = old_align;
+}
+
+class CellToy {
+// an html class for creating an interactable game of life style cellular
+// automata.
+// - structure:
+//   - html: an object of references to various html elements. this is used in
+//     lieu of ids.
+//   - getters/setters linked to html elements and their values
+//     - w, h: canvas size
+//     - dead_color, alive_colors
+//   - ctx
+//   - _paused, paused: value, getter/setter. (the getter/setter just changes
+//     the pause button's text)
+//   - values: array of values for each pixel of the grid. true if the cell is
+//     alive, false if it's dead.
+    constructor(container) {
+        let i1 = 0;
+        let i2 = 0;
+        if(!(container instanceof HTMLElement)) {
+            console.log("invalid input. you must give an html container for everything to go inside.");
+            return;
+        };
+        this.html = {};
+        this.html.container = container;
+        let text = [
+            "<canvas></canvas>",
+            "<br><label><input type=\"checkbox\" name=\"tint\" checked> tint</label>",
+            "<label><input type=\"checkbox\" name=\"afterimages\" checked> afterimages</label>",
+            "<br><button name=\"save image\">save image</button>",
+            "<br><label>rules: <input type=\"text\" name=\"rules\" value=\"3 / 23\" style=\"width: 25em\"></label>",
+            "<label><input type=\"checkbox\" name=\"birth allowed\" checked> birth</label>",
+            "<label><input type=\"checkbox\" name=\"death allowed\" checked> death</label>",
+            "<br><button name=\"pause\">play</button> <button name=\"advance\">advance</button>",
+            "<br><button name=\"clear\">clear</button> <button name=\"save\">save</button> <button name=\"load\">load</button>",
+            "<br><button name=\"noise\">noise</button> <label><input type=\"text\" name=\"noise level\" style=\"width: 6em\" value=\"1/2\"></label>",
+            "<br><label>script: <button name=\"execute\">execute</button>",
+            "<br><textarea name=\"scripting\" rows=18 cols=48></textarea></label>",
+            //"<details>\n\t<summary>tools</summary>\n\t<ul>\n\t\t" + [
+            //].join("\n<br>").replaceAll("\n", "\n\t\t") + "\n\t</ul>\n</details>",
+            "<details>\n\t<summary>settings</summary>\n\t<ul>\n\t\t" + [
+                "<button name=\"change size\">change size</button>",
+                "<label>fps: <input type=\"number\" style=\"width: 4em\" name=\"fps\" value=12></label>",
+                "<label>dead color: <input type=\"text\" name=\"dead color\" value=\"white\"></label>",
+                "<label>alive colors:<br><textarea rows=6 cols=16 name=\"alive colors\" name=\"#000\n#BBB\n#DDD\"></textarea></label>",
+                "<label>birth tint: <input type=\"text\" name=\"birth tint\" value=\"#00FF0055\"></label>",
+                "<label>death tint: <input type=\"text\" name=\"death tint\" value=\"#FF00FFAA\"></label>",
+                "grid:\n<ul>\n\t" + [
+                    "<label>cell: <input type=\"number\" name=\"grid cell\" style=\"width: 4em\" value=2></label> <label>border: <input type=\"number\" name=\"grid border\" style=\"width: 4em\" value=0></label>",
+                    "<label>color: <input type=\"text\" name=\"grid color\" value=\"#00000000\"></label>"
+                ].join("\n\t<br>") + "\n</ul>"
+            ].join("\n<br>").replaceAll("\n", "\n\t\t") + "\n\t</ul>\n</details>",
+            "<details>\n\t<summary>script system</summary>\n\t" + arraytoul([
+                "i wrote a very tiny language for spawning cells. it centers around moving a cursor, and spawning cells relative to it.",
+                "it sounds frivolous, but spawning cells is an ordeal even with a mouse, let alone a touchscreen. this gives much more control.",
+                "actions:",
+                [
+                    "\"center\": moves the cursor to the center of the field.",
+                    "\"move [x] [y]\": moves the cursor.",
+                    [
+                        "if x and y are integers, it'll move that many cells.",
+                        "if x and y are fractions or decimals, it'll be interpreted as a fraction of the field's width/height."
+                    ],
+                    "\"move to [x] [y]: moves to an exact position. (as opposed to moving relative to the cursor's current position.) works the same as move.",
+                    "\"birth [w] [h] [x] [y]\": spawns cells.",
+                    [
+                        "you can omit some or all of these numbers.",
+                        "\"birth\" will spawn one cell, at the current position.",
+                        "\"birth 1 3\" will spawn a 1x3 column of pixels.",
+                        "\"birth 1 3 -2 7\" will spawn a 1x3 column of pixels, but shifted 2 left and 7 down. (the cursor doesn't move.)",
+                        "just like move, you can use fractions for x and y."
+                    ],
+                    "\"death [w] [h] [x] [y]\": kills cells. works exactly the same.",
+                    "\"mark\", \"return\": mark saves the cursor's current position. return brings the cursor back to that position.",
+                    "\"loop [number]\": indent the lines after it, and those lines will be executed as many times as the given number. loops can be nested.",
+                    "\"mirror x [x] [y]\", \"mirror y [x] [y]\", \"mirror xy [x] [y]\": helps you form symmetrical constructs.",
+                    [
+                        "it works like loop, in that it expects indented lines afterward, which mirroring will be applied to.",
+                        "that block of code is executed twice. the first time, it works like normal.",
+                        "the second time, it first goes back to where it was before the mirror block started, adds the offset you specify with [x] and [y], (optional) then...",
+                        "every movement or edit after that will be mirrored relative to that spot."
+                    ]
+                ],
+                "after a loop or mirror block ends, it'll go back to where it was before the loop started.",
+                "you can write \"random\" in place of any coordinates to use a random position anywhere on the grid.",
+                "write \"//\" to make the rest of the line a comment. (ignored by the interpreter.)"
+            ]).replaceAll("\n", "\n\t") + "\n</details>",
+            "<details>\n\t<summary>exception system</summary>\n\t" + arraytoul([
+                "the basic format for rules is that you specify what numbers of alive neighbors will allow a cell to give birth, and what numbers of alive neighbors will allow a cell to survive.",
+                "but i added a system that lets you add exceptions to these rules.",
+                "for example, \"d141:2\".",
+                "d141 describes an exact combination of which cells are alive.",
+                [
+                    "d means to first assume all neighbors are dead.",
+                    "every number represents one alive cell. the number represents how many spots clockwise it is, relative to the previous alive cell. (or relative to the right, if it's the first number.)",
+                    "start from the right...",
+                    "1. move one spot clockwise, to down-right. make down-right alive.",
+                    "4. move four spots clockwise. we start from down-right, so up-left. up-left is alive.",
+                    "1. move one spot clockwise. up is alive.",
+                    "down-right, up-left, and up are alive. all others are dead.",
+                    "if it used an a instead of a d, we would assume all neighbors are alive, and would make them dead. this is more efficient for combinations with more than 4 living neighbors.",
+                    "every combination can be simplified to an a/d letter and 4 numbers or less."
+                ],
+                "if a cell's neighbors meet that exact combination of being alive/dead, it'll do the opposite of whatever the rules originally said.",
+                ":2 describes how you want this combination to be cycled around.",
+                [
+                    "more often than not, if you want an exception for one combination, you want it for all similar combinations too. any combination that's the same thing, just rotated around.",
+                    "by default, it assumes you want this. d04 would create an exception for any combination where there's only two alive neighbors that are on opposite sides.",
+                    "but if you don't, you have plenty of control over it.",
+                    ":0 avoids cycling entirely.",
+                    ":1 cycles by 1, 8 times. this is the default, if you don't write a : number.",
+                    ":2 cycles by 2, 4 times. d0:2 would apply to cells with one cardinal neighbor. d1:2 would apply to cells with one diagonal neighbor.",
+                    ":4 cycles by 4, twice."
+                ],
+                "ambiguity",
+                [
+                    "if you write a rule like \"d02?2:0\"...",
+                    "d022:0 would mean that a cell matches the exception if the right, down, and left neighbors are alive, and all others are dead.",
+                    "but adding that question mark changes it so that down can be alive OR dead. in either case, the exception will apply."
+                ],
+                "if you want to specify which kind of exception it is, you can write a + or - before the a/d.",
+                [
+                    "+ means \"cells that match this formation should be considered within the rules\". - means they shouldn't. you're adding or subtracting to what conditions allow birth/death.",
+                    "if there's no sign, it assumes it should just be changed to the opposite of what it was.",
+                    "this is usually unnecessary. it's just for clarity's sake.",
+                    "except for ambiguity. it's useful for ambiguity. for example, in d02?2... the ambiguity means exceptions are made for two combinations. one of them has 2 neighbors, one of them has 3. while writing it, you're probably trying to make sure that if it matches, it survives, or trying to make sure it doesn't. but what if cells with 2 neighbors usually survive and cells with 3 usually don't? what it actually causes is \"if it matches, make it have the opposite fate of whatever the rules said before\"."
+                ],
+                "and/or exceptions",
+                [
+                    "a different kind of exception. +/- signs can still be used, but that's about all that carries over.",
+                    "here's an example: \"+or(dl, dr)\".",
+                    "dl and dr stand for down-left and down-right. what this exception means is, any cell with an alive down-left neighbor or an alive down-right neighbor qualifies for birth/survival.",
+                    "and(dl, dr) would mean a cell qualifies if both down-left and down-right are alive...",
+                    "there's also !and and !or. it's the same, except a cell only passes if they would fail. (!and means it qualifies unless dl and dr are alive, !or means it qualifies if neither dl or dr are alive.)",
+                    "these exceptions are useful for making the automata move in a certain direction. for example, -!or(dl, d, dr) means birth can only happen if at least one neighbor is dl, d, or dr. new cells are always above the cells that spawned them, so growth always moves upward.",
+                    "you can add plusses to directions to also include the directions next to them. for example, +and(d+) is the same as +and(dl, d, dr), and +or(r++) is the same as +or(u, ur, r, dr, d)."
+                ]
+            ]).replaceAll("\n", "\n\t") + "\n</details>"
+        ].join("\n");
+        //bm.ctx.canvas.style = "width: " + Math.ceil(1*bm.ctx.canvas.width) + "px"
+        container.innerHTML = text;
+        this.html = {
+            canvas: container.querySelector("canvas"),
+            color: {},
+        }
+        let array = [];
+        let temp = container.querySelectorAll("input");
+        for(i1 = 0; i1 < temp.length; i1++) {
+            array.push(temp[i1]);
+        }
+        temp = container.querySelectorAll("textarea");
+        for(i1 = 0; i1 < temp.length; i1++) {
+            array.push(temp[i1]);
+        }
+        for(i1 = 0; i1 < array.length; i1++) {
+            let name = array[i1].name ?? "";
+            if(name.endsWith("color")) {
+                this.html.color[name.slice(0, -"color".length).trim()] = array[i1];
+            }
+            else if(name.endsWith("colors")) {
+                this.html.color[name.slice(0, -"colors".length).trim()] = array[i1];
+            }
+            else {
+                this.html[name.replaceAll(" ", "_")] = array[i1];
+            }
+        }
+        //this.html.color.alive.value = "#000\n#555\n#AAA";
+        this.html.color.alive.value = "#000\n#BBB\n#DDD";
+        this.html.scripting.value = [
+            "center",
+            "mirror y 0 -1",
+            "\t" + [
+                "birth 2 1 -2 0",
+                "birth 1 1 -2 1",
+                "birth 2 1 -5 0",
+                "birth 1 3 0 1",
+                "move -2 4",
+                "birth",
+                "birth 1 1 -1 -1",
+                "move -2",
+                "birth 1 3",
+                "birth 1 1 -1 1",
+                "move -3",
+                "birth 2 1",
+                "move -1 1",
+                "birth",
+                "move -1 1",
+                "birth",
+                "move 1 1",
+                "birth",
+                "move 1 1",
+                "birth",
+                "move 1 -1",
+                "birth 2 1",
+                "move 0 8",
+                "mirror x",
+                "\t" + [
+                    "move -2",
+            		"birth",
+            		"birth 1 1 -2",
+            		"birth 1 1 0 3",
+            		"move -3 4",
+            		"birth 1 -4",
+            		"birth 3 1"
+                ].join("\n\t\t")
+            ].join("\n\t")
+        ].join("\n");
+        this.html.scripting.onkeydown = tabhandler;
+        let buttons = container.querySelectorAll("button");
+        for(i1 = 0; i1 < buttons.length; i1++) {
+            this.html[buttons[i1].name.replaceAll(" ", "_")] = buttons[i1];
+        }
+        //
+        this._w = 128;
+        this._h = 128;
+        let canvas = this.html.canvas;
+        this.ctx = canvas.getContext("2d");
+        canvas.style = "image-rendering: crisp-edges; touch-action: none";
+        this._paused = true;
+        //
+        this.values = [];
+        temp = this.w*this.h;
+        for(i1 = 0; i1 < temp; i1++) {
+            this.values.push(0);
+        };
+        this.formation = structuredClone(this.values);
+        this.history = [];
+        //
+        this.interval = null;
+        //
+        let _this = this;
+        canvas.onclick = function(e) {
+            _this.paused = true;
+            let x = Math.floor(e.clientX - e.target.getBoundingClientRect().left);
+    		let y = Math.floor(e.clientY - e.target.getBoundingClientRect().top);
+            x = Math.floor(x/(_this.grid_size));
+            y = Math.floor(y/(_this.grid_size));
+            if(x < _this.w && y < _this.w) {
+            // don't do anything if they click the right/bottom edge of the
+            // right/bottom cells.
+                let index = y*_this.w + x;
+                _this.values[index] = Number(!_this.values[index]);
+                _this.refresh();
+            }
+        }
+        this.html.pause.onclick = function(e) {
+            _this.paused = !_this.paused;
+            if(_this.paused && _this.tint) {
+                _this.refresh();
+            };
+        }
+        this.html.advance.onclick = function(e) {
+            _this.paused = true;
+            _this.process();
+            _this.refresh();
+        }
+        this.html.clear.onclick = function(e) {
+            _this.paused = true;
+            for(let i1 = 0; i1 < _this.values.length; i1++) {
+                _this.values[i1] = 0;
+            }
+            _this.history = [];
+            _this.refresh();
+        }
+        this.html.save.onclick = function(e) {
+            _this.formation = structuredClone(_this.values);
+        }
+        this.html.load.onclick = function(e) {
+            _this.paused = true;
+            _this.values = structuredClone(_this.formation);
+            _this.history = [];
+            _this.refresh();
+        }
+        this.html.tint.onclick = function(e) {
+            if(_this.paused) {
+                _this.refresh();
+            }
+        }
+        this.html.afterimages.onclick = function(e) {
+            if(_this.paused) {
+                _this.refresh();
+            }
+        }
+        this.html.execute.onclick = function(e) {
+            _this.paused = true;
+            _this.values = _this.interpret(_this.html.scripting.value);
+            _this.history = [];
+            _this.refresh();
+        }
+        this.html.change_size.onclick = function(e) {
+            let value = prompt("enter one or two numbers for the size of the field. (how many cells there are in one row/column.)\n\nchanging the field size will clear the field and the save/load formation.") ?? "";
+            value = value.split(",");
+            value[1] ??= value[0];
+            value = [Number(value[0]), Number(value[1])];
+            let w = Number.isInteger(value[0]) && value[0] > 0 ? value[0] : _this.w;
+            let h = Number.isInteger(value[1]) && value[1] > 0 ? value[1] : _this.h;
+            if(w !== _this.w || h !== _this.h) {
+                _this.paused = true;
+                _this.values = [];
+                for(let i1 = 0; i1 < w*h; i1++) {
+                    _this.values.push(0);
+                };
+                _this.formation = structuredClone(_this.values);
+                _this.history = [];
+                _this.w = w;
+                _this.h = h;
+            }
+        }
+        this.html.noise.onclick = function(e) {
+            let num = readnumber(_this.html.noise_level.value);
+            if(num) {
+                _this.paused = true;
+                for(let i1 = 0; i1 < _this.values.length; i1++) {
+                    if(Math.random() < num) {
+                        _this.values[i1] = Number(!_this.values[i1]);
+                    }
+                }
+                _this.history = [];
+                _this.refresh();
+            }
+        }
+        this.html.save_image.onclick = function(e) {
+            savecanvas(_this.ctx.canvas, "cell toy " + filedate() + " " + _this.html.rules.value.trim().replaceAll("/", "[slash]").replaceAll("?", "'").replaceAll(":", "%") + ".png");
+        }
+        this.html.rules.onchange = function(e) {
+            _this.update_rules();
+            _this.refresh();
+        }
+        this.update_rules();
+        this.refresh();
+    }
+    update_rules() {
+    // reads the rules input and updates the this.birth and this.survive
+    // objects.
+    // - structure of birth and survive: {numbers, exceptions, every}.
+    //   - every is the most important property, and usually the only relevant
+    //     one. it's an array of 256 booleans, each index representing a
+    //     different combination of living neighbors.
+    //     - let's say birth.every[214] is true.
+    //     - CellToy.int_bool(214) = [false, true, true, false, true, false,
+    //       true, true]
+    //     - each of those indexes represents one neighbor, and whether it's
+    //       alive. it starts at the right neighbor, going clockwise.
+    //     - so, the fact that birth.every[214] is true means... if right is
+    //       dead, down-right is alive, down is alive, down-left is dead, left
+    //       is alive, up-left is dead, up is alive, and up-right is alive,
+    //       birth will happen.
+    //     - such a high degree of precision sounds too obtuse to use, but it
+    //       isn't, because i'm godlike like that.
+    //   - numbers is an array of 9 booleans. it's what you'd expect. if
+    //     survive.numbers is [false, false, true, true, false, false, false,
+    //     false], that means before any exceptions were written, the user asked
+    //     for only combinations with 2 or 3 living neighbors to allow survival.
+    //   - exceptions is an array of objects representing exceptions after that.
+    //     - sign: 1 means cells that match this exception should pass the rule.
+    //       -1 means they should fail. 0 means whether it passed or failed
+    //       should be inverted.
+    //     - neighbors: the combination of neighbors it describes. 0 means dead,
+    //       1 means living, -1 means ambiguous.
+    //     - cycle
+        let i0 = 0;
+        let i1 = 0;
+        let i2 = 0;
+        let i3 = 0;
+        let birth_text = this.html.rules.value.split("/");
+        let survive_text = birth_text[1] ?? "";
+        birth_text = birth_text[0];
+        for(i0 = 0; i0 < 2; i0++) {
+            let string = trimunspecial(i0 ? survive_text : birth_text);
+            let numbers = [];
+            let words = [];
+            if(string) {
+                let ranges = block_ranges(string, false, "(", ")");
+                for(i1 = 1; i1 <= ranges.length; i1 += 2) {
+                // for every parentheses block, replace all patches of whitespace
+                // (with or without a comma before) with a comma. this way, it can
+                // be broken up into words better.
+                    let block = string_block(string, ranges, i1);
+                    let offset = block.length;
+                    block = trimunspecial(block.replaceAll(",", " ")).replaceAll(" ", ",");
+                    string = string.slice(0, ranges[i1 - 1]) + block + string.slice(ranges[i1]);
+                    offset = block.length - offset;
+                    for(i2 = i1 + 1; i2 < ranges.length; i2++) {
+                    // adjust the later ranges indexes, so it isn't thrown off
+                    // by the decrease in the block's length
+                        ranges[i2] += offset;
+                    }
+                }
+                words = string.split(" ");
+                let first = words[0];
+                for(i1 = 0; i1 <= 8; i1++) {
+                    if(first.includes(i1 + "")) {
+                        first = first.replace(i1 + "", "");
+                        numbers.push(true);
+                    }
+                    else {
+                        numbers.push(false);
+                    }
+                }
+                if(first) {
+                // the first word had characters besides 0-8 integers. that
+                // means this field probably always fails, (ex: "2 / " never
+                // allows survival) but has an exception. it mistook that for
+                // the number string, just because it's the first word.
+                    numbers = [];
+                    for(i1 = 0; i1 <= 8; i1++) {
+                        numbers.push(false);
+                    }
+                }
+                else {
+                    words = words.slice(1);
+                };
+            }
+            else {
+                for(i1 = 0; i1 <= 8; i1++) {
+                    numbers.push(false);
+                }
+            }
+            // number interpretation done
+            let every = [];
+            for(i1 = 0; i1 < 256; i1++) {
+                let temp = CellToy.int_bool(i1);
+                let count = 0;
+                for(i2 = 0; i2 < temp.length; i2++) {
+                    if(temp[i2]) {
+                        count++;
+                    }
+                }
+                every.push(numbers[count]);
+            }
+            // basic every formation done
+            let exceptions = [];
+            for(i1 = 0; i1 < words.length; i1++) {
+                let word = words[i1];
+                let sign = word.startsWith("+") ? 1 : word.startsWith("-") ? -1 : 0;
+                if(sign) {
+                    word = word.slice(1);
+                };
+                let type = (
+                    word.startsWith("and") ? "and" :
+                    word.startsWith("or") ? "or" :
+                    word.startsWith("!and") ? "!and" :
+                    word.startsWith("!or") ? "!or" :
+                    (word.startsWith("a") || word.startsWith("d")) ? "a/d" :
+                    // put this last, so it doesn't mistake and for a/d.
+                    ""
+                );
+                if(type === "a/d") {
+                    let alive = word.startsWith("a");
+                    word = word.slice(1);
+                    let neighbors = [];
+                    for(i2 = 0; i2 < 8; i2++) {
+                        neighbors.push(Number(alive));
+                    }
+                    let cycle = 1;
+                    let temp = word.indexOf(":");
+                    if(temp !== -1) {
+                        cycle = Number(word.slice(temp + ":".length));
+                        cycle = (Number.isInteger(cycle) && (cycle === 0 || (cycle > 0 && !(8%cycle)))) ? cycle : 1;
+                        word = word.slice(0, temp);
+                    };
+                    let index = 0;
+                    while(word.length) {
+                        if("0123456789".includes(word[0])) {
+                            index = posmod(index + Number(word[0]), 8);
+                            neighbors[index] = Number(!alive);
+                            if(word.length >= 2 && word[1] === "?") {
+                                neighbors[index] = -1;
+                                word = word.slice(1);
+                            };
+                        };
+                        word = word.slice(1);
+                    }
+                    exceptions.push({type, sign, neighbors, cycle});
+                }
+                else if(type) {
+                    word = word.slice(type.length);
+                    if(word.startsWith("(") && word.endsWith(")")) {
+                        word = word.slice(1, -1).split(",");
+                        let neighbors = [];
+                        for(i2 = 0; i2 < 8; i2++) {
+                            neighbors.push(false);
+                        }
+                        const directions = "r dr d dl l ul u ur".split(" ");
+                        for(i2 = 0; i2 < word.length; i2++) {
+                            let plus = 0;
+                            while(word[i2].endsWith("+")) {
+                                word[i2] = word[i2].slice(0, -1);
+                                plus++;
+                            }
+                            let index = directions.indexOf(word[i2]);
+                            if(index !== -1) {
+                                neighbors[index] = true;
+                                for(i3 = 1; i3 <= plus; i3++) {
+                                    neighbors[posmod(index - i3, 8)] = true;
+                                    neighbors[posmod(index + i3, 8)] = true;
+                                }
+                            }
+                        }
+                        exceptions.push({type, sign, neighbors});
+                    };
+                };
+            }
+            // exceptions done
+            for(i1 = 0; i1 < exceptions.length; i1++) {
+                let sign = exceptions[i1].sign;
+                let type = exceptions[i1].type;
+                let neighbors = structuredClone(exceptions[i1].neighbors);
+                if(type === "a/d") {
+                    for(i2 = 0; i2 < neighbors.length; i2++) {
+                        neighbors[i2] = neighbors[i2] === 0 ? false : neighbors[i2] === 1 ? true : neighbors[i2];
+                    }
+                    let combos = [structuredClone(neighbors)];
+                    for(i2 = 0; i2 < neighbors.length; i2++) {
+                        if(neighbors[i2] === -1) {
+                            combos = structuredClone(combos).concat(structuredClone(combos));
+                            for(i3 = 0; i3 < combos.length; i3++) {
+                                combos[i3][i2] = i3 >= combos.length/2;
+                            }
+                        }
+                    }
+                    // to account for ambiguity, multiply the number of
+                    // combinations.
+                    let indexes = [];
+                    let cycle = exceptions[i1].cycle;
+                    for(i2 = 0; i2 < combos.length; i2++) {
+                        //console.log("=");
+                        //console.log(structuredClone(combos[i2]));
+                        let num = CellToy.bool_int(combos[i2]);
+                        if(combos[i2].length !== 8 || combos[i2].includes(-1)) {
+                            console.log("this shouldn't happen");
+                        };
+                        indexes.push(num);
+                        if(cycle) {
+                            for(i3 = 1; i3 < 8/cycle; i3++) {
+                                let array = structuredClone(combos[i2].slice(i3*cycle)).concat( structuredClone(combos[i2].slice(0, i3*cycle)) );
+                                num = CellToy.bool_int(array);
+                                if(!indexes.includes(num)) {
+                                    // if the combination is symmetrical, cycling could
+                                    // create duplicates. that's especially bad if sign
+                                    // is zero, since duplicates would negate the
+                                    // original.
+                                    indexes.push(num);
+                                }
+                            }
+                        }
+                    }
+                    for(i2 = 0; i2 < indexes.length; i2++) {
+                        every[ indexes[i2] ] = sign === -1 ? false : sign === 1 ? true : !every[ indexes[i2] ];
+                    }
+                }
+                else {
+                    for(i2 = 0; i2 < every.length; i2++) {
+                        let array = CellToy.int_bool(i2);
+                        if(
+                            type === "and" ? array.every((element, index) => (neighbors[index] ? array[index] : true)) :
+                            // every index that's true in neighbors is also true
+                            // for the neighbors this every index represents.
+                            type === "or" ? array.some((element, index) => (neighbors[index] && array[index])) :
+                            // at least one index is true in both
+                            type === "!and" ? !array.every((element, index) => (neighbors[index] ? array[index] : true)) :
+                            type === "!or" ? !array.some((element, index) => (neighbors[index] && array[index])) :
+                            // same thing, but it failed
+                            false
+                        ) {
+                            every[ i2 ] = sign === -1 ? false : sign === 1 ? true : !every[ i2 ];
+                        }
+                    }
+                }
+            }
+            this[i0 ? "survive" : "birth"] = {numbers, exceptions, every};
+        }
+    }
+    exceptions_visual() {
+        let rows = [];
+        for(let i0 = 0; i0 < 2; i0++) {
+            rows[4*i0] = i0 ? "survive" : "birth";
+            let ref = this[ rows[4*i0] ];
+            let top = "";
+            let middle = "";
+            let bottom = "";
+            for(let i1 = 0; i1 < ref.every.length; i1++) {
+                let count = 0;
+                let array = CellToy.int_bool(i1);
+                for(let i2 = 0; i2 < array.length; i2++) {
+                    count += array[i2];
+                }
+                if(ref.every[i1] !== ref.numbers[count]) {
+                    top += " " + (array[5] ? "o" : "x") + (array[6] ? "o" : "x") + (array[7] ? "o" : "x");
+                    middle += " " + (array[4] ? "o" : "x") + " " + (array[0] ? "o" : "x");
+                    bottom += " " + (array[3] ? "o" : "x") + (array[2] ? "o" : "x") + (array[1] ? "o" : "x");
+                }
+            }
+            rows[4*i0 + 1] = top;
+            rows[4*i0 + 2] = middle;
+            rows[4*i0 + 3] = bottom;
+        }
+        return rows.join("\n");
+    }
+    static bool_int(array) {
+        let int = 0;
+        for(i1 = 0; i1 < array.length; i1++) {
+            if(array[i1]) {
+                int += 2**i1;
+            }
+        }
+        return int;
+    }
+    static int_bool(int) {
+        int = posmod(Math.floor(int), 256);
+        let array = [];
+        for(let i1 = 0; i1 < 8; i1++) {
+            array.push(int%(2**(i1 + 1)) >= (2**i1));
+        }
+        return array;
+    }
+    get w() {
+        return this._w;
+    }
+    set w(value) {
+        if(Number.isInteger(value) && value > 0) {
+            this._w = value;
+            this.refresh();
+        }
+    }
+    get h() {
+        return this._h;
+    }
+    set h(value) {
+        if(Number.isInteger(value) && value > 0) {
+            this._h = value;
+            this.refresh();
+        }
+    }
+    get fps() {
+        let value = Number(this.html.fps.value);
+        return Number.isInteger(value) && value > 0 ? value : 12;
+    }
+    set fps(value) {
+        if(Number.isInteger(value) && value > 0) {
+            this.html.fps.value = value;
+        }
+    }
+    get dead_color() {
+        return this.html.color.dead.value;
+    }
+    set dead_color(value) {
+        this.html.color.dead.value = value;
+    }
+    get alive_colors() {
+        let array = this.html.color.alive.value.split("\n");
+        for(let i1 = 0; i1 < array.length; i1++) {
+            array[i1] = array[i1].trim();
+            if(!array[i1]) {
+                array.splice(i1, 1);
+                i1--;
+            }
+        }
+        return array.length ? array : ["black"];
+    }
+    set alive_colors(value) {
+        this.html.color.alive.value = value.join("\n");
+    }
+    get afterimages() {
+        return this.html.afterimages.checked;
+    }
+    set afterimages(value) {
+        this.html.afterimages.checked = !!value;
+    }
+    get tint() {
+        return this.html.tint.checked;
+    }
+    set tint(value) {
+        this.html.tint.checked = !!value;
+    }
+    get birth_tint() {
+        return this.html.birth_tint.value;
+    }
+    set birth_tint(value) {
+        this.html.birth_tint.value = value;
+    }
+    get death_tint() {
+        return this.html.death_tint.value;
+    }
+    set death_tint(value) {
+        this.html.death_tint.value = value;
+    }
+    get grid_cell() {
+        let value = Number(this.html.grid_cell.value);
+        return (Number.isInteger(value) && value > 0) ? value : 1;
+    }
+    set grid_cell(value) {
+        if(Number.isInteger(value) && value > 0) {
+            this.html.grid_cell.value = value;
+        }
+    }
+    get grid_border() {
+        let value = Number(this.html.grid_border.value);
+        return (Number.isInteger(value) && value >= 0) ? value : 1;
+    }
+    set grid_border(value) {
+        if(Number.isInteger(value) && value >= 0) {
+            this.html.grid_border.value = value;
+        }
+    }
+    get grid_size() {
+        return this.grid_cell + this.grid_border;
+    }
+    get grid_color() {
+        return this.html.color.grid.value;
+    }
+    set grid_color(value) {
+        this.html.color.grid.value = value;
+    }
+    get paused() {
+        return this._paused;
+    }
+    set paused(value) {
+        if(!!value === this.paused) {
+            return;
+        }
+        this._paused = !!value;
+        if(value) {
+            clearInterval(this.interval);
+            this.interval = null;
+        }
+        else {
+            let _this = this;
+            this.interval = setInterval(function() { _this.process() }, 1000/this.fps);
+        };
+        this.html.pause.innerHTML = value ? "play" : "pause";
+    }
+    interpret(script, values) {
+    // interpreter for a scripting system that lets you place points with a lot
+    // more precision. (also acts as a way of saving formations to text, sorta.)
+    // - i make a microlanguage for like every project i make. it's just fun,
+    //   and so so useful. perfection in versatility and precision.
+    // - returns a new version of this.values, that has applied the described
+    //   changes.
+        values ??= this.values;
+        let _values = structuredClone(values);
+        //
+        script = uncomment(script);
+        script = script.split("\n");
+        for(let i1 = 0; i1 < script.length; i1++) {
+            if(!script[i1].trim()) {
+                script.splice(i1, 1);
+                i1--;
+            }
+        }
+        // empty lines that have the wrong number of indents might disrupt
+        // loop/mirror blocks.
+        let x = 0;
+        let y = 0;
+        let w = this.w;
+        let h = this.h;
+        let mark_x = 0;
+        let mark_y = 0;
+        function readcoor(string, x_mirror, y_mirror) {
+            let coor = trimunspecial(string).split(" ");
+            if(coor.length === 1 && coor[0] === "random") {
+                coor = [
+                    Math.floor((Math.random() - .5)*w),
+                    Math.floor((Math.random() - .5)*h)
+                ];
+            }
+            else {
+                for(let i1 = 0; i1 < 2; i1++) {
+                    let num = readnumber(coor[i1] ?? "0") ?? 0;
+                    coor[i1] = Number.isInteger(num) ? num : Math.trunc((num%1)*(!i1 ? w : h));
+                }
+            }
+            if(x_mirror) {
+                coor[0] *= -1;
+            }
+            if(y_mirror) {
+                coor[1] *= -1;
+            }
+            return coor;
+        }
+        function subscript(script, index) {
+            let _script = [];
+            for(let i1 = index + 1; i1 < script.length && script[i1].startsWith("\t"); i1++) {
+                _script.push(script[i1].slice("\t".length));
+            }
+            return _script;
+        }
+        function interpret(script, x_mirror, y_mirror) {
+            let i1 = 0;
+            let i2 = 0;
+            let i3 = 0;
+            for(i1 = 0; i1 < script.length; i1++) {
+                let line = script[i1].trimEnd();
+                if(line === "center") {
+                    line = "move to .5 .5";
+                };
+                //
+                if(line.startsWith("move")) {
+                    line = line.slice("move".length).trim();
+                    let to = line.startsWith("to");
+                    if(to) {
+                        line = line.slice("to".length).trim();
+                    };
+                    if(line) {
+                        let coor = readcoor(line);
+                        if(to) {
+                            coor[0] -= x;
+                            coor[1] -= y;
+                        };
+                        x = posmod(x + (x_mirror ? -1 : 1)*coor[0], w);
+                        y = posmod(y + (y_mirror ? -1 : 1)*coor[1], h);
+                    };
+                }
+                else if(line.startsWith("birth") || line.startsWith("death")) {
+                    let birth = line.startsWith("birth");
+                    line = line.slice((birth ? "birth" : "death").length).trim();
+                    let _w = 1;
+                    let _h = 1;
+                    let _x = x;
+                    let _y = y;
+                    let sign = [1, 1];
+                    if(line) {
+                        line = trimunspecial(line).split(" ");
+                        line[1] ??= "1";
+                        _w = Number(line[0]);
+                        _h = Number(line[1]);
+                        _w = Number.isInteger(_w) ? _w : 1;
+                        _h = Number.isInteger(_h) ? _h : 1;
+                        //
+                        sign[0] *= Math.sign(_w)*(x_mirror ? -1 : 1);
+                        sign[1] *= Math.sign(_h)*(y_mirror ? -1 : 1);
+                        _w = Math.abs(_w);
+                        _h = Math.abs(_h);
+                        if(line.length > 2) {
+                            let coor = readcoor(line.slice(2, 4).join(" "), x_mirror, y_mirror);
+                            _x += coor[0];
+                            _y += coor[1];
+                        }
+                    }
+                    for(i2 = 0; i2 < _w; i2++) {
+                        for(i3 = 0; i3 < _h; i3++) {
+                            let __x = posmod(_x + sign[0]*i2, w);
+                            let __y = posmod(_y + sign[1]*i3, h);
+                            _values[__y*w + __x] = Number(birth);
+                        }
+                    }
+                }
+                else if(line === "mark") {
+                    mark_x = x;
+                    mark_y = y;
+                }
+                else if(line === "return") {
+                    x = mark_x;
+                    y = mark_y;
+                }
+                else if(line.startsWith("loop")) {
+                    let num = Number(line.slice("loop".length).trim());
+                    if(Number.isInteger(num) && num > 0) {
+                        let _script = subscript(script, i1);
+                        i1 += _script.length;
+                        let _x = x;
+                        let _y = y;
+                        for(i2 = 0; i2 < num; i2++) {
+                            interpret(_script, x_mirror, y_mirror);
+                        }
+                        x = _x;
+                        y = _y;
+                    }
+                }
+                else if(line.startsWith("mirror")) {
+                    line = trimunspecial(line.slice("mirror".length)).split(" ");
+                    if(line[0] === "x" || line[0] === "y" || line[0] === "xy") {
+                        let _script = subscript(script, i1);
+                        i1 += _script.length;
+                        let _x = x;
+                        let _y = y;
+                        interpret(_script, x_mirror, y_mirror);
+                        let coor = readcoor(line.slice(1).join(" "), x_mirror, y_mirror);
+                        x = posmod(_x + coor[0], w);
+                        y = posmod(_y + coor[1], h);
+                        interpret(_script, invertboolean(line[0] === "x" || line[0] === "xy", x_mirror), invertboolean(line[0] === "y" || line[0] === "xy", y_mirror));
+                        x = _x;
+                        y = _y;
+                    }
+                }
+            }
+        }
+        interpret(script);
+        return _values;
+    }
+    advance(values) {
+    // returns the advanced version of the inputted values. (as in, it processes
+    // one frame of births/deaths.)
+        values ??= this.values;
+        let _values = [];
+        let w = this.w;
+        let h = this.h;
+        const birth_allowed = this.html.birth_allowed.checked;
+        const death_allowed = this.html.death_allowed.checked;
+        for(let i1 = 0; i1 < values.length; i1++) {
+            let x = i1%w;
+            let y = Math.floor(i1/w);
+            let index = 0;
+            for(let i2 = 0; i2 < 8; i2++) {
+                let _x = x + Number(posmod(i2 - 7, 8) < 3) - Number(posmod(i2 - 3, 8) < 3);
+                let _y = y + Number(posmod(i2 - 1, 8) < 3) - Number(posmod(i2 - 5, 8) < 3);
+                if(values[posmod(_y, h)*w + posmod(_x, w)]) {
+                    index += 2**i2;
+                };
+            }
+            // refer to the comments under get_rules for how birth/survive
+            // indexes work.
+            _values.push(
+                values[i1]
+                ?
+                ((this.survive.every[index] || !death_allowed) ? values[i1] : 0)
+                :
+                ((this.birth.every[index] && birth_allowed) ? 1 : 0)
+            );
+            // - if it's alive, make it dead if it fails to survive.
+            // - if it's dead, make it alive if there's a birth
+        }
+        let shuffle = 0;
+        for(let i1 = 0; i1 < shuffle; i1++) {
+            let index1 = Math.floor(Math.random()*_values.length);
+            let index2 = Math.floor(Math.random()*_values.length);
+            let temp = structuredClone(_values[index1]);
+            _values[index1] = structuredClone(_values[index2]);
+            _values[index2] = temp;
+        }
+        return _values;
+    }
+    process() {
+    // advances the cells and refreshes.
+        this.history.splice(0, 0, structuredClone(this.values));
+        let temp = this.alive_colors.length - 1;
+        if(this.history.length > temp) {
+            this.history.splice(temp, this.history.length - temp);
+        };
+        this.values = this.advance();
+        this.refresh();
+    }
+    refresh() {
+    // refreshes, showing changes to the cells.
+        let i0 = 0;
+        let i1 = 0;
+        let w = this.w;
+        let h = this.h;
+        let cells = [];
+        // -1: dead in this.values and all of this.history
+        // 0: alive in this.values
+        // [positive integers]: alive in this.history[number - 1], but not
+        // this.values or any lower this.history grids
+        for(i1 = 0; i1 < w*h; i1++) {
+            cells.push(this.values[i1] ? 0 : -1);
+        }
+        if(this.afterimages) {
+            for(i0 = 0; i0 < this.history.length; i0++) {
+                for(i1 = 0; i1 < w*h; i1++) {
+                    if(cells[i1] === -1 && this.history[i0][i1]) {
+                        cells[i1] = i0 + 1;
+                    }
+                }
+            }
+        }
+        let grid_cell = this.grid_cell;
+        let grid_border = this.grid_border;
+        let grid_size = this.grid_size;
+        let _w = grid_size*this.w + grid_border;
+        let _h = grid_size*this.h + grid_border;
+        this.html.canvas.width = _w;
+        this.html.canvas.height = _h;
+        this.ctx.fillStyle = this.grid_color;
+        this.ctx.clearRect(0, 0, _w, _h);
+        this.ctx.fillRect(0, 0, _w, _h);
+        let coor = function(index) {
+            let x = i1%w;
+            let y = Math.floor(i1/w);
+            return [
+                grid_size*x + grid_border,
+                grid_size*y + grid_border
+            ];
+        };
+        let dead = this.dead_color;
+        let alive = this.alive_colors;
+        for(i1 = 0; i1 < cells.length; i1++) {
+            this.ctx.fillStyle = cells[i1] === -1 ? dead : alive[ cells[i1] ];
+            this.ctx.clearRect(...coor(i1), grid_cell, grid_cell);
+            this.ctx.fillRect(...coor(i1), grid_cell, grid_cell);
+        }
+        if(this.paused && this.tint) {
+        // birth/death tint
+            let advance = this.advance();
+            for(i1 = 0; i1 < advance.length; i1++) {
+                let x = i1%w;
+                let y = Math.floor(i1/w);
+                if(advance[i1] && !this.values[i1]) {
+                    this.ctx.fillStyle = this.birth_tint;
+                    this.ctx.fillRect(...coor(i1), grid_cell, grid_cell);
+                }
+                else if(!advance[i1] && this.values[i1]) {
+                    this.ctx.fillStyle = this.death_tint;
+                    this.ctx.fillRect(...coor(i1), grid_cell, grid_cell);
+                };
+            }
+        }
+    }
+}
+
+function savecanvas(canvas, filename) {
+// saves the given canvas as an image.
+// - for some reason, saving canvases the normal way doesn't work anymore! at
+//   least for me.
+    filename ??= filedate() + ".png";
+    let downloader = document.createElement("a");
+    downloader.href = canvas.toDataURL("image/png").replace("image/png", "image/octet-stream");
+    downloader.download = filename;
+    downloader.click();
+}
+
+//
+
+function get2dline(x1, y1, x2, y2) {
+// standard form. Ax + By + C = 0. this is A, B, and C.
+    //(y1 - y2)x + (x2 - x1)y + (x1*y2 - x2*y1) = 0
+    let line = get2dangle(x2 - x1, y2 - y1);
+    line = [
+        Math.cos(line + Math.PI/2),
+        Math.sin(line + Math.PI/2)
+    ];
+    line[2] = -(x1*line[0] + y1*line[1]);
+    return line;
+}
+function fourpointintersect(x1, y1, x2, y2, x3, y3, x4, y4, shush, segmentsintersect) {
+// finds the intersection between a line that crosses point 1 and point
+// 2 and a line that cross point 3 and point 4, returning it as an array
+// - shush: returns a string of what went wrong instead of logging an error
+// - segmentsintersect: makes it add another item to the array, a boolean
+//   for whether the intersection is within the line segments specified.
+    let i1 = 0;
+    if((x1 === x2 && y1 === y2) || (x3 === x4 && y3 === y4)) {
+        if(shush) {
+            return "point";
+        }
+        else {
+            console.log("invalid input. one or both lines begin and end at the same point.");
+            return;
+        };
+    }
+    let lineA = get2dline(x1, y1, x2, y2, true);
+    let lineB = get2dline(x3, y3, x4, y4, true);
+    //let temp = new Line(x1, y1, 0, [posmod(get2dangle(lineA[0], lineA[1]) + Math.PI/2, 2*Math.PI), 0]).planeintersect(new Plane(lineB[0], lineB[1], 0, lineB[2])).slice(0, 2);
+    //console.log(temp);
+    //return temp;
+    let x = null;
+    let y = null;
+    if(lineA[0]/lineA[1] === lineB[0]/lineB[1]) {
+    // same slope
+        if(lineA[2] === lineB[2]) {
+        // average all points
+            x = ((x1 + x2)/2 + (x3 + x4)/2)/2;
+            y = ((y1 + y2)/2 + (y3 + y4)/2)/2;
+            return [x, y];
+        }
+        else {
+            if(shush) {
+                return "parallel";
+            }
+            else {
+                console.log("lines are parallel.");
+                return;
+            };
+        };
+    };
+    y = (lineA[0]*lineB[2] - lineB[0]*lineA[2])/(lineB[0]*lineA[1] - lineA[0]*lineB[1]);
+    x = [
+        -(lineA[1]*y + lineA[2])/lineA[0],
+        -(lineB[1]*y + lineB[2])/lineB[0]
+    ];
+    if(!shush && Math.abs(x[0] - x[1]) > .0000000001) {
+        console.log(x);
+    }
+    x = x[0];
+    if(segmentsintersect) {
+        let temp = (
+            Math.min(x1, x2) <= x && x <= Math.max(x1, x2)
+            &&
+            Math.min(y1, y2) <= y && y <= Math.max(y1, y2)
+            &&
+            Math.min(x3, x4) <= x && x <= Math.max(x3, x4)
+            &&
+            Math.min(y3, y4) <= y && y <= Math.max(y3, y4)
+        );
+        return [x, y, temp];
+    }
+    else {
+        return [x, y];
+    };
+}
+//function finddistance(x1, y1, x2, y2) {
+//	return Math.sqrt((x2-x1)**2 + (y2-y1)**2);
+//}
+// just use Math.hypot((x2 - x1), (y2 - y1))
+function easing(time, inorout, curve, overshoot/*[peak, time, inorout]*/, value1, value2) {
+// - curve: string for which kind of curve it is.
+//   - linear, sine, circ, square, cube, quart, quint
+//   - most of those have alternate names, look at the altnames constant in
+//     there
+// - overshoot
+//   - peak: the value it is when it peaks. (it goes from value1 to this to
+//     value2.) (value1 + 1.25*(value2 - value1) by default)
+//   - time: the time it peaks (that is, when it's value2) (.5 by default)
+//   - by default, inorout is the same as the original inorout, but
+//     inverted. (in becomes out, out becomes in. in/out and out/in are
+//     unchanged)
+//     - this is because generally, peak to value2 is in the opposite
+//       direction as value1 to value2.
+    time = Math.min(Math.max(0, time), 1);
+    inorout = ["in", "out", "in/out", "out/in"].includes(inorout) ? inorout : "in";
+    if(typeof curve !== "number" && !["linear", "sine", "circ", "square", "cube", "quart", "quint"].includes(curve)) {
+        const altnames = {
+            circ: ["circular", "circle"],
+            sine: ["sin"],
+            square: ["^2", "**2"],
+            cube: ["^3", "**3", "cubic", "cubed"],
+            quart: ["^4", "**4"],
+            quint: ["^5", "**5"],
+        };
+        let temp = false;
+        let i1 = 0;
+        for(i1 in altnames) {
+            if(altnames.hasOwnProperty(i1) && altnames[i1].includes(curve)) {
+                temp = true;
+                curve = i1;
+            };
+        }
+        if(!temp) {
+            curve = "sine";
+        };
+    }
+    value1 = typeof value1 === "number" ? value1 : 0;
+    value2 = typeof value2 === "number" ? value2 : 1;
+    if(overshoot) {
+        if(!Array.isArray(overshoot)) {
+            overshoot = [];
+        };
+        let os = {
+            peak: overshoot[0] ?? (value1 + 1.25*(value2 - value1)),
+            time: overshoot[1] ?? .5,
+            inorout: overshoot[2] ?? {
+                in: "out",
+                out: "in",
+                "out/in": "out/in",
+                "in/out": "in/out",
+            }[inorout],
+        };
+        if(os.peak !== value2 && os.time !== 1) {
+        // those might cause divide by zero errors, and the result is the
+        // same as if it wasn't there
+            if(time <= os.time) {
+                time /= os.time;
+                value2 = os.peak;
+            }
+            else {
+                time = (time - os.time)/(1 - os.time);
+                return easing(time, os.inorout, curve, false, os.peak, value2);
+            }
+        }
+    }
+    inorout = ["in", "out", "in/out", "out/in"].includes(inorout) ? inorout : "in";
+    if(["in/out", "out/in"].includes(inorout)) {
+        inorout = inorout.split("/");
+        if(time < .5) {
+            inorout = inorout[0];
+            value2 = (value1 + value2)/2;
+        }
+        else {
+            time -= .5;
+            inorout = inorout[1];
+            value1 = (value1 + value2)/2;
+        }
+        time *= 2;
+    };
+    if(curve === "sine") {
+        inorout = {in: "out", out: "in"}[inorout];
+    };
+    if(inorout === "out") {
+        time = 1 - time;
+    };
+    let endvalue = null;
+    if(typeof curve === "number") {
+        endvalue = time**curve;
+    }
+    else if(curve === "linear") {
+        endvalue = time;
+    }
+    else if(curve === "sine") {
+        endvalue = Math.sin(time*Math.PI/2);
+    }
+    else if(curve === "circ") {
+        // a**2 + b**2 = c**2
+        // time**2 + (1 - end)**2 = r**2
+        // (1 - end)**2 = 1 - time**2
+        // (1 - end) = Math.sqrt(1 - time**2)
+        // end = 1 - Math.sqrt(1 - time**2)
+        endvalue = 1 - Math.sqrt(1 - time**2);
+    }
+    else if(["square", "cube", "quart", "quint"].includes(curve)) {
+        endvalue = time**( ["square", "cube", "quart", "quint"].indexOf(curve) + 2 );
+    };
+    if(inorout === "out") {
+        endvalue = 1 - endvalue;
+    };
+    return value1 + endvalue*(value2 - value1);
+}
+function wave(place, wavetype, equil, crest, invert) {
+// 0, .5, and 1 are equilibrium, .25 is crest, .75 is trough
+// - except sawtooth.
+    place = posmod(place, 1);
+    if(!["sine", "circ", "square", "tri", "saw"].includes(wavetype)) {
+        const altnames = {
+            sine: ["sin"],
+            circ: ["circular", "circle"],
+            square: ["sq"],
+            tri: ["triangle"],
+            saw: ["sawtooth"],
+        }
+        let temp = false;
+        let i1 = 0;
+        for(i1 in altnames) {
+            if(altnames.hasOwnProperty(i1) && altnames[i1].includes(wavetype)) {
+                temp = true;
+                wavetype = i1;
+            };
+        }
+        if(!temp) {
+            wavetype = "sine";
+        };
+    }
+    equil ??= 0;
+    crest ??= 1;
+    let amp = (crest - equil)*(invert ? -1 : 1);
+    //*
+    let endvalue = (
+        wavetype === "sine" ? Math.sin(2*Math.PI*place) :
+        wavetype === "circ" ? (
+            place < .5
+            ?
+            Math.sqrt(1 - (4*Math.abs(.25 - place))**2)
+            :
+            -Math.sqrt(1 - (4*Math.abs(.75 - place))**2)
+        ) :
+        wavetype === "square" ? (place < .5 ? 1 : -1) :
+        wavetype === "tri" ? (1 - Math.abs(4*((place + .25)%1) - 2)) :
+        wavetype === "saw" ? 2*(place - .5) :
+        0
+    );
+    //*/
+    /*
+    let endvalue = 0;
+    if(wavetype === "sine") {
+        endvalue = Math.sin(2*Math.PI*place);
+    }
+    else if(wavetype === "circ") {
+        endvalue = (
+            place < .5
+            ?
+            Math.sqrt(1 - (4*Math.abs(.25 - place))**2)
+            :
+            -Math.sqrt(1 - (4*Math.abs(.75 - place))**2)
+        );
+    }
+    else if(wavetype === "square") {
+        endvalue = (place < .5 ? 1 : -1);
+    }
+    else if(wavetype === "triangle") {
+        endvalue = (1 - Math.abs(4*((place + .25)%1) - 2));
+    }
+    else if(wavetype === "saw") {
+        endvalue = 2*(place - .5);
+    };
+    //*/
+    /*
+    if(["sine", "circ", "triangle"].includes(wavetype)) {
+        easing((time + .75)%1, "in/out", (wavetype === "triangle" ? "linear" : wavetype), [crest], trough, trough)
+    }
+    else if(wavetype === "square") {
+        return
+        easing((time + .75)%1, "in/out", "sine", [crest], trough, trough)
+    }
+    screw this, it'd be slower
+    */
+    return equil + amp*endvalue;
+}
+function copy(ctx, x, y, w, h, background) {
+// getImageData and putImageData have the small gigantic flaw of fully
+// replacing what's there without factoring in transparency at all. this and
+// paste are an alternative that does.
+// - background: if this is a color, (whether a string or an array) any
+//   pixels of that color exactly will be saved with zero opacity.
+    let i1 = 0;
+    let i2 = 0;
+    x = Math.floor(x);
+    y = Math.floor(y);
+    w = Math.floor(w);
+    h = Math.floor(h);
+    if(w === 0 || h === 0) {
+        return {w: 0, h: 0};
+    };
+    if(w < 0) {
+        x += w;
+        w *= -1;
+    };
+    if(h < 0) {
+        y += h;
+        h *= -1;
+    };
+    if(x < 0) {
+        w += x;
+        x = 0;
+    };
+    if(y < 0) {
+        h += y;
+        y = 0;
+    };
+    let canvas_w = ctx.canvas.width;
+    let canvas_h = ctx.canvas.height;
+    if(x + w >= canvas_w) {
+        w = canvas_w - x;
+    };
+    if(y + h >= canvas_h) {
+        h = canvas_h - y;
+    };
+    if(typeof background === "string") {
+        background = Color.rgb(ctx, background);
+    };
+    if(Array.isArray(background) && background.length === 3) {
+        background[3] = 255;
+    };
+    background = (
+        Array.isArray(background) && background.length === 4
+        ?
+        new Uint8ClampedArray(background)
+        :
+        null
+    );
+    // it fails if i don't do this. if i had to guess, special
+    // "unsigned" "clamped" numbers don't count as the same as their
+    // normal counterparts.
+    let copydata = {w, h};
+    let imagedata = ctx.getImageData(x, y, w, h);
+    for(i1 = 0; i1 < imagedata.data.length; i1 += 4) {
+        let color = imagedata.data.slice(i1, i1 + 4);
+        if(compareobject(color, background)) {
+            color[3] = 0;
+        };
+        copydata[Math.round(i1/4)] = new Uint8ClampedArray(color);
+        // using this class should save space or prevent invalids or
+        // something. probably.
+    }
+    return copydata;
+};
+function paste(ctx, x, y, copydata) {
+// copydata: data returned by copy().
+    let i1 = 0;
+    let i2 = 0;
+    let i3 = 0;
+    let styletemp = ctx.fillStyle;
+    let imagedata = ctx.getImageData(x, y, copydata.w, copydata.h);
+    for(i1 = 0; i1 < copydata.w; i1++) {
+        for(i2 = 0; i2 < copydata.h; i2++) {
+            let index = i2*copydata.w + i1;
+            let color = new Uint8ClampedArray(copydata[index]);
+            if(color[3] !== 0) {
+                if(color[3] !== 255) {
+                    let under = imagedata.data.slice(index*4, (index + 1)*4);
+                    for(i3 = 0; i3 < 3; i3++) {
+                        const temp = under[i3] + Math.round((color[i3] - under[i3])*color[3]/255);
+                        console.log(under[i3] - temp);
+                        color[i3] = temp;
+                        //rgb = rgb1 + (rgb2 - rgb1)*alpha2;
+                    }
+                    color[3] = 255 - ((255 - under[3]) * (255 - color[3])/255);
+                    //alpha = 255 - ((255 - color1) * (255 - color2)/255);
+                };
+                ctx.fillStyle = "rgba(" + color.slice(0, 3) + "," + color[3]/255 + ")";
+                ctx.clearRect(x + i1, y + i2, 1, 1);
+                ctx.fillRect(x + i1, y + i2, 1, 1);
+            };
+        }
+    }
+    ctx.fillStyle = styletemp;
+}
+function linespecial(code, x1, y1, x2, y2, center) {
+/*
+linespecial(ctx, x1, y1, x2, y2, center)
+linespecial(function(x, y, progress) {
+    //
+}, x1, y1, x2, y2, center)
+//*/
+// draws a line or runs a function on a line. it's like nonaaline, except it
+// doesn't suck as bad. it tries to make it as symmetrical as possible.
+// - code: function you want to run for each coordinate. the only arguments
+//   should be x, y, and progress. (ie if the point is at the beginning or
+//   end of the line. a 0 to 1 number.)
+//   - if this is a canvas context, instead it'll draw a line one pixel
+//     wide, using the strokeStyle.
+//   - if this is null, it'll just return the points array.
+// - center: a coordinate array. if it has to choose between two pixels,
+//   it'll choose the one further from this.
+    let i1 = 0;
+    let i2 = 0;
+    center ??= [0, 0];
+    center[0] = Math.floor(center[0]);
+    center[1] = Math.floor(center[1]);
+    const SER = SL.start_end_rounding(x1, y1, x2, y2, center);
+    x1 = SER[0];
+    y1 = SER[1];
+    x2 = SER[2];
+    y2 = SER[3];
+    let points = [];
+    // list of coordinates to iterate over in order to draw a line or whatever you're doing
+    if(x1 === x2 && y1 === y2) {
+        points[0] = [x1, y1];
+    }
+    else if(x1 === x2) {
+        const sign = Math.sign(y2 - y1);
+        for(i1 = y1; Math.sign(y2 - i1) === sign || i1 === y2; i1 += sign) {
+            points[points.length] = [x1, i1];
+        }
+    }
+    else if(y1 === y2) {
+        const sign = Math.sign(x2 - x1);
+        for(i1 = x1; Math.sign(x2 - i1) === sign || i1 === x2; i1 += sign) {
+            points[points.length] = [i1, y1];
+        }
+    }
+    else {
+        let temp = [
+            Math.abs(x1 - x2) + 1,
+            Math.abs(y1 - y2) + 1
+        ];
+        const axisA = Number(temp[1] > temp[0]);
+        // longer axis (0 means x, 1 means y)
+        const axisB = Number(!axisA);
+        // shorter axis
+        const dim = {
+            0: temp[0],
+            1: temp[1],
+            get a() {
+                return this[axisA];
+            },
+            get b() {
+                return this[axisB];
+            },
+        };
+        let linenum = [];
+        // an array of segment lengths to create the line. (for example, an
+        // 8 w 3 y line would be [3, 2, 3]) used to create the points.
+        if(dim.a%dim.b === 0) {
+        // avoids divide by zero errors, saves time
+            let segment = Math.round(dim.a/dim.b);
+            for(i1 = 0; i1 < dim.b; i1++) {
+                linenum[i1] = segment;
+            };
+        }
+        else {
+            function bleah(dimA, dimB) {
+            // tries to make linenum arrays like [4, 3, 4, 3, 4] or [2, 2,
+            // 1, 2, 2].
+                let i1 = 0;
+                let i2 = 0;
+                if(
+                    dimA <= 0
+                    ||
+                    !Number.isInteger(dimA)
+                    ||
+                    dimB <= 0
+                    ||
+                    !Number.isInteger(dimB)
+                ) {
+                    console.log("invalid input.");
+                    return;
+                };
+                if(dimB > dimA) {
+                    const temp = numA;
+                    numA = numB;
+                    numB = temp;
+                }
+                let num1 = dimA%dimB;
+                let num2 = dimB - num1;
+                let value1 = Math.floor(dimA/dimB) + 1;
+                let value2 = value1 - 1;
+                if(num1 === num2) {
+                    let array = [];
+                    for(i1 = 0; i1 < num1; i1++) {
+                        array[array.length] = value1;
+                        array[array.length] = value2;
+                    };
+                    return array;
+                }
+                else if(num2 > num1) {
+                    let temp = num1;
+                    num1 = num2;
+                    num2 = temp;
+                    temp = value1;
+                    value1 = value2;
+                    value2 = temp;
+                };
+                // there's two lengths, 1 and 2. 1 is whichever there will
+                // be more of. num1 and value1 are how many there will be of
+                // length 1 and how long it is, num2 and value2 are the same
+                // for length 2.
+                let quotient = Math.floor(num1/(num2 + 1));
+                // how many num1s there should be between num2s.
+                let remainder = num1%(num2 + 1);
+                // how many times there should be one more num1.
+                let array = [];
+                for(i1 = 0; i1 <= num2; i1++) {
+                    for(i2 = 0; i2 < quotient + !!remainder; i2++) {
+                        array[array.length] = value1;
+                    }
+                    if(remainder) {
+                        remainder--;
+                    };
+                    if(i1 !== num2) {
+                        array[array.length] = value2;
+                    }
+                }
+                return array;
+            };
+            const gcf = mathgcf([dim.a, dim.b], true);
+            if(gcf !== 1) {
+                let temp = bleah(dim.a/gcf, dim.b/gcf);
+                for(i1 = 0; i1 < gcf; i1++) {
+                    linenum = linenum.concat(temp);
+                };
+            }
+            else {
+                linenum = bleah(dim.a, dim.b);
+            }
+        }
+        //console.log("(" + dim[0] + ", " + dim[1] + ") linenum: " + linenum);
+        temp = 0;
+        for(i1 = 0; i1 < linenum.length; i1++) {
+            temp += linenum[i1];
+        }
+        if(temp !== dim.a) {
+            console.log("this shouldn't happen");
+        };
+        // linenum is complete, time to make the points.
+        let coor = [x1, y1];
+        let sign = {
+            0: Math.sign(x2 - x1),
+            1: Math.sign(y2 - y1),
+            get a() {
+                return this[axisA];
+            },
+            get b() {
+                return this[axisB];
+            },
+        };
+        for(i1 = 0; i1 < linenum.length; i1++) {
+            for(i2 = 0; i2 < linenum[i1]; i2++) {
+                points[points.length] = structuredClone(coor);
+                coor[axisA] += sign.a;
+            }
+            coor[axisB] += sign.b;
+        }
+        coor[axisA] -= sign.a;
+        coor[axisB] -= sign.b;
+        const diff = [
+            Math.abs(coor[0] - x2),
+            Math.abs(coor[1] - y2)
+        ];
+        if(diff[0] || diff[1]) {
+            console.log("difference: " + Math.hypot(...diff));
+        };
+        function inverse(x, y) {
+            const midpoint = [
+                (x1 + x2)/2,
+                (y1 + y2)/2
+            ];
+            return [
+                Math.round(-1*(x - midpoint[0]) + midpoint[0]),
+                Math.round(-1*(y - midpoint[1]) + midpoint[1])
+            ];
+        };
+        let _points = [];
+        for(i1 = points.length - 1; i1 >= 0; i1--) {
+            _points[_points.length] = inverse(...points[i1]);
+        };
+        // this should be the same thing but flipped 180.
+        for(i1 = 0; i1 < points.length; i1++) {
+        // compare each point's coordinate b to the inverse version's
+        // coordinate b, and redefine the coordinate b accordingly.
+        // - if the midpoint is an integer, use that.
+        // - otherwise, choose whichever is further from the center.
+        // - and if both distances are equal, choose whichever is lower.
+            if(points[i1][axisA] !== _points[i1][axisA]) {
+                console.log("this shouldn't happen: " + (points[i1][axisA] - _points[i1][axisA]));
+            };
+            let b = [
+                points[i1][axisB],
+                _points[i1][axisB]
+            ];
+            let diff = Math.abs(b[0] - b[1]);
+            if(diff === 0) {
+            }
+            else if(diff%2 === 0) {
+                //console.log("benign error. (" + dim.a + " x " + dim.b + ")");
+                points[i1][axisB] = Math.round((b[0] + b[1])/2);
+            }
+            else {
+                if(diff >= 2) {
+                    //console.log("benign error. (" + dim.a + " x " + dim.b + ")");
+                    b = [
+                        Math.floor((b[0] + b[1])/2),
+                        Math.ceil((b[0] + b[1])/2)
+                    ];
+                };
+                let dists = [
+                    Math.abs(center[axisB] - b[0]),
+                    Math.abs(center[axisB] - b[1])
+                ];
+                points[i1][axisB] = (
+                    dists[0] > dists[1]
+                    ?
+                    b[0]
+                    :
+                    (
+                        dists[1] > dists[0]
+                        ?
+                        b[1]
+                        :
+                        Math.min(...b)
+                    )
+                );
+            }
+        };
+    }
+    // points array is done.
+    if(code instanceof CanvasRenderingContext2D) {
+        let styletemp = code.fillStyle;
+        code.fillStyle = code.strokeStyle;
+        for(i1 = 0; i1 < points.length; i1++) {
+            code.fillRect(...points[i1], 1, 1);
+        }
+        code.fillStyle = styletemp;
+    }
+    else if(code === null) {
+        return points;
+    }
+    else {
+        for(i1 = 0; i1 < points.length; i1++) {
+            code(...points[i1], i1/(points.length - 1));
+        }
+    }
+};
+let SL = {
+// "special line". pseudoclass for an endless lines that use linespecial's
+// algorithm.
+// =
+// structure:
+// - x, y, w, h: the boundaries of the linespecial. w and h are always
+//   positive, and x and y are always the up-left corner.
+// - values: numbers used to check where a point is relative to the line.
+//   - indexes are axisA - line[axisA] (longer dimension)
+//   - values are axisB - line[axisB] (shorter dimension)
+//   - subtract line x/y from a point, remainder by w/h
+//   - if the point's axisB matches values[axisA], it's on the line.
+// - points are checked through this process:
+//   - subtract line.x and line.y
+//   - create a grid of sorts with the w and h
+//     - divide by them to see if it's even on a sector the line passes
+//       through
+//     - if it is, posmod by w and h and compare point[axisB] to
+//       line.values[ point[axisA] ].
+    start_end_rounding: function(x1, y1, x2, y2, center) {
+    // used in linespecial. it's here to avoid DRY.
+        x1 = Math.round(x1*2)/2;
+        y1 = Math.round(y1*2)/2;
+        x2 = Math.round(x2*2)/2;
+        y2 = Math.round(y2*2)/2;
+        // round to the nearest .5
+        for(i1 = 0; i1 < 4; i1++) {
+        // for .5s, round to whatever integer is closer to the other end of the
+        // line. (this way, where the pixel is will depend on the direction of
+        // the line, but it'll always use the corner you indicated.)
+        // - or if they line up, move further from the center.
+        //   - this code used to be only four lines before i accounted for that.
+            let num = [x1, y1, x2, y2][i1];
+            if(!Number.isInteger(num)) {
+            // putting this in a conditional saves just a little bit of trouble.
+                let temp = Math.sign([x2, y2, x1, y1][i1] - num);
+                temp = temp ? temp : Math.sign(num - center[i1%2]);
+                // sign that brings it closer to the other end, or further from the
+                // center.
+                num = Math[temp === 1 ? "ceil" : "floor"](num);
+                if(i1 === 0) {
+                    x1 = num;
+                }
+                else if(i1 === 1) {
+                    y1 = num;
+                }
+                else if(i1 === 2) {
+                    x2 = num;
+                }
+                else if(i1 === 3) {
+                    y2 = num;
+                };
+            }
+        }
+        return [x1, y1, x2, y2];
+    },
+    new: function(x1, y1, x2, y2, center) {
+        let i1 = 0;
+        let line = {};
+        let array = [];
+        linespecial(function(x, y, progress) { array[array.length] = [x, y] }, x1, y1, x2, y2, center);
+        let temp = [
+            array[0],
+            array[array.length - 1]
+        ];
+        line.x = Math.min(temp[0][0], temp[1][0]);
+        line.y = Math.min(temp[0][1], temp[1][1]);
+        line.w = Math.max(temp[0][0], temp[1][0]) - line.x;
+        line.h = Math.max(temp[0][1], temp[1][1]) - line.y;
+        // guarantee positive dimensions
+        const axisA = Number(line.h > line.w);
+        const axisB = (axisA + 1)%2;
+        const dimA = line["wh"[axisA]];
+        const coorA = line["xy"[axisA]];
+        const coorB = line["xy"[axisB]];
+        line.values = [];
+        for(i1 = 0; i1 < dimA; i1++) {
+            line.values[i1] = null;
+        }
+        for(i1 = 0; i1 < array.length; i1++) {
+            let temp = array[i1][axisA] - coorA;
+            line.values[temp] = array[i1][axisB] - coorB;
+        }
+        // subtract coorA/B so it starts at zero
+        return line;
+    },
+    A_to_B: function(_this, coorA) {
+    // input an coorA, and you get a value, which is axisB. coorB minus this
+    // is the sign.
+        const axisA = Number(_this.h > _this.w);
+        const axisB = (axisA + 1)%2;
+        const dimA = _this["wh"[axisA]];
+        coorA -= _this["xy"[axisA]];
+        // relative to x/y
+        let value = _this["xy"[axisB]] + _this.values[ posmod(coorA, dimA) ];
+        let temp = _this.values[ _this.values.length - 1 ] - _this.values[0];
+        // dimB, except made the right positivity/negativity
+        temp *= Math.floor(coorA/dimA);
+        // where it is on the "grid", how many dimBs to add
+        value += temp;
+        return value;
+    },
+    check: function(_this, ref_x, ref_y, x, y, w, h) {
+    // returns:
+    // - 0 if x/y is on the line
+    // - 1 if x/y is on the same side as ref_x/ref_y
+    // - -1 if it's on the opposite
+    // - returns null if ref_x/ref_y is on the line or the line's w and h are 0.
+    // - w, h: optional. this will make it modify an entire rectangle of
+    //   values and return that.
+    //   - specifically an array of 0/1/-1s. w is how long one row is. x and y
+    //     are the coordinates the top-left corner represents.
+        let i1 = 0;
+        let i2 = 0;
+        const no_data = !w || !h;
+        w ??= 1;
+        h ??= 1;
+        let data = [];
+        for(i1 = 0; i1 < w*h; i1++) {
+            data[i1] = null;
+        };
+        const _x = x;
+        const _y = y;
+        // top left corner (so that x and y's values can change)
+        let ref_side = null;
+        if(!_this.w || !_this.h) {
+            // single point, or vertical/horizontal line
+            if(_this.w || _this.h) {
+                ref_side = Math.sign(
+                    _this.h
+                    ?
+                    ref_x - _this.x
+                    :
+                    ref_y - _this.y
+                );
+            }
+            if((!_this.w && !_this.h) || ref_side === 0) {
+                // single point, or ref_x/ref_y is on the line
+                return null;
+            };
+            for(i1 = 0; i1 < data.length; i1++) {
+                x = _x + i1%w;
+                y = _y + Math.floor(i1/w);
+                data[i1] = ref_side*Math.sign(
+                    _this.h
+                    ?
+                    x - _this.x
+                    // vertical
+                    :
+                    y - _this.y
+                    // horizontal
+                );
+            }
+        }
+        else {
+            const axisA = Number(_this.h > _this.w);
+            const axisB = (axisA + 1)%2;
+            const rectA = axisA ? h : w;
+            // longer axis, (or x) shorter axis
+            ref_side = Math.sign((axisB ? ref_y : ref_x) - SL.A_to_B(_this, axisA ? ref_y : ref_x));
+            if(ref_side === 0) {
+                return null;
+            }
+            let values = [];
+            for(i1 = 0; i1 < rectA; i1++) {
+                values[i1] = SL.A_to_B(_this, (axisA ? _y : _x) + i1);
+                // the conditional thing adds the rectangle's x/y
+            };
+            for(i1 = 0; i1 < data.length; i1++) {
+                let coor = [
+                    i1%w,
+                    Math.floor(i1/w)
+                ];
+                data[i1] = ref_side*Math.sign([_x, _y][axisB] + coor[axisB] - values[ coor[axisA] ]);
+            }
+        }
+        return (
+            no_data
+            ?
+            data[0]
+            :
+            data
+        );
+    },
+};
+function rotate(points, axis, angle, center) {
+// rotates one 3d point or an array of 3d points.
+// - axis: "xy", "xz", "yz", or a 3d angle.
+// - angle: how much to rotate by, in radians.
+    let i1 = 0;
+    center = (center && Array.isArray(center) && center.length >= 3 && (center[0] || center[1] || center[2])) ? center : null;
+    const one = typeof points[0] === "number" && typeof points[1] === "number" && typeof points[2] === "number";
+    let _points = one ? [structuredClone(points)] : structuredClone(points);
+    // should be a new array. editing the input would be bad, because object
+    // reference.
+    if(typeof angle !== "number" || isNaN(angle) || angle === Infinity || angle === -Infinity) {
+        console.log("invalid angle: " + angle);
+    };
+    angle = posmod(angle, 2*Math.PI);
+    //
+    if(center) {
+        for(i1 = 0; i1 < _points.length; i1++) {
+            _points[i1] = Points.subtract(_points[i1], center);
+        }
+    };
+    //
+    if(typeof axis === "string" && axis.length === 2) {
+        axis1 = "xyz".indexOf(axis[0]);
+        axis2 = "xyz".indexOf(axis[1]);
+        if(axis1 === -1 || axis2 === -1) {
+            console.log("invalid axis: " + axis);
+            return;
+        };
+        let cos = [1, 0, -1, 0][angle/(Math.PI/2)] ?? Math.cos(angle);
+        let sin = [0, 1, 0, -1][angle/(Math.PI/2)] ?? Math.sin(angle);
+        for(i1 = 0; i1 < _points.length; i1++) {
+            let coor1 = _points[i1][axis1];
+            let coor2 = _points[i1][axis2];
+            _points[i1][axis1] = coor1*cos - coor2*sin;
+            _points[i1][axis2] = coor1*sin + coor2*cos;
+        }
+        // imaginary number style of rotation.
+        // - [x, y] -> x + y*i
+        // - angle -> cos(angle) + sin(angle)*i
+        // - (x + y*i)*(cos + sin*i)
+        // - i^2 = -1, so...
+        // - (x*cos - y*sin) + (x*sin + y*cos)*i
+        // - convert that back to coordinates.
+    }
+    else if(Array.isArray(angle) && typeof angle[0] === "number" && typeof angle[1] === "number") {
+        let quat = Quat.new(axis, angle);
+        _points = _points.length === 1 ? [Quat.apply(quat, _points[0])] : Quat.orient(quat, _points);
+    };
+    //
+    if(center) {
+        for(i1 = 0; i1 < _points.length; i1++) {
+            _points[i1] = Points.add(_points[i1], center);
+        }
+    };
+    //
+    return one ? _points[0] : _points;
+}
+function get2dangle(x, y, shush) {
+    if(x === 0) {
+        if(y > 0) {
+            return Math.PI/2;
+        }
+        else if(y < 0) {
+            return 3*Math.PI/2;
+        }
+        else if(y === 0) {
+            if(shush) {
+                return null;
+            }
+            else {
+                console.log("invalid get2dangle input: " + [x, y]);
+                return 0;
+            };
+        }
+        else {
+            if(shush) {
+                return null;
+            }
+            else {
+                console.log("something went wrong with get2dangle.");
+                return 0;
+            };
+        };
+    }
+    else {
+        let returnangle = Math.atan(y/x);
+        if(x < 0) {
+            returnangle += Math.PI;
+        };
+        // double negatives make inverse tan screw up, etc
+        return posmod(returnangle, 2*Math.PI);
+    };
+}
+class Animator {
+// a class that creates an animation player.
+// structure:
+// - name
+// - ctx: canvas the animation is displayed on. element id is name +
+//   "_canvas".
+// - frames: array of ImageDatas. it animates by using putImageData with
+//   this. add to this by using .clear to clear the canvas, applying edits,
+//   and using .set to put it in .frames.
+// - background: color to use when clearing the canvas.
+// - a few getters/setters
+// - ui: object describing what buttons/inputs to create. the property
+//   name is the type/name.
+//   - fps (frames per second, number input)
+//   - play (button)
+//   - loop (checkbox)
+//   - pingpong (checkbox, makes it go back and forth)
+//   - sheet (hideable canvas of all the frames. update it with
+//     .updatesheet.)
+//     - hidden by default.
+//     - cols: number of columns.
+//   - "button_" + whatever: extra button
+//   -
+//   - save: buttons that save images of the canvas or the spritesheet.
+//     - no_frame, no_sheet: by default, buttons for both the frame and the
+//       sheet are created.
+//     - prefix, name, suffix: the saved file name will be prefix + name +
+//       suffix. the reason i bother splitting it up is because if name is
+//       omitted, it defaults to filedate().
+//   =
+//   - properties of properties:
+//     - br: adds a linebreak before it. (or multiple, if the value is a
+//       number instead of a boolean.)
+//     - space: adds a space before it.
+//     - onclick: function you want run when it's clicked
+//     - text: text you want it to use. (by default, it'll just use the
+//       property name.)
+//   - the html id will be .name + "_" + the property name of the html
+//     element. so fps would be "anim_fps" or whatever.
+//     - except for "button_". it'll omit the beginning of that.
+//   - null is treated the same as an empty object.
+// - fps, looping: getters/setters connected to the html elements if those
+//   exist, primitives if not.
+    /*
+    new Animator(
+        "name",
+        {
+            fps: {
+                br: true,
+            },
+            play: {
+                space: true,
+            },
+            loop: {
+                br: true,
+            },
+        },
+        div, fps, background, w, h
+    );
+    */
+    constructor(name, ui, div, fps, background, w, h) {
+        let i1 = 0;
+        if(!div) {
+            document.write(`<div id="` + name + `_div"></div>`);
+            div = document.getElementById(name + `_div`);
+        };
+        if(!Number.isInteger(fps) || fps <= 0) {
+            fps = 24;
+        };
+        ui ??= structuredClone(Animator.default_ui);
+        w ??= 256;
+        h ??= 256;
+        background ??= "black";
+        this.name = name;
+        this.div = div;
+        this.defaultfps = fps;
+        this.background = background;
+        let temp = name + `_canvas`;
+        let string = ``;
+        string += `<canvas id="` + temp + `" name="` + temp + `" width=` + w + ` height=` + h + `></canvas>`;
+        for(i1 in ui) {
+            if(ui.hasOwnProperty(i1)) {
+                ui[i1] ??= {};
+                let obj = ui[i1];
+                const text = (
+                    obj.hasOwnProperty("text") ? obj.text :
+                    i1.startsWith("button_") ? i1.slice("button_".length) :
+                    i1
+                );
+                if(obj.hasOwnProperty("br")) {
+                    if(Number.isInteger(obj.br) && obj.br >= 0) {
+                        string += `<br>`.repeat(obj.br);
+                    }
+                    else if(obj.br) {
+                        string += `<br>`;
+                    };
+                };
+                if(obj.hasOwnProperty("space") && obj.space) {
+                    string += ` `;
+                };
+                if(i1 === "fps") {
+                    string += `<label>` + text + `: <input type="number" id="` + name + `_fps" value=` + fps + `>`;
+                }
+                else if(i1 === "play") {
+                    string += `<button id="` + name + `_play">` + text + `</button></label>`;
+                }
+                else if(i1 === "loop") {
+                    string += `<label>` + text + `: <input type="checkbox" id="` + name + `_loop"></label>`;
+                }
+                else if(i1 === "pingpong") {
+                    string += `<label>` + text + `: <input type="checkbox" id="` + name + `_pingpong"></label>`;
+                }
+                else if(i1 === "sheet") {
+                    string += `<button id="` + name + `_hidesheet">show sheet</button></label>`;
+                    string += `<br><canvas id="` + name + `_sheet" name="` + temp + `" width=` + w + ` height=` + h + ` hidden></canvas>`;
+                }
+                else if(i1 === "save") {
+                    let frame = !("no_frame" in obj) || !obj.no_frame;
+                    let sheet = (!("no_sheet" in obj) || !obj.no_sheet) && "sheet" in ui;
+                    string += (
+                        (frame ? `<button id="` + name + `_save_frame">save frame</button>` : ``)
+                        +
+                        (frame && sheet ? ` ` : ``)
+                        +
+                        (sheet ? `<button id="` + name + `_save_sheet">save sheet</button>` : ``)
+                    );
+                }
+                else if(i1.startsWith("button_")) {
+                    string += `<button id="` + name + `_` + i1.slice("button_".length) + `">` + text + `</button>`;
+                }
+                else {
+                    console.log("invalid ui property name.");
+                };
+            }
+        }
+        div.innerHTML = string;
+        this.ctx = document.getElementById(temp).getContext("2d");
+        this.ctx.fillStyle = background;
+        this.ctx.fillRect(0, 0, w, h);
+        this.viewer = {
+            x: this.w/2,
+            y: this.h/2,
+            z: this.w/2,
+            ratio: this.w/60,
+            // ratio = pixels/degrees, screen_pixels = 60*degrees
+            // if ratio === screen_pixels/60
+            // screen_pixels = 60*screen_pixels/60
+            offset: {
+                x: 0,
+                y: 0,
+                z: 0,
+            },
+            lamp: {
+            // USE .single === true IF THERE'S ONLY ONE LAMP.
+                x: this.w,
+                y: 0*this.h,
+                z: -this.w,
+                brightness: 1,
+                baselightlevel: -1,
+                single: true,
+            },
+            // baselightlevel
+            // until i figure out how to convert colors to rgb, colors should be an
+            // array.
+        };
+        // viewer is kind of a mess and should really be a class. don't try
+        // too hard to make sense of this.
+        this.frames = [];
+        this._frame = 0;
+        this._playing = false;
+        this.interval = null;
+        if(ui.hasOwnProperty("fps")) {
+            Object.defineProperty(this, "fps", {
+                get() {
+                    let temp = Number(document.getElementById(this.name + `_fps`).value);
+                    if(!Number.isInteger(temp) || temp <= 0) {
+                        temp = this.defaultfps;
+                        document.getElementById(this.name + `_fps`).value = temp;
+                    };
+                    return temp;
+                },
+                set(value) {
+                    let temp = Number(value);
+                    if(!Number.isInteger(temp) || temp <= 0) {
+                        temp = this.defaultfps;
+                    };
+                    document.getElementById(this.name + `_fps`).value = temp;
+                },
+            })
+        }
+        else {
+            this.fps = fps;
+        };
+        for(i1 = 0; i1 < 2; i1++) {
+            let type = ["loop", "pingpong"][i1];
+            let propertyname = ["looping", "pingpong"][i1]
+            if(ui.hasOwnProperty(type)) {
+                Object.defineProperty(this, propertyname, {
+                    get() {
+                        return document.getElementById(this.name + `_` + type).checked;
+                    },
+                    set(value) {
+                        document.getElementById(this.name + `_` + type).checked = !!value;
+                    },
+                })
+            }
+            else {
+                this[propertyname] = false;
+            };
+        }
+        // define fps, loop, and pingpong as a getter/setter if there's an
+        // html element, and a primitive if it's not.
+        this.reverse = false;
+        // boolean for whether it's playing backwards. necessary for
+        // pingpong.
+        let _this = this;
+        for(i1 in ui) {
+            if(ui.hasOwnProperty(i1) && ui[i1]) {
+            // add event listeners
+                if(i1 === "play") {
+                    document.getElementById(name + `_` + i1).onclick = function() { _this.playpause(_this) };
+                }
+                else if(i1 === "pingpong") {
+                    document.getElementById(name + `_` + i1).onclick = function() { _this.reverse = false };
+                    // keeps reverse from lingering outside of pingpong.
+                }
+                else if(i1 === "sheet") {
+                    let ref = document.getElementById(_this.name + `_` + i1);
+                    this.sheet = ref.getContext("2d");
+                    this.sheet_cols = ui[i1].cols ?? 0;
+                    document.getElementById(name + `_hidesheet`).onclick = function() {
+                        ref.hidden = !ref.hidden;
+                        document.getElementById(_this.name + `_hidesheet`).innerHTML = (ref.hidden ? "show" : "hide") + " sheet";
+                    };
+                    this.updatesheet();
+                }
+                else if(i1 === "save") {
+                    let _name = (ui[i1].prefix ?? "") + (ui[i1].name ?? filedate()) + (ui[i1].suffix ?? "") + ".png";
+                    if(!("no_frame" in ui[i1]) || !ui[i1].no_frame) {
+                        document.getElementById(name + `_` + i1 + `_frame`).onclick = function() { savecanvas(_this.ctx.canvas, _name) };
+                    };
+                    if((!("no_sheet" in ui[i1]) || !ui[i1].no_sheet) && "sheet" in ui) {
+                        let sheet = document.getElementById(_this.name + `_sheet`);
+                        document.getElementById(name + `_` + i1 + `_sheet`).onclick = function() { savecanvas(sheet, _name) };
+                    };
+                }
+                else if(ui[i1].hasOwnProperty("onclick")) {
+                    let id = name + "_" + (
+                        i1.startsWith("button_")
+                        ?
+                        i1.slice("button_".length)
+                        :
+                        i1
+                    );
+                    document.getElementById(id).onclick = ui[i1].onclick;
+                }
+            }
+        }
+        this.ui = ui;
+    }
+    static default_ui = {
+        fps: {
+            br: true,
+        },
+        play: {
+            space: true,
+        },
+        loop: {
+            br: true,
+        },
+        pingpong: {
+            br: true,
+        },
+        save: {
+            br: true,
+        },
+        sheet: {
+            br: true,
+        },
+    }
+    get w() {
+        return this.ctx.canvas.width;
+    }
+    set w(value) {
+        this.ctx.canvas.width = value;
+    }
+    get h() {
+        return this.ctx.canvas.height;
+    }
+    set h(value) {
+        this.ctx.canvas.height = value;
+    }
+    get duration() {
+        return this.frames.length;
+    }
+    set duration(value) {
+        if(Number.isInteger(value) && value >= 0) {
+            if(value < this.duration) {
+                this.frames = this.frames.slice(0, value);
+            }
+            else if(value > this.duration) {
+                let temp = this.ctx.getImageData(0, 0, this.w, this.h);
+                this.clear();
+                let i1 = 0;
+                for(i1 = this.duration; i1 < value; i1++) {
+                    this.frames[i1] = this.ctx.getImageData(0, 0, this.w, this.h);
+                }
+                this.ctx.putImageData(temp, 0, 0);
+            }
+        }
+    }
+    get frame() {
+        return this._frame;
+    }
+    set frame(value) {
+        if(this.duration === 0) {
+            this._frame = 0;
+        }
+        else if(Number.isInteger(value)) {
+            this._frame = value%this.duration;
+        };
+    }
+    get playing() {
+        return this._playing;
+    }
+    set playing(value) {
+        if(this.duration === 0) {
+            value = false;
+        };
+        this._playing = !!value;
+        if(value) {
+            let _this = this;
+            this.interval = setInterval(function() { _this.updateframe(_this) }, 1000/this.fps);
+        }
+        else {
+            clearInterval(this.interval);
+            this.interval = null;
+        };
+        document.getElementById(this.name + `_play`).innerHTML = (value ? "pause" : "play");
+    }
+    clear() {
+        this.ctx.clearRect(0, 0, this.w, this.h);
+        this.ctx.fillStyle = this.background;
+        this.ctx.fillRect(0, 0, this.w, this.h);
+    }
+    saveframe(frame, ctx, x, y) {
+        ctx ??= this.ctx;
+        x ??= 0;
+        y ??= 0;
+        this.frames[frame] = ctx.getImageData(x, y, this.w, this.h);
+        if(this.frames.includes(undefined)) {
+            this.clear();
+            let i1 = 0;
+            for(i1 = 0; i1 < this.duration; i1++) {
+                if(!this.frames[i1]) {
+                    this.frames[i1] = ctx.getImageData(0, 0, this.w, this.h);
+                }
+            }
+            ctx.putImageData(this.frames[frame], 0, 0);
+        };
+    }
+    updateframe(_this) {
+        _this ??= this;
+        if(_this.duration === 0) {
+            _this.clear();
+        }
+        else {
+            if(_this.playing) {
+                _this.frame = posmod(_this.frame + (_this.reverse ? -1 : 1), _this.duration);
+                // loop back to the opposite end if you reach the end. (that
+                // way, when it reaches the end and isn't looping, it stops
+                // at the first frame.)
+                // - the order isn't 0 1 2 3, it's 1 2 3 0. (since it
+                //   already starts at 0, and animations that aren't playing
+                //   are supposed to show the first frame.)
+            };
+            _this.ctx.putImageData(_this.frames[_this.frame], 0, 0);
+            if(_this.frame === ((!!_this.reverse === !!_this.pingpong) ? 0 : _this.duration - 1)) {
+            // end of the animation, so stop the interval or switch
+            // directions
+            // - if pingpong is false
+            //   - if reverse is false, the last frame is duration - 1, and
+            //     it resets back to 0. so end at 0.
+            //   - if reverse is true, the last frame is 0, and it resets
+            //     back to duration - 1, so end at duration - 1
+            // - if pingpong is true
+            //   - if reverse is false, it should switch directions at
+            //     duration - 1.
+            //   - if reverse is true, it should switch directions or end at
+            //     0.
+            // - 0 if both are false or both are true. duration - 1
+            //   otherwise.
+                if(_this.pingpong) {
+                // if it's not looping and it's already in the second
+                // half, stop. no matter what, switch directions.
+                    if(!_this.looping && _this.reverse) {
+                        _this.playing = false;
+                    };
+                    _this.reverse = !_this.reverse;
+                }
+                else if(!_this.looping) {
+                    _this.playing = false;
+                };
+            };
+        };
+    }
+    playpause(_this) {
+        _this ??= this;
+        _this.playing = !_this.playing;
+    }
+    updatesheet(_this, ctx, cols, gap, gapcolor) {
+    // makes the specified canvas a spritesheet of all the frames. or if
+    // there's no ctx specified and the Animator has a sheet element, it
+    // edits that.
+        let i1 = 0;
+        _this ??= this;
+        ctx ??= _this.sheet;
+        cols ??= _this.sheet_cols;
+        gap ??= 0;
+        gapcolor ??= _this.background;
+        if((ctx ?? null) === null) {
+            console.log("sheet canvas is unspecified.");
+            return;
+        };
+        if((ctx ?? null) === null) {
+            console.log("number of rows is unspecified.");
+            return;
+        };
+        cols = cols ? cols : _this.duration;
+        // if it's falsy, it'll print them all in one row.
+        ctx.canvas.width = cols*_this.w;
+        ctx.canvas.height = Math.ceil(_this.duration/cols)*_this.h;
+        ctx.fillStyle = gapcolor;
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        for(i1 = 0; i1 < _this.duration; i1++) {
+            ctx.putImageData(
+                _this.frames[i1],
+                (i1%cols)*(_this.w + gap),
+                Math.floor(i1/cols)*(_this.h + gap)
+            );
+        }
+    }
+};
+function numtohex(num, numofdigits) {
+// converts an integer to a hexadecimal string
+    if(!Number.isInteger(num) || num < 0) {
+        console.log("invalid input. it must be a positive integer, or zero.");
+        return;
+    };
+    let string = "";
+    if(num === 0) {
+        string = "0";
+    }
+    else {
+        const digits = "0123456789abcdef";
+        while(num) {
+            let _num = posmod(num, 16);
+            string = digits[_num] + string;
+            num = Math.floor(num/16);
+        }
+    };
+    if(Number.isInteger(numofdigits) && numofdigits >= 0) {
+        string = (
+            string.length > numofdigits ? string.slice(-numofdigits) :
+            string.length < numofdigits ? ("0".repeat(numofdigits - string.length) + string) :
+            string
+        );
+    }
+    return string;
+}
+function getcolor(ctx, x, y, rgbaformat) {
+    if(!Rect.inside(Rect.new(0, 0, ctx.canvas.width, ctx.canvas.height), x, y)) {
+    // out of bounds
+        return "";
+    };
+    let value = ctx.getImageData(x, y, 1, 1).data;
+    if(rgbaformat) {
+        value = "rgba(" + value.slice(0, 3).join(", ") + ", " + (value[3]/255) + ")";
+    }
+    else {
+        let string = "#";
+        for(let i1 = 0; i1 < value.length; i1++) {
+            if(i1 !== 3 || value[i1] !== 255) {
+                string += numtohex(value[i1], 2);
+            }
+        }
+        value = string;
+    }
+    return value;
+}
+function colortohex(ctx, color) {
+    let styletemp = ctx.fillStyle;
+    ctx.fillStyle = color;
+    let value = ctx.fillStyle;
+    ctx.fillStyle = styletemp;
+    if(value.startsWith("rgba(") && value.endsWith(")")) {
+        let temp = value.slice("rgba(".length, -")".length).split(",");
+        value = "#";
+        if(temp.length !== 4) {
+            console.log("this shouldn't happen");
+            return;
+        }
+        for(let i1 = 0; i1 < 4; i1++) {
+            let num = Number(temp[i1]);
+            if(i1 === 3) {
+                num = Math.round(256*num);
+            };
+            if(i1 === 3 && num === 256) {
+                num = 255;
+            }
+            else if(!Number.isInteger(num) || num < 0 || num > 255) {
+                console.log("this shouldn't happen");
+                return;
+            };
+            //
+            if(i1 !== 3 || num !== 255) {
+                value += numtohex(num, 2);
+            }
+        }
+    }
+    return value;
+}
+function colorbutton(button, ctx, color) {
+// styles a button so that the background is the color specified, while the text
+// is colored as the opaque inversion of that color.
+    button.style.backgroundColor = color;
+    color = colortohex(ctx, color);
+    let _color = [];
+    for(let i1 = 0; i1 < 3; i1++) {
+        _color[i1] = 255 - parseInt(color.slice(1 + 2*i1, 3 + 2*i1), 16);
+    }
+    _color = "rgb(" + _color.join(", ") + ")";
+    button.style.color = _color;
+    button.style.border = "thin solid " + _color;
+    button.style.borderRadius = "8px";
+}
+
+class PixelArt {
+// class that creates and operates a pixel art tool.
+    constructor(container) {
+        let i1 = 0;
+        let i2 = 0;
+        if(!(container instanceof HTMLElement)) {
+            console.log("invalid input. you must give an html container for everything to go inside.");
+            return;
+        };
+        this.html = {};
+        this.html.container = container;
+        this.zoom = 1;
+        let display = "inline-block";
+        let text = [
+            "<div style=\"display: table\">",
+            "<div style=\"display: " + display + "; place-items: center; align-items: center; justify-content: center; width: 256px; height: 256px; overflow: scroll; border: 2px dashed; background-color: orange\">",
+            // - give it rigid dimensions
+            // - use scroll bars if the insides get bigger than that
+            // - center the canvas (no idea how it takes three properties to do
+            //   that, but whatever.)
+            // - add a dashed border
+            "<canvas width=64 height=64 style=\"display: " + display + "image-rendering: crisp-edges; touch-action: none; border: 1px solid; scale: " + this.zoom + "\"></canvas>",
+            // no anti-aliasing, and touching it on mobile shouldn't drag around the
+            // page.
+            "</div>",
+            // viewport and canvas
+            "<canvas name=\"palette\" style=\"display: " + display + "; image-rendering: crisp-edges\"></canvas>",
+            // to the right of it, the palette canvas
+            "<div style=\"display: " + display + "; height: 256px; overflow: scroll\">",
+            "<button name=\"palette add\">add color</button>",
+            "<button name=\"palette edit\">edit color</button>",
+            "<br><button name=\"palette delete\">delete color</button>",
+            "<br><button name=\"palette up\">shift up</button>",
+            "<button name=\"palette down\">shift down</button>",
+            "<br><button name=\"palette save\">save palette</button>",
+            "<br><button name=\"palette clear\">clear palette</button>",
+            "<br><button name=\"palette forecolor\">set as forecolor</button>",
+            "<br><button name=\"palette backcolor\">set as backcolor</button>",
+            "<br><button name=\"palette viewport\">set as viewport color</button>",
+            "<br><button name=\"forecolor\" style=\"font-family: inherit\" disabled></button>",
+            "<br><button name=\"backcolor\" style=\"font-family: inherit\" disabled></button>",
+            "<br><button name=\"color switch\">color switch</button>",
+            "</div>",
+            // to the right of that, ui related to colors and palettes
+            "</div>",
+            //
+            "<br><button name=\"undo\">undo</button><button name=\"redo\">redo</button>",
+            "<label>zoom: <input type=\"number\" name=\"zoom\" value=1 step=.25 style=\"width: 3em\"></label>",
+            "<br>tools:<ul>\n\t" + [
+                "<label><input type=\"radio\" name=\"px_tool\" value=\"pen\"> pen</label> <label><input type=\"number\" name=\"pen r\" value=0 style=\"width: 4em\"> radius</label>",
+                "<label><input type=\"radio\" name=\"px_tool\" value=\"eraser\"> eraser</label> <label><input type=\"number\" name=\"eraser r\" value=2 style=\"width: 4em\"> radius</label>",
+                "<label><input type=\"radio\" name=\"px_tool\" value=\"colorpick\"> color picker</label> <button name=\"colorpick type\">" + PixelArt.valid.colorpick_type[0] + "</button>",
+                "<label><input type=\"radio\" name=\"px_tool\" value=\"select\"> select</label>",
+                "<label><input type=\"radio\" name=\"px_tool\" value=\"select cells\"> select cells</label>",
+                "<label><input type=\"radio\" name=\"px_tool\" value=\"bucket\"> bucket fill</label> <label><input type=\"checkbox\" name=\"bucket diagonal\"> spread diagonally</label>"
+                //  pen (radius)
+                //  eraser (radius)
+                //  color picker
+                //  select
+                //  select grid cells
+                // select scale
+                // select move
+                // dither
+                //  bucket (diagonal)
+                // spray
+                // rectangle, ellipse (fill)
+                // line
+                // text
+                // color ramp (number, scale, curve, in/out, horizontal/vertical)
+                // paste
+            ].join("\n\t<br>"),
+        ].join("\n");
+        container.innerHTML = text;
+        this.html.canvas = container.querySelector("canvas");
+        this.html.viewport = this.html.canvas.parentElement;
+        let _this = this;
+        function addtohtml(element) {
+            let list = element.children;
+            for(let i1 = 0; i1 < list.length; i1++) {
+                let ref = list[i1];
+                let type = ref.tagName.toLowerCase();
+                let name = (
+                    ref.name
+                    ??
+                    (
+                        "name" in ref.attributes ? ref.attributes.name.value :
+                        type === "button" ? ref.innerHTML :
+                        ""
+                    )
+                );
+                name = name.replaceAll(" ", "_");
+                if(name) {
+                    _this.html[name] = list[i1];
+                }
+                addtohtml(list[i1]);
+            }
+        }
+        addtohtml(container);
+        //
+        this.html.zoom.onchange = function(e) {
+            let zoom = Number(_this.html.zoom.value);
+            if(isNaN(zoom) || zoom === Infinity || zoom === -Infinity || zoom <= 0) {
+                zoom = 1;
+                _this.html.zoom.value = zoom;
+            }
+            if(zoom !== _this.zoom) {
+                _this.zoom = zoom;
+                _this.html.canvas.style.scale = _this.zoom;
+            };
+        }
+        this.html.colorpick_type.onclick = function(e) {
+            let values = PixelArt.valid.colorpick_type;
+            e.target.innerText = values[(values.indexOf(e.target.innerText) + 1)%values.length];
+        }
+        // this makes the button act like a radio button or dropdown, pretty
+        // much. clicking it makes the text cycle through the strings in that
+        // array, and the current text of the button is used to get what "mode"
+        // is currently selected.
+        //
+        this.html.palette_add.onclick = function(e) {
+            let color = (prompt("enter a new color to add to the palette. you can add multiple colors by separating them with & symbols.") ?? "").trim();
+            if(!color) {
+                return;
+            }
+            color = color.split("&");
+            for(let i1 = 0; i1 < color.length; i1++) {
+
+                color[i1] = colortohex(_this.ctx, color[i1].trim());
+                _this.remove_color(color[i1]);
+                _this.palette.push(color[i1]);
+            }
+            _this.palette_index = _this.palette.length - 1;
+            _this.refresh_palette();
+        }
+        this.html.palette_edit.onclick = function(e) {
+            let color = (prompt("enter a new color to replace the selected color.") ?? "").trim();
+            if(!color) {
+                return;
+            }
+            color = colortohex(_this.ctx, color);
+            if(color === _this.palette[_this.palette_index]) {
+                return;
+            }
+            else if(_this.palette.includes(color)) {
+                alert("that color is already in the palette.");
+                return;
+            }
+            _this.palette[_this.palette_index] = color;
+            _this.refresh_palette();
+        }
+        this.html.palette_delete.onclick = function(e) {
+            if(_this.palette.length - 1 <= 0) {
+                return;
+            }
+            _this.palette.splice(_this.palette_index, 1);
+            _this.palette_index = Math.max(0, _this.palette_index - 1);
+            _this.refresh_palette();
+        }
+        function movecolor(num) {
+            if(_this.html.palette.length < 2 || !num) {
+                return;
+            }
+            let index = _this.palette_index;
+            num %= _this.palette.length;
+            _this.palette_index = posmod(index + num, _this.palette.length);
+            let sign = Math.sign(num);
+            num = Math.abs(num);
+            for(let i1 = 0; i1 < num; i1++) {
+            // technically, a splicing operation would be more efficient. but as
+            // of writing this, i don't even know if this will ever be used with
+            // anything but 1 and -1. so i don't care.
+                let neighbor = posmod(index + sign, _this.palette.length);
+                let temp = _this.palette[neighbor];
+                _this.palette[neighbor] = _this.palette[index];
+                _this.palette[index] = temp;
+                index = neighbor;
+                // switch with a value right next to it.
+            }
+            _this.refresh_palette();
+        }
+        this.html.palette_up.onclick = function(e) { movecolor(1) };
+        this.html.palette_down.onclick = function(e) { movecolor(-1) };
+        this.html.palette_save.onclick = function(e) {
+            _this.refresh_palette(true);
+            savecanvas(_this.html.palette, _this.palette.join(" & ") + ".png");
+            _this.refresh_palette();
+        }
+        this.html.palette_clear.onclick = function(e) {
+            if(!confirm("are you sure you want to clear the palette?")) {
+                return;
+            }
+            _this.palette = ["#000000", "#ffffff"];
+            _this.palette_index = 0;
+            _this.refresh_palette();
+        }
+        this.html.palette_forecolor.onclick = function(e) {
+            _this.forecolor = _this.palette[_this.palette_index];
+        }
+        this.html.palette_backcolor.onclick = function(e) {
+            _this.backcolor = _this.palette[_this.palette_index];
+        }
+        this.html.palette_viewport.onclick = function(e) {
+            _this.html.viewport.style.backgroundColor = _this.palette[_this.palette_index];
+        }
+        this.html.color_switch.onclick = function(e) {
+            let temp = _this.backcolor;
+            _this.backcolor = _this.forecolor;
+            _this.forecolor = temp;
+        }
+        //
+        this.html.canvas.onpointerdown = function(e) { _this.mousedown(e, _this) };
+        this.html.canvas.onpointermove = function(e) { _this.mousemove(e, _this) };
+        this.html.canvas.onpointerup = function(e) { _this.mouseup(e, _this) };
+        this.ctx = this.html.canvas.getContext("2d");
+        let w = this.html.canvas.width;
+        let h = this.html.canvas.height;
+        this.ctx.fillStyle = "white";
+        this.ctx.fillRect(0, 0, w, h);
+        this.ctx.fillStyle = "black";
+        let dither = dithers["x grid"];
+        for(i1 = 0; i1 < w; i1++) {
+            for(i2 = 0; i2 < h; i2++) {
+                if(dither.func(
+                    posmod(i1, dither.period.x),
+                    posmod(i2, dither.period.y)
+                )) {
+                    //this.ctx.fillRect(i1, i2, 1, 1);
+                }
+            }
+        }
+        this.tool = "pen";
+        this.select = null;
+        this.cell = Rect.new(0, 0, 16, 16);
+        this._forecolor = null;
+        this._backcolor = null;
+        this.forecolor = "black";
+        this.backcolor = "white";
+        // pen color, eraser color
+        // - i don't think i need to initialize the underscored versions but
+        //   whatever.
+        // - this runs the setters, which set the style and text of the buttons
+        this.palette = ["#000000", "#ffffff"].concat(Color.random(14, true, true));
+        for(i1 = 2; i1 < this.palette.length; i1++) {
+            this.palette[i1] = colortohex(this.ctx, this.palette[i1]);
+        }
+        this.palette_index = 0;
+        // palette, and which color is selected for button stuff. NOTE: palette
+        // colors must ALWAYS be in hexadecimal form. (6 digits, or 8 digits.)
+        //
+        this.palette_ctx = this.html.palette.getContext("2d");
+        this.refresh_palette();
+        this.html.palette.onclick = function(e) {
+            let click = clickxy(e);
+            let col = PixelArt.palette_col;
+            let cell_w = PixelArt.palette_cell_w;
+            let cell_h = PixelArt.palette_cell_h;
+            let index = col*Math.floor(click[0]/cell_w) + col - 1 - Math.floor(click[1]/cell_h);
+            if(index < _this.palette.length && index !== _this.palette_index) {
+                _this.palette_index = index;
+                _this.refresh_palette();
+            }
+        }
+        //
+        this.stroke = null;
+        // data stored during a stroke
+        let temp = document.getElementsByName("px_tool");
+    	for(let i1 in temp) {
+    		if(temp.hasOwnProperty(i1)) {
+                if(temp[i1].value === PixelArt.valid.tools[0]) {
+                    temp[i1].checked = true;
+                };
+    			temp[i1].onchange = function(e) {
+                    if(PixelArt.valid.tools.includes(e.target.value)) {
+                        _this.tool = e.target.value;
+                    }
+                    else {
+                        console.log("this shouldn't happen");
+                    }
+    			}
+    		}
+    	}
+        this.states = new States(
+            _this, 32,
+            function(tool) {
+                return {
+                    image: tool.ctx.getImageData(0, 0, tool.html.canvas.width, tool.html.canvas.height),
+                    select: structuredClone(tool.select),
+                };
+            },
+            function(tool, state) {
+                tool.html.canvas.width = state.image.width;
+                tool.html.canvas.height = state.image.height;
+                tool.ctx.clearRect(0, 0, state.image.width, state.image.height);
+                tool.ctx.putImageData(state.image, 0, 0);
+                tool.select = structuredClone(state.select);
+            }
+        );
+        this.html.undo.onclick = function(e) { _this.states.undo() };
+        this.html.redo.onclick = function(e) { _this.states.redo() };
+    }
+    static valid = {
+        tools: [
+            "pen",
+            "eraser",
+            "colorpick",
+            "select",
+            "select cells",
+            "bucket"
+            //  pen (radius)
+            //  eraser (radius)
+            //  color picker
+            //  select
+            //  select grid cells
+            // select scale
+            // select move
+            // dither
+            //  bucket (diagonal)
+            // spray
+            // rectangle, ellipse (fill)
+            // line
+            // text
+            // color ramp (number, scale, curve, in/out, horizontal/vertical)
+            // paste
+        ],
+        colorpick_type: ["forecolor", "backcolor", "add to palette"],
+    }
+    static palette_col = 16
+    // how many colors a column can have before a new column starts
+    static palette_cell_w = 48
+    static palette_cell_h = 16
+    // how many pixels wide and tall one color of the palette is.
+    refresh_palette(allcodes) {
+    // refreshes the palette canvas to account for changes.
+        let canvas = this.html.palette;
+        let ctx = this.palette_ctx;
+        let col = PixelArt.palette_col;
+        let cell_w = PixelArt.palette_cell_w;
+        let cell_h = PixelArt.palette_cell_h;
+        let w = cell_w*Math.ceil(this.palette.length/col);
+        let h = cell_h*col;
+        canvas.width = w;
+        canvas.height = h;
+        ctx.clearRect(0, 0, w, h);
+        ctx.font = "6px 'thick 4x4'";
+        ctx.textBaseline = "middle";
+        for(let i1 = 0; i1 < this.palette.length; i1++) {
+            let x = Math.floor(i1/col);
+            let y = col - i1%col;
+            // the colors go from down to up, then left to right. like the
+            // normal order, but rotated 90 counterclockwise.
+            ctx.fillStyle = this.palette[i1];
+            ctx.fillRect(x*cell_w, y*cell_h, cell_w, -cell_h);
+            if(allcodes || i1 === this.palette_index) {
+            // indicate the selected color by writing the hexcode inside.
+                let temp = [];
+                for(let i2 = 0; i2 < 3; i2++) {
+                    temp[i2] = 255 - parseInt(this.palette[i1].slice(1 + 2*i2, 3 + 2*i2), 16);
+                }
+                ctx.fillStyle = "rgb(" + temp.join(", ") + ")";
+                // the opposite color, and fully opaque if it wasn't already.
+                ctx.fillText(this.palette[i1], x*cell_w + 2, (y - .5)*cell_h + 1);
+            }
+        }
+    }
+    remove_color(color) {
+    // removes all instances of a color from the palette, and adjusts
+    // palette_index to match.
+    // - used to avoid duplicates.
+    // - NOTE:
+    //   - palette colors must always be hexcodes. (#, then 6 or 8 hexadecimal
+    //     digits.)
+    //   - this might empty the palette, or turn palette_index negative.
+        let index = this.palette.indexOf(color);
+        while(index in this.palette) {
+            this.palette.splice(index, 1);
+            if(this.palette_index >= index) {
+                this.palette_index--;
+            };
+            index = this.palette.indexOf(color);
+        }
+    }
+    //
+    get pen_r() {
+        let num = Number(this.html.pen_r.value);
+        if(!Number.isInteger(num) || num < 0) {
+            num = 0;
+            this.html.pen_r.value = num;
+        }
+        return num;
+    }
+    get eraser_r() {
+        let num = Number(this.html.eraser_r.value);
+        if(!Number.isInteger(num) || num < 0) {
+            num = 0;
+            this.html.eraser_r.value = num;
+        }
+        return num;
+    }
+    get forecolor() {
+        return this._forecolor;
+    }
+    set forecolor(value) {
+        this._forecolor = colortohex(this.ctx, value);
+        colorbutton(this.html.forecolor, this.ctx, this._forecolor);
+        this.html.forecolor.innerHTML = this._forecolor;
+    }
+    get backcolor() {
+        return this._backcolor;
+    }
+    set backcolor(value) {
+        this._backcolor = colortohex(this.ctx, value);
+        colorbutton(this.html.backcolor, this.ctx, this._backcolor);
+        this.html.backcolor.innerHTML = this._backcolor;
+    }
+    clickxy(e) {
+        return [
+            Math.floor((e.clientX - e.target.getBoundingClientRect().left)/this.zoom),
+            Math.floor((e.clientY - e.target.getBoundingClientRect().top)/this.zoom)
+        ];
+    }
+    mousedown(e, _this) {
+        let i1 = 0;
+        _this ??= this;
+        let click = _this.clickxy(e);
+        _this.stroke = {
+            before: _this.ctx.getImageData(0, 0, _this.html.canvas.width, _this.html.canvas.height),
+            path: [structuredClone(click)],
+        };
+        //
+        if(_this.tool === "pen" || _this.tool === "eraser") {
+            _this.stroke.prev = null;
+        }
+        else if(_this.tool === "colorpick") {
+            let type = _this.html.colorpick_type.innerText;
+            let color = getcolor(_this.ctx, ...click);
+            if(type === "forecolor" || type === "backcolor") {
+                _this[type] = color;
+                _this.tool = type === "backcolor" ? "eraser" : "pen";
+                let list = document.getElementsByName("px_tool");
+                let done = false;
+                for(i1 = 0; i1 < list.length && !done; i1++) {
+                    if(list[i1].value === _this.tool) {
+                        list[i1].checked = true;
+                        done = true;
+                    }
+                }
+                if(!done) {
+                    console.log("this shouldn't happen");
+                };
+            }
+            else if(type === "add to palette") {
+                this.remove_color(color);
+                _this.palette.push(color);
+                _this.palette_index = _this.palette.length - 1;
+                _this.refresh_palette();
+            }
+            else {
+                console.log("this shouldn't happen");
+            }
+            _this.stroke = null;
+            // this is pretty much only a problem if it switches tools, but...
+            // for this tool, things only happen at mousedown, so skip anything
+            // at mousemove or mouseup.
+        }
+        else if(_this.tool === "bucket") {
+            let diagonal = _this.html.bucket_diagonal.checked;
+            let covered = [structuredClone(click)];
+            // all points included in the fill.
+            _this.stroke = null;
+            _this.states.save();
+        }
+        //"pen",
+        //"eraser",
+        //"color picker",
+        //"select",
+        //"select cells",
+        //"bucket"
+    }
+    mousemove(e, _this, finish) {
+        let i1 = 0;
+        _this ??= this;
+        let click = _this.clickxy(e);
+        let stroke = _this.stroke;
+        if(!stroke) {
+            return;
+        }
+        stroke.path.push(structuredClone(click));
+        let w = _this.html.canvas.width;
+        let h = _this.html.canvas.height;
+        //
+        if(_this.tool === "pen" || _this.tool === "eraser") {
+            if(stroke.path.length) {
+                let start = stroke.path[stroke.path.length - (stroke.path.length >= 2 ? 2 : 1)];
+                let end = stroke.path[stroke.path.length - 1];
+                let r = _this[_this.tool + "_r"];
+                let coverage = null;
+                if(r) {
+                    coverage = Raster.capsule(...start, ...end, r);
+                }
+                else {
+                    coverage = Rect.reach(Rect.new(...start, 0, 0), ...end);
+                    coverage.w++;
+                    coverage.h++;
+                    coverage.raster = [];
+                    for(i1 = 0; i1 < coverage.w*coverage.h; i1++) {
+                        coverage.raster.push(false);
+                    }
+                    let points = linespecial(null, ...start, ...end);
+                    for(i1 = 0; i1 < points.length; i1++) {
+                        let index = Rect.getindex(coverage, ...points[i1]);
+                        if(index === -1) {
+                            console.log("this shouldn't happen");
+                        }
+                        else {
+                            coverage.raster[index] = true;
+                        }
+                    }
+                }
+                _this.ctx.fillStyle = _this[(_this.tool === "eraser" ? "back" : "fore") + "color"];
+                for(i1 = 0; i1 < coverage.raster.length; i1++) {
+                    if(coverage.raster[i1]) {
+                        let coor = Rect.getcoor(coverage, i1);
+                        if(coor) {
+                            if(stroke.prev) {
+                                let index = Rect.getindex(stroke.prev, ...coor);
+                                if(index !== -1 && stroke.prev.raster[index]) {
+                                // exclude any pixel that was already in the
+                                // previous segment. (the overlap would really
+                                // mess things up if the user is trying to draw
+                                // with a partially transparent color.)
+                                    coor = null;
+                                }
+                            };
+                            if(coor && (!this.select || !_this.select.w || !_this.select.h || Rect.inside(_this.select, ...coor))) {
+                                _this.ctx.fillRect(...coor, 1, 1);
+                            };
+                        }
+                    }
+                }
+                stroke.prev = structuredClone(coverage);
+            }
+        }
+        //
+        if(finish) {
+            _this.stroke = null;
+            _this.states.save();
+        };
+    }
+    mouseup(e, _this) {
+        _this.mousemove(e, _this, true);
+    }
 }

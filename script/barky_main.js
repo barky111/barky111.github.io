@@ -80,27 +80,6 @@ function objectisempty(object) {
     }
     return true;
 }
-function objarraylength(object) {
-// returns a number equivalent to the .length of an array. one more than the
-// highest integer property.
-    let i1 = "";
-    let highest = null;
-    for (i1 in object) {
-        if (
-            object.hasOwnProperty(i1) && Number.isInteger(Number(i1)) && (i1 || i1 === 0)
-            &&
-            (highest === null || Number(i1) > highest)
-        ) {
-            highest = Number(i1);
-        };
-    }
-    if(highest === null) {
-        return 0;
-    }
-    else {
-        return highest + 1;
-    };
-}
 //
 function circledraw(ctx, x, y, radius, fill, color, loop) {
 // - fill is a boolean
@@ -374,16 +353,16 @@ const dithers = {
             y: 10,
         },
     },
-    "noise 1.5625%": {
-        func: (x, y) => Math.random() < .015625,
+    "noise 1/64": {
+        func: (x, y) => Math.random() < 1/64,
         erases: true,
     },
-    "noise 25%": {
-        func: (x, y) => Math.random() < .25,
+    "noise 1/4": {
+        func: (x, y) => Math.random() < 1/4,
         erases: true,
     },
-    "noise 50%": {
-        func: (x, y) => Math.random() < .5,
+    "noise 1/2": {
+        func: (x, y) => Math.random() < 1/2,
         erases: true,
     },
     triangle: {
@@ -785,6 +764,26 @@ class Loop {
     }
 };
 //
+function readnumber(string) {
+// allows fractions, returns null if it's NaN, Infinity, empty, etc
+    if(!string || typeof string !== "string") {
+        return null;
+    }
+    else if(string.includes("/")) {
+        string = string.split("/");
+        string = Number(string[0]/string[1]);
+    }
+    else {
+        string = Number(string);
+    };
+    return (
+        Number.isInteger(Math.round(string))
+        ?
+        string
+        :
+        null
+    );
+}
 function gethtmlsetting(element, caveats) {
 // simplifies some of the process of getting a html input and stuff like that.
     caveats ??= [];
@@ -1019,23 +1018,561 @@ class States extends Array {
     }
 };
 
+function tabhandler(e) {
+// set a textarea's onkeydown to this, and you'll avoid that problem where
+// pressing tab exits the textarea and goes to the next button or whatever.
+    if(e.key.toLowerCase() === "tab") {
+        e.preventDefault();
+        let start = this.selectionStart;
+        this.value = this.value.slice(0, start) + "\t" + this.value.slice(this.selectionEnd);
+        this.selectionStart = start + 1;
+        this.selectionEnd = start + 1;
+    }
+}
+
+function filedate() {
+// returns a date string, to use in file names.
+    let temp = new Date();
+    temp = [temp.getFullYear().toString(), (temp.getMonth() + 1).toString(), temp.getDate().toString()];
+    for(let i1 = 1; i1 < temp.length; i1++) {
+        temp[i1] = "0".repeat(2 - temp[i1].length) + temp[i1];
+    }
+    return temp.join("_");
+};
+
+//
+
+function numalign(values, skiprightspaces) {
+// adds spaces to the beginning and/or end of each number so they all line
+// up.
+// - values should be an array of numbers.
+// =
+// moved to reusables
+    let i1 = 0;
+    function numofdigits(value) {
+    // returns an array with the number of digits before and after the decimal
+    // point.
+    // =
+    // moved to reusables
+        value = "" + value;
+        if(value.includes(".")) {
+            return [value.indexOf("."), value.length - (value.indexOf(".") + 1)];
+        }
+        else {
+            return [value.length, 0];
+        };
+    }
+    let maxleftdigits = null;
+    let maxrightdigits = null;
+    for (i1 = 0; i1 < values.length; i1++) {
+        if(maxleftdigits === null || numofdigits(values[i1])[0] > maxleftdigits) {
+            maxleftdigits = numofdigits(values[i1])[0];
+        };
+        if(maxrightdigits === null || numofdigits(values[i1])[1] > maxrightdigits) {
+            maxrightdigits = numofdigits(values[i1])[1];
+        };
+    }
+    for (i1 = 0; i1 < values.length; i1++) {
+        if(numofdigits(values[i1])[0] < maxleftdigits) {
+            values[i1] = " ".repeat(maxleftdigits - numofdigits(values[i1])[0]) + values[i1];
+        }
+        else {
+            values[i1] = "" + values[i1];
+        };
+        if(!skiprightspaces && numofdigits(values[i1])[1] < maxrightdigits) {
+            values[i1] = values[i1] + " ".repeat(maxrightdigits - numofdigits(values[i1])[1]);
+        };
+    }
+    return values;
+}
+function converttime(input, fromnumbers, amount, shush) {
+// only accepts XX:XX[a/p] format. this is not how javascript writes
+// dates, it's how i write dates.
+// - fromnumbers: if this is true, it'll use the input as a number
+//   and convert to the time string instead.
+// - amount: if this is true, it'll assume you're converting not a
+//   time, but an amount of hours, minutes, and seconds.
+//   - it accepts XhXXmXXs, XhXXm, XmXXs, Xh, Xm, and Xs.
+//   - NOTE: it returns the seconds, not minutes! also, if you're
+//     converting *to* a time amount, it will always write the seconds.
+// - gotta make sure to test this... i always screw up with
+//   functions like this, somehow.
+//   - takes way longer than you'd think, too.
+// - NOTE: it gets rid of "~" at the beginning, and it can process +/-
+//   at the beginning
+// =
+// moved to reusables
+    let i1 = 0;
+    let i2 = 0;
+    if(!fromnumbers && input.startsWith("~")) {
+        input = input.slice(1);
+    };
+    if(amount) {
+        if(fromnumbers) {
+            let negative = input < 0;
+            input = Math.floor(Math.abs(input));
+            let seconds = input;
+            let minutes = Math.floor(seconds/60);
+            seconds -= minutes*60;
+            let hours = Math.floor(minutes/60);
+            minutes -= hours*60;
+            seconds += "";
+            minutes += "";
+            hours += "";
+            minutes = "0".repeat(2 - minutes.length) + minutes;
+            seconds = "0".repeat(2 - seconds.length) + seconds;
+            let output = hours + "h" + minutes + "m" + seconds + "s";
+            // example: 0h03m56s
+            if(hours === "0") {
+                output = output.slice(2);
+                if(minutes === "00") {
+                    output = output.slice(3);
+                    if(seconds === "00") {
+                        output = output.slice(1);
+                    }
+                    else if(seconds.slice(0, 1) === "0") {
+                        output = output.slice(1);
+                    };
+                }
+                else if(minutes.slice(0, 1) === "0") {
+                    output = output.slice(1);
+                };
+            };
+            return (negative ? "-" : "") + output;
+        }
+        else {
+            let negative = false;
+            if(input[0] === "+") {
+                input = input.slice(1);
+            }
+            else if(input[0] === "-") {
+                input = input.slice(1);
+                negative = true;
+            };
+            let nums = {};
+            let slicestart = 0;
+            for (i1 = 0; i1 < input.length; i1++) {
+                if("hms".includes(input[i1])) {
+                    nums[input[i1]] = Number(input.slice(slicestart, i1));
+                    if(slicestart !== 0 && i1 - slicestart !== 2) {
+                    // only the largest type is allowed to have as many
+                    // digits as it wants. (ex: 1h7m is invalid, 1m100s
+                    // is invalid)
+                        if(!shush) {
+                            console.log("invalid input.");
+                        }
+                        return;
+                    }
+                    slicestart = i1 + 1;
+                }
+                else if(i1 === input.length - 1) {
+                // it should end with one of those.
+                    if(!shush) {
+                        console.log("invalid input.");
+                    }
+                    return;
+                }
+                else if(!"0123456789".includes(input[i1])) {
+                // it should only be numbers and h/m/s.
+                    if(!shush) {
+                        console.log("invalid input.");
+                    }
+                    return;
+                }
+            }
+            nums.h ??= 0;
+            nums.m ??= 0;
+            nums.s ??= 0;
+            return (negative ? -1 : 1)*(nums.h*60*60 + nums.m*60 + nums.s);
+        };
+    }
+    else {
+        if(fromnumbers) {
+            input %= 24*60;
+            let ampm = "";
+            if(input >= 12*60) {
+                input -= 12*60;
+                ampm += "p";
+            };
+            let hours = Math.floor(input/60).toString();
+            let minutes = (input%60).toString();
+            if(hours === "0") {
+                hours = "12";
+            };
+            hours = "0".repeat(2 - hours.length) + hours;
+            return hours + ":" + minutes + ampm;
+        }
+        else {
+            let hours = Number( input.slice(0, input.indexOf(":")) );
+            let minutes = Number( input.slice(input.indexOf(":") + 1, -1) );
+            if(
+            !input.includes(":")
+            ||
+            (input.slice(-1) !== "a" && input.slice(-1) !== "p")
+            ||
+            !hours || !Number.isInteger(hours) || hours < 1 || hours > 12
+            ||
+            !input.slice(input.indexOf(":") + 1, -1) || !Number.isInteger(minutes) || minutes < 0 || minutes >= 60
+            ) {
+                // hours shouldn't be zero, though that's valid in some
+                // systems (also empty space can be number-converted to
+                // 0 and i don't feel like dealing with it. except i
+                // already did for minutes.)
+                if(!shush) {
+                    console.log("invalid converttime input.");
+                };
+                return;
+            };
+            if(hours === 12) {
+                hours = 0;
+            };
+            return hours * 60 + minutes + (input.slice(-1) === "p" ? 12*60 : 0);
+        };
+    };
+}
+function get2dline(x1, y1, x2, y2) {
+// standard form. Ax + By + C = 0. this is A, B, and C.
+    //(y1 - y2)x + (x2 - x1)y + (x1*y2 - x2*y1) = 0
+    let line = get2dangle(x2 - x1, y2 - y1);
+    line = [
+        Math.cos(line + Math.PI/2),
+        Math.sin(line + Math.PI/2)
+    ];
+    line[2] = -(x1*line[0] + y1*line[1]);
+    return line;
+}
+function fourpointintersect(x1, y1, x2, y2, x3, y3, x4, y4, shush, segmentsintersect) {
+// finds the intersection between a line that crosses point 1 and point
+// 2 and a line that cross point 3 and point 4, returning it as an array
+// - shush: returns a string of what went wrong instead of logging an error
+// - segmentsintersect: makes it add another item to the array, a boolean
+//   for whether the intersection is within the line segments specified.
+    let i1 = 0;
+    if((x1 === x2 && y1 === y2) || (x3 === x4 && y3 === y4)) {
+        if(shush) {
+            return "point";
+        }
+        else {
+            console.log("invalid input. one or both lines begin and end at the same point.");
+            return;
+        };
+    }
+    let lineA = get2dline(x1, y1, x2, y2, true);
+    let lineB = get2dline(x3, y3, x4, y4, true);
+    //let temp = new Line(x1, y1, 0, [posmod(get2dangle(lineA[0], lineA[1]) + Math.PI/2, 2*Math.PI), 0]).planeintersect(new Plane(lineB[0], lineB[1], 0, lineB[2])).slice(0, 2);
+    //console.log(temp);
+    //return temp;
+    let x = null;
+    let y = null;
+    if(lineA[0]/lineA[1] === lineB[0]/lineB[1]) {
+    // same slope
+        if(lineA[2] === lineB[2]) {
+        // average all points
+            x = ((x1 + x2)/2 + (x3 + x4)/2)/2;
+            y = ((y1 + y2)/2 + (y3 + y4)/2)/2;
+            return [x, y];
+        }
+        else {
+            if(shush) {
+                return "parallel";
+            }
+            else {
+                console.log("lines are parallel.");
+                return;
+            };
+        };
+    };
+    y = (lineA[0]*lineB[2] - lineB[0]*lineA[2])/(lineB[0]*lineA[1] - lineA[0]*lineB[1]);
+    x = [
+        -(lineA[1]*y + lineA[2])/lineA[0],
+        -(lineB[1]*y + lineB[2])/lineB[0]
+    ];
+    if(!shush && Math.abs(x[0] - x[1]) > .0000000001) {
+        console.log(x);
+    }
+    x = x[0];
+    if(segmentsintersect) {
+        let temp = (
+            Math.min(x1, x2) <= x && x <= Math.max(x1, x2)
+            &&
+            Math.min(y1, y2) <= y && y <= Math.max(y1, y2)
+            &&
+            Math.min(x3, x4) <= x && x <= Math.max(x3, x4)
+            &&
+            Math.min(y3, y4) <= y && y <= Math.max(y3, y4)
+        );
+        return [x, y, temp];
+    }
+    else {
+        return [x, y];
+    };
+}
+//function finddistance(x1, y1, x2, y2) {
+//	return Math.sqrt((x2-x1)**2 + (y2-y1)**2);
+//}
+// just use Math.hypot((x2 - x1), (y2 - y1))
+function mathgcf(numbers, shush) {
+// numbers: an array.
+    let i1 = 0;
+    let i2 = 0;
+    let i3 = 0;
+    if(numbers.includes(0)) {
+        return 0;
+    }
+    _numbers = [];
+    for (i1 = 0; i1 < numbers.length; i1++) {
+        if(typeof numbers[i1] !== "number" || !Number.isInteger(numbers[i1])) {
+            if(!shush) {
+                console.log("invalid input, they must all be integers");
+                console.log(numbers[i1]);
+            };
+            return;
+        };
+        _numbers[i1] = Math.abs(numbers[i1]);
+    }
+    let lowest = Math.min(..._numbers);
+    let temp = false;
+    //*
+    let denom = 0;
+    for (i1 = 1; i1 <= lowest/2; i1++) {
+        denom = lowest/i1;
+        if(Number.isInteger(denom)) {
+            temp = true;
+            for (i2 = 0; i2 < _numbers.length; i2++) {
+                temp = _numbers[i2]%denom === 0;
+                if(!temp) {
+                    i2 += _numbers.length;
+                };
+            }
+            if(temp) {
+                return denom;
+            };
+        }
+    }
+    return 1;
+    //*/
+    /*
+    for (i1 = lowest; i1 >= 1; i1--) {
+        temp = true;
+        for (i2 = 0; i2 < _numbers.length; i2++) {
+            temp = _numbers[i2]%i1 === 0;
+            if(!temp) {
+                i2 += _numbers.length;
+            };
+        }
+        if(temp) {
+            return i1;
+        };
+    }
+    //*/
+};
+function mathlcd(numbers, shush) {
+    let gcf = mathgcf(numbers, shush);
+    let lcd = gcf;
+    let i1 = 0;
+    for (i1 = 0; i1 < numbers.length; i1++) {
+        lcd *= numbers[i1]/gcf;
+    };
+    return Math.abs(lcd);
+};
+function mathtester(func, condition, sortby, iterations, func_arg, graph) {
+// used to test math functions.
+/*
+document.getElementById("mt_area").hidden = false;
+mathtester(function() {
+    //
+},
+false, false, false, false, {
+    ctx: document.getElementById("mt_canvas").getContext("2d"),
+    func: function(ctx, x, result) {
+        ctx.fillRect(x, ctx.canvas.height, 1, -ctx.canvas.height*result.???/???);
+        ctx.fillRect(x, ctx.canvas.height*(1 - result.error/???), 1, 1);
+    }
+    log: false,
+});
+//*/
+// - func: this should be a function that creates and returns an
+//   object created through randomness and the math functions you're
+//   testing.
+//   - for example, if i wanted to test a function that revolves
+//     points, i'd plot a random point, use a math function that
+//     *should* bring a control (or maybe another random point) to
+//     that position, then use Math.hypot to calculate how close it
+//     is. it'd return something like:
+//     - .destination (coordinate array)
+//     - .accuracy (Math.hypot result)
+// - condition: boolean function for putting something in the
+//   success array instead of the failure array. (func's output will
+//   be used as the sole parameter.) by default it is (result) =>
+//   result[sortby] < .0000000001.
+// - sortby: a string for the property they're going to be sorted
+//   by. by default, it is "error".
+// - iterations: number of trials. 1000 by default
+// - func_arg: specify arguments for func, in the form of an array.
+// - graph: an object for graphing
+//   - .ctx
+//   - .func: function for graphing
+//     - arguments
+//       - ctx
+//       - x: the row to use for your fillRects and what not
+//       - result: the object that holds all the data for this
+//         success/failure
+//     - fillStyle and strokeStyle will be start as green or orange
+//       depending on whether it was success or failure.
+//   - log: boolean for whether to bother logging the success/failure arrays
+    let i1 = 0;
+    let success = [];
+    let failure = [];
+    condition	= typeof condition	=== "function"	? condition		: (result) => result[sortby] < .0000000001;
+    sortby		= typeof sortby		=== "string"	? sortby		: "error";
+    iterations	= typeof iterations	=== "number"	? iterations	: 1000;
+    let total_failure = null;
+    for(i1 = 0; i1 < iterations; i1++) {
+        let result = (Array.isArray(func_arg) ? func(...func_arg) : func());
+        if(condition(result)) {
+            success[success.length] = structuredClone(result);
+        }
+        else {
+            failure[failure.length] = structuredClone(result);
+            if(result.hasOwnProperty("error")) {
+                total_failure += result.error;
+            };
+        }
+    }
+    function mt_sort(a, b) {
+        return a[sortby] - b[sortby];
+    };
+    success.sort(mt_sort);
+    failure.sort(mt_sort);
+    if(!graph || graph.hasOwnProperty("log") && graph.log) {
+        console.log("success:");
+        console.log(success);
+        console.log("failure:" + (total_failure === null ? "" : " (average: " + total_failure/failure.length + ")"));
+        console.log(failure);
+    };
+    if(graph) {
+        let ctx = graph.ctx;
+        ctx.canvas.width = success.length + failure.length;
+        ctx.fillStyle = "white";
+        ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        for (i1 = 0; i1 < success.length; i1++) {
+            ctx.fillStyle = "green";
+            ctx.strokeStyle = "green";
+            graph.func(ctx, i1, success[i1]);
+        }
+        for (i1 = 0; i1 < failure.length; i1++) {
+            ctx.fillStyle = "orange";
+            ctx.strokeStyle = "orange";
+            graph.func(ctx, success.length + i1, failure[i1]);
+        }
+    }
+}
+function logspecial(variables, preface, stringify) {
+// lets you log several variables at once in a very concise and clear way.
+// - variables: an object. just take a bunch of variables separated by
+//   commas, and add curly braces.
+// - preface: if present, it will log this string first. useful for letting
+//   you know where it is in the code.
+// - stringify: if true, objects will be logged as text instead of being
+//   logged separately.
+//   - if stringify === "get", it'll return the text instead of logging it.
+//     (this is useful for ProcAnims. drawing text on the canvas that says
+//     the state of a variable.)
+    let i1 = 0;
+    if(preface) {
+        console.log(preface);
+    };
+    let text = "";
+    let maxlength = 0;
+    for (i1 in variables) {
+        if (variables.hasOwnProperty(i1) && i1.length > maxlength) {
+            maxlength = i1.length;
+        }
+    }
+    for (i1 in variables) {
+        if (variables.hasOwnProperty(i1) && (typeof variables[i1] !== "object" || stringify)) {
+            text += (text ? String.fromCharCode(10) : "") + i1 + " ".repeat(maxlength - i1.length) + ": ";
+            if(typeof variables[i1] === "object" && !Array.isArray(variables[i1])) {
+                text += JSON.stringify(variables[i1]);
+            }
+            else {
+                text += variables[i1];
+            }
+        }
+    }
+    if(text) {
+        if(stringify === "get") {
+            return text;
+        }
+        else {
+            console.log(text);
+        };
+    };
+    if(!stringify) {
+        for (i1 in variables) {
+            if (variables.hasOwnProperty(i1) && typeof variables[i1] === "object" && variables[i1]) {
+                console.log(i1 + " ".repeat(maxlength - i1.length) + ": ");
+                console.log(variables[i1]);
+            }
+        }
+    }
+}
+
+var userfocus = "";
+// a string for which tool the user last clicked. used to prevent key events
+// from triggering for tools the user isn't using.
+// - this uses var for a reason. for the sake of classes that use it, it
+//   needs to be retrievable.
+function changefocus(focus) {
+// 99% of the time all this does is change the userfocus variable. the only
+// reason it's a function at all is so that it can be overridden by similar
+// functions that actually react to changes.
+// - that was a bad explanation, wasn't it.
+// - this is basically like a setter. sometimes tools run processing functions a
+//   few times a second, right? it'd be pretty goddamn uncool for those to keep
+//   running even when you're not using a different tool.
+// - so when i need something like that, i write a new changefocus specifically
+//   for that page. that way i can do setter stuff in there. but that requires a
+//   norm of using a function in the first place, instead of just redefining it
+//   normally.
+    userfocus = focus;
+};
+function clickxy(e, focusname) {
+    if(typeof focusname === "string" && typeof userfocus !== "undefined") {
+        changefocus(focusname);
+    };
+    return [
+        Math.floor(e.clientX - e.target.getBoundingClientRect().left),
+        Math.floor(e.clientY - e.target.getBoundingClientRect().top)
+    ];
+};
+function keyinterpreter(key) {
+    if(key.length === 1) {
+        key = key.toLowerCase();
+        // so that w and W don't have to be mapped separately.
+        let temp = ")!@#$%^&*(";
+        if(temp.includes(key)) {
+            key = temp.indexOf(key).toString();
+        };
+        // same with the symbols mapped to number keys
+    };
+    return key;
+};
+
+
+
+
+
+
+
+
 
 // circledraw
 // fourpointintersect
 // -
 // isobject
 // compareobject
-// limitlessrand
-// objarraylength
-// numofdigits
-// numalign
-// converttime
-
-// converttime
 
 // diamondsquare
 // voronoi
 // protodelaunay
-// paintbucket
-// converttime
-// getcolor

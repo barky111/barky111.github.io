@@ -123,8 +123,8 @@ function datetonum(date) {
     };
 };
 function datecompare(date1, date2, strict) {
-// returns the Math.sign of whether date2 is after, (1) before, (-1)
-// or during (0) date1.
+// returns the Math.sign of whether date2 is after (1), before (-1), or during
+// (0) date1.
 // - NOTE it also returns null if date1 is a day and date2 is the
 //   same month.
 // - strict: boolean that makes it so a month comes before all days
@@ -132,11 +132,14 @@ function datecompare(date1, date2, strict) {
 //   - it always returns a sign, and it's only zero if both are the
 //     same...
 //   - it's used for .sort operations.
-    if(typeof date1 === "string") {
-        date1 = datetonum(date1);
-    };
-    if(typeof date2 === "string") {
-        date2 = datetonum(date2);
+// - non-dates will always come before dates.
+    date1 = datechecker(date1) ? datetonum(date1) : null;
+    date2 = datechecker(date2) ? datetonum(date2) : null;
+    if(date1 === null) {
+        return date2 === null ? 0 : 1;
+    }
+    else if(date2 === null) {
+        return -1;
     };
     let sign = Math.sign(date2[1] - date1[1]);
     if(sign === 0) {
@@ -430,7 +433,7 @@ function breakbyline(input, code, code2, retainbeginning) {
     }
     return array;
 };
-class Bullets {
+class Bullets extends Array {
 // a class for converting the syntax i use in my personal notes into usable
 // data.
 // - structure:
@@ -470,16 +473,12 @@ class Bullets {
 //           dividers across to the next paragraph, since that wouldn't make
 //           sense.
 //   - retainbreaks, allowthese, date: arguments when it was constructed
-// TODO shiiiiit this also has to keep in mind dates and shit,
-// - bullets need to have a property for "this comes after a - divider,
-//   and here is how many", same for =
-// - and it has to detect month/day marks at the end and apply them
-//   to every child or sibling after
-// - this will be locked behind myformatting, of course
-    constructor(input, myformatting, retainbreaks, allowthese, date) {
-    // there was already something like this called bulletconverter
-    // but it is a fucking mess
-    // - even though i didn't even write it that long ago?
+// - NOTE: do not use the constructor directly. use Bullets.new instead.
+    constructor(...items) {
+    // don't use this. use Bullets.new instead.
+        super(...items);
+    }
+    static new(input, myformatting, retainbreaks, allowthese, date) {
     // - myformatting: i go from 0 spaces at 0 indent to 5 at 1.
     // - retainbreaks: it will not replace line breaks within
     //   bullets with spaces
@@ -490,29 +489,30 @@ class Bullets {
         let i1 = 0;
         let i2 = 0;
         let i3 = 0;
+        let bul = new Bullets();
         if(input instanceof Bullets) {
         // create an empty Bullets with the same properties.
             for(i1 in input) {
                 if(input.hasOwnProperty(i1) && !Number.isInteger(Number(i1))) {
-                    this[i1] = structuredClone(input[i1]);
+                    bul[i1] = structuredClone(input[i1]);
                 }
             }
-            return this;
+            return bul;
         }
-        this.retainbreaks = !!this.retainbreaks;
-        this.allowthese = "";
+        bul.retainbreaks = !!retainbreaks;
+        bul.allowthese = "";
         if(typeof allowthese === "string" && allowthese) {
         // get rid of duplicates and whitespace
             for(i1 = 0; i1 < allowthese.length; i1++) {
-                if(!this.allowthese.includes(allowthese[i1]) && allowthese[i1].trim()) {
-                    this.allowthese += allowthese[i1];
+                if(!bul.allowthese.includes(allowthese[i1]) && allowthese[i1].trim()) {
+                    bul.allowthese += allowthese[i1];
                 }
             }
         };
-        if(!this.allowthese) {
-            this.allowthese = "-";
+        if(!bul.allowthese) {
+            bul.allowthese = "-";
         }
-        allowthese = this.allowthese;
+        allowthese = bul.allowthese;
         const LB = String.fromCharCode(10);
         // short for "line break"
         let isbullet = (line) => ( allowthese.includes(line.trimStart().charAt(0)) && line.trimStart().charAt(1) === " " );
@@ -593,8 +593,8 @@ class Bullets {
                     input[i1].character = input[i1].text.charAt(0);
                     input[i1].text = input[i1].text.slice(2);
                 }
-                else if(allowthese.includes(input[i1].text.charAt(0))) {
-                    input[i1].character = input[i1].text.charAt(0);
+                else if(input[i1].text && allowthese.indexOf(input[i1].text[0]) >= 1) {
+                    input[i1].character = input[i1].text[0];
                     input[i1].text = input[i1].text.slice(1);
                 }
                 else {
@@ -648,12 +648,13 @@ class Bullets {
         let temp = 0;
         for(i1 = 0; i1 < input.length; i1++) {
             for(i2 = 0; i2 < input[i1].length; i2++) {
-                this[temp + i2] = structuredClone(input[i1][i2]);
+                bul[temp + i2] = structuredClone(input[i1][i2]);
             }
             temp += input[i1].length;
             // total length of the input indexes covered so far
         }
-        // transfer the contents of input into this
+        // transfer the contents of input into bul
+        return bul;
     }
     static template = {
         text: "",
@@ -664,9 +665,6 @@ class Bullets {
     }
     // template for a single bullet. (useful when creating Bullets through
     // custom code instead of the constructor. like .intent)
-    get length() {
-        return objarraylength(this);
-    }
     static spacenum(indent, tobullet, inverse, myformatting) {
     // input an indent number and it'll tell you how many spaces it has
     // from the beginning of a line to the text. (the text, not the
@@ -913,12 +911,17 @@ class Bullets {
     }
     parent(index) {
     // index of this bullet's parent
+        if(!Number.isInteger(index)) {
+        // Infinity or NaN could lead to infinite loops
+            console.log("invalid index: " + index);
+            return;
+        };
         let indent = this[index].indent;
         if(indent === 0) {
             return null;
         }
         index--;
-        for(; index >= 0; index--) {
+        while(index >= 0) {
             if(this[index].indent === indent - 1) {
                 return index;
             }
@@ -926,8 +929,26 @@ class Bullets {
             // crossed into previous paragraph
                 return null;
             }
+            index--;
         }
         return null;
+    }
+    children(index) {
+    // array of indexes for the given index' children.
+        if(!Number.isInteger(index)) {
+        // Infinity or NaN could lead to infinite loops
+            console.log("invalid index: " + index);
+            return;
+        };
+        let start = index + 1;
+        let end = index + this.desc_length(index);
+        let children = [];
+        for(let i1 = start; i1 <= end; i1++) {
+            if(this[i1].indent === this[index].indent + 1) {
+                children.push(i1);
+            }
+        }
+        return children;
     }
     anc(index) {
     // an array of this bullet's ancestors, from furthest to closest
@@ -935,8 +956,13 @@ class Bullets {
     //   the bullets is structured in an unusual way, it won't work like that.
     //   - for example, if the paragraph has no zero-indents
     //   - or if a bullet is more than 1 more than the previous bullet's indent
+        if(!Number.isInteger(index)) {
+        // Infinity or NaN could lead to infinite loops
+            console.log("invalid index: " + index);
+            return;
+        };
         let array = [this.parent(index)];
-        for(; array[0] !== null;) {
+        while(array[0] !== null) {
             array.splice(0, 0, this.parent(array[0]));
         }
         array.splice(0, 1);
@@ -944,15 +970,21 @@ class Bullets {
     }
     desc_length(index) {
     // number of descendants
+        if(!Number.isInteger(index)) {
+        // Infinity or NaN could lead to infinite loops
+            console.log("invalid index: " + index);
+            return;
+        };
         const start = index + 1;
         let indent = this[index].indent;
         index++;
         let length = this.length;
-        for(; index < length; index++) {
+        while(index < length) {
             if(this[index].indent <= indent || this[index].newpara) {
             // reached an aunt/uncle, or a new paragraph
                 return index - start;
             };
+            index++;
         }
         return length - start;
     }
@@ -961,14 +993,19 @@ class Bullets {
         let temp = this.desc_length(index);
         let array = [];
         for(let i1 = 0; i1 < temp; i1++) {
-            array[array.length] = index + 1 + i1;
+            array.push(index + 1 + i1);
         }
         return array;
     }
     prevsibling(index) {
+        if(!Number.isInteger(index)) {
+        // Infinity or NaN could lead to infinite loops
+            console.log("invalid index: " + index);
+            return;
+        };
         let indent = this[index].indent;
         index--;
-        for(; index >= 0; index--) {
+        while(index >= 0) {
             if(this[index].indent < indent) {
                 return null;
             }
@@ -979,14 +1016,20 @@ class Bullets {
             // iterating any further will cross into a previous paragraph.
                 return null;
             };
+            index--;
         }
         return null;
     }
     nextsibling(index) {
+        if(!Number.isInteger(index)) {
+        // Infinity or NaN could lead to infinite loops
+            console.log("invalid index: " + index);
+            return;
+        };
         let indent = this[index].indent;
         index++;
         let length = this.length;
-        for(; index < length; index++) {
+        while(index < length) {
             if(this[index].indent < indent || this[index].newpara) {
             // reached an aunt/uncle or crossed to the next paragraph.
                 return null;
@@ -994,6 +1037,7 @@ class Bullets {
             else if(this[index].indent === indent) {
                 return index;
             };
+            index++;
         }
         return null;
     }
@@ -1005,9 +1049,19 @@ class Bullets {
     //   without the context of the parent, it won't know what date it
     //   used to be associated with. use branch instead if you want it
     //   to be smarter.
+        if(!Number.isInteger(index1)) {
+        // Infinity or NaN could lead to infinite loops
+            console.log("invalid index1: " + index1);
+            return;
+        };
+        if(!Number.isInteger(index2)) {
+        // Infinity or NaN could lead to infinite loops
+            console.log("invalid index2: " + index2);
+            return;
+        };
         index1 = Number(index1);
         index2 = Number(index2);
-        let slice = new Bullets(this);
+        let slice = Bullets.new(this);
         let length = this.length;
         index1 = !isNaN(index1) ? index1 : 0;
         index2 = !isNaN(index2) ? index2 : length;
@@ -1091,7 +1145,7 @@ class Bullets {
     //   crap like that. this is pretty much just a substitute for
     //   Array.concat.
         let i1 = 0;
-        let _return = new Bullets(this);
+        let _return = Bullets.new(this);
         let length1 = this.length;
         for (i1 = 0; i1 < length1; i1++) {
             _return[i1] = structuredClone(this[i1]);
@@ -1119,8 +1173,8 @@ class Bullets {
         index1 = Number(index1);
         index2 = Number(index2);
         let length = this.length;
-        index1 = !isNaN(index1) ? index1 : 0;
-        index2 = !isNaN(index2) ? index2 : length;
+        index1 = Number.isInteger(index1) ? index1 : 0;
+        index2 = Number.isInteger(index2) ? index2 : length;
         if(index1 < 0) {
             index1 += length;
         };
@@ -1135,9 +1189,14 @@ class Bullets {
     // returns an array of all the dividers from the beginning of this
     // bullet to the first child of its parent.
     // - includedates: if falsy, it'll omit dates
+        if(!Number.isInteger(index)) {
+        // Infinity or NaN could lead to infinite loops
+            console.log("invalid index: " + index);
+            return;
+        };
         index = Number(index);
         let array = [];
-        for(; Number.isInteger(index) && index >= 0;) {
+        while(Number.isInteger(index) && index >= 0) {
         // search through all siblings
             array = this[index].dividers.concat(array);
             index = this.prevsibling(index);
@@ -1154,15 +1213,22 @@ class Bullets {
     }
     getdate(index) {
     // returns null if it didn't find any.
+        if(!Number.isInteger(index)) {
+        // Infinity or NaN could lead to infinite loops
+            console.log("invalid index: " + index);
+            return;
+        };
+        let i1 = 0;
+        let i2 = 0;
         index = Number(index);
         let anc = this.anc(index);
-        anc[anc.length] = index;
-        for(let i1 = anc.length - 1; i1 >= 0; i1--) {
+        anc.push(index);
+        for(i1 = anc.length - 1; i1 >= 0; i1--) {
         // search backwards through dates/dividers for the closest date
             let dividers = this.getdividers(anc[i1], true);
             dividers = dividers.slice( dividers.lastIndexOf("=") + 1 );
             // if there's an = divider, only search what's after that
-            for(let i2 = dividers.length - 1; i2 >= 0; i2--) {
+            for(i2 = dividers.length - 1; i2 >= 0; i2--) {
                 let temp = dividers[i2];
                 if(temp.endsWith(".")) {
                     temp = temp.slice(0, -1);
@@ -1172,13 +1238,36 @@ class Bullets {
                 };
             }
         }
-        for(let i1 = index; i1 >= 0; i1--) {
+        for(i1 = index; i1 >= 0; i1--) {
             if(datechecker(this[i1].newpara)) {
                 return this[i1].newpara;
             }
         }
         // if there's no date dividers, check for date newpara.
         return null;
+    }
+    getchilddate(index) {
+    // returns the date a new bullet added as a child of this bullet would have.
+        if(!Number.isInteger(index)) {
+        // Infinity or NaN could lead to infinite loops
+            console.log("invalid index: " + index);
+            return;
+        };
+        let _date = this.getdate(index);
+        let date = _date;
+        let children = this.children(index);
+        for(let i1 = 0; i1 < children.length; i1++) {
+            let dividers = this[children[i1]].dividers;
+            for(let i2 = 0; i2 < dividers.length; i2++) {
+                if(dividers[i2] === "=") {
+                    date = _date;
+                }
+                else if(datechecker(dividers[i2])) {
+                    date = dividers[i2];
+                }
+            }
+        }
+        return date;
     }
     html(width, tabwidth, indent_space, edits) {
     // - tabwidth: this is only important for word wrapping it for your ide.
@@ -1408,7 +1497,7 @@ class Bullets {
             };
         }
         let obj = {
-            content: new Bullets(this),
+            content: Bullets.new(this),
             anc: [],
             desc: [],
             both: [],
@@ -1475,6 +1564,12 @@ class Bullets {
     // and dividers accordingly.
     // - flatten: if true, when a deleted index has descendants, it'll lower the
     //   indent level of those descendants instead of deleting them entirely.
+    //   - NOTE: it does not do anything with dates and dividers. it is NOT
+    //     recommended.
+    //     - the parent was 07jan25, the parent's next sibling is also 07jan25,
+    //       and some of the children are 09jan25... the date divider will be
+    //       brought down a level, so the parent's sibling will be made 09jan25
+    //       too. not good.
     // - it also returns an array of all the indexes it deleted, so that arrays
     //   matching the bullets can be adjusted.
     //   - this sounds redundant, but remember that descendants are deleted too.
@@ -1483,66 +1578,100 @@ class Bullets {
         if(typeof indexes === "number") {
             indexes = [indexes];
         };
+        let _indexes = structuredClone(indexes);
         indexes.sort((a, b) => a - b);
-        let _indexes = [];
-        // have to put off deleting these, since missing bullets might screw up
-        // desc_length. how annoying.
-        let length = this.length;
-        for(i1 = 0; i1 < indexes.length; i1++) {
-            let _i1 = indexes[i1];
-            if(!_indexes.includes(_i1)) {
-            // if it hasn't been marked for deletion already...
-                _indexes[_indexes.length] = _i1;
-                let desc_length = this.desc_length(_i1);
-                for(i2 = 0; i2 < desc_length; i2++) {
-                    let _i2 = _i1 + 1 + i2;
-                    if(flatten) {
-                        this[_i2].indent--;
-                    }
-                    else {
-                        _indexes[_indexes.length] = _i2;
-                    };
-                }
+        let bool = [];
+        if(flatten) {
+            flatten = [];
+        }
+        for(i1 = 0; i1 < this.length; i1++) {
+            bool.push(false);
+            if(flatten) {
+                flatten.push(0);
             }
-            let heir = this.nextsibling(_i1);
-            // index to move the dividers to.
-            // - since i did this after the flattening, this could end up being
-            //   a flattened child, but that makes plenty of sense.
-            if(heir !== null) {
-            // pass on dividers and newpara
-                this[heir].dividers = Bullets.fixdividers(this[_i1].dividers.concat( this[heir].dividers ));
-                // fixdividers avoids multiple dates, or empty = sections
-                if(!this[heir].newpara) {
-                    this[heir].newpara = this[_i1].newpara;
-                }
-            };
         }
+        // a slot for each bullet. it'll be made true if the bullet will be
+        // removed. (deletion indexes can have descendants, and even be
+        // descendants of each other. gotta keep track of that.)
+        // - flatten is an array of numbers for what to add to bullets' indent.
+        let splice_length = [];
         for(i1 = 0; i1 < _indexes.length; i1++) {
-            delete this[ _indexes[i1] ];
-        }
-        let gap = 0;
-        for(i1 = 0; i1 < length; i1++) {
-        // move bullets to get rid of all empty slots. (index keeps track of
-        // where bullets should be moved to for there to be no gaps.)
-            if(this.hasOwnProperty(i1)) {
-                if(gap) {
-                // shift it to the other side
-                    let _i1 = i1 - gap;
-                    if(this.hasOwnProperty(_i1)) {
-                        console.log("this shouldn't happen");
-                    }
-                    else {
-                        this[_i1] = structuredClone(this[i1]);
-                        delete this[i1];
-                    };
-                }
+            let _i1 = _indexes[i1];
+            if(bool[_i1]) {
+            // descendant of a previous index.
+                _indexes.splice(i1, 1);
+                i1--;
             }
             else {
-            // empty slot
-                gap++;
+                bool[_i1] = true;
+                let length = this.desc_length(_i1);
+                splice_length.push(1 + (flatten ? 0 : length));
+                for(i2 = _i1 + 1; i2 <= _i1 + length; i2++) {
+                    if(flatten) {
+                        flatten[i2]--;
+                    }
+                    else {
+                        bool[i2] = true;
+                    };
+                }
+            }
+        }
+        if(flatten) {
+            for(i1 = 0; i1 < flatten.length; i1++) {
+                this[i1].indent += flatten[i1];
+            }
+        }
+        // this should be done before the dividers are passed, so that lowered
+        // descendants are viable siblings to pass dividers to.
+        for(i1 = 0; i1 < _indexes.length; i1++) {
+        // pass on dividers and newpara.
+        // - this has to be done after it knows all the stuff that'll be
+        //   deleted, so they don't get passed on to deleted bullets.
+            let _i1 = _indexes[i1];
+            let length = splice_length[i1];
+            let heir = this.nextsibling(_i1);
+            // pass dividers on to the next sibling.
+            while(heir !== null && bool[heir]) {
+            // if that's marked for deletion already, go to the next sibling. if
+            // you run out, give up.
+                heir = this.nextsibling(heir);
+            }
+            if(heir in this) {
+            // fixdividers avoids multiple dates, or empty = sections
+                this[heir].dividers = Bullets.fixdividers(this[_i1].dividers.concat(this[heir].dividers));
             };
+            //
+            if(this[_i1].newpara) {
+                heir = _i1 + length;
+                while(bool[heir] && heir < this.length) {
+                    heir++;
+                }
+                // newpara should always be passed on to the next bullet
+                // that won't be deleted.
+                if(heir in this && !datechecker(this[heir].newpara)) {
+                // - if it was already the last bullet or there's no bullets
+                //   after that won't be deleted, there's nowhere to pass it.
+                // - later newpara dates override earlier newpara dates.
+                    this[heir].newpara = this[_i1].newpara;
+                };
+            }
+        }
+        for(i1 = 0; i1 < _indexes.length; i1++) {
+            this.splice(_indexes[i1], splice_length[i1]);
+            for(i2 = i1 + 1; i2 < _indexes.length; i2++) {
+            // adjust later indexes
+                _indexes[i2] -= splice_length[i1];
+            }
+        }
+        _indexes = [];
+        for(i1 = 0; i1 < bool.length; i1++) {
+            if(bool[i1]) {
+                _indexes.push(i1);
+            }
         }
         return _indexes;
+        // it'd probably be more useful to return bool, but then i'd have to
+        // adjust every use of this in texttools and other Bullets methods...
     }
     static intent_tags(string, realizers) {
     // returns an array of objects for each valid center/intent/realizer tag
@@ -2038,7 +2167,7 @@ class Bullets {
             }
             tci = tci.slice(0, tci_length).concat(temp);
         }
-        let newbul = new Bullets(this);
+        let newbul = Bullets.new(this);
         let template = Bullets.template;
         let added = [];
         let added_tci = [];
@@ -2231,7 +2360,7 @@ class Bullets {
     }
     static fromarray(array, myformatting, retainbreaks, allowthese) {
     // converts an array of individual bullet objects into a Bullets.
-        let newbul = new Bullets("", myformatting, retainbreaks, allowthese);
+        let newbul = Bullets.new("", myformatting, retainbreaks, allowthese);
         delete newbul[0];
         for(let i1 = 0; i1 < array.length; i1++) {
             newbul[i1] = structuredClone(Bullets.template);
@@ -2343,7 +2472,7 @@ class Bullets {
         this.remove(remove);
     }
     static UI = class {
-    // a class for subjecting a textarea to Bullets rules.
+    // a class for subjecting a textarea to Bullets rules. unfinished.
         constructor(textarea, container, prefix) {
             if(!(textarea instanceof HTMLTextAreaElement) || !(container instanceof HTMLElement) || (typeof prefix !== "string")) {
                 console.log("invalid arguments.");
@@ -2411,8 +2540,7 @@ class Bullets {
                 bulindex += Bullets.bulletstart(lines[i1], _this.myformatting, _this.allowthese) !== -1;
             }
             bulindex--;
-            let bullets = new Bullets(_this.textarea.value, _this.myformatting, false, _this.allowthese);
-            console.log(bulindex);
+            let bullets = Bullets.new(_this.textarea.value, _this.myformatting, false, _this.allowthese);
             let temp = bullets.desc_length(bulindex);
             for(i1 = bulindex; i1 < bulindex + 1 + temp; i1++) {
                 bullets[i1].indent = Math.max(0, bullets[i1].indent + num);
@@ -2628,8 +2756,8 @@ let quote = {
 function uncomment(string, start, end, keepend) {
 // removes comments.
     start ??= "//";
-    end ??= String.fromCharCode(10);
-    keepend ??= end === String.fromCharCode(10);
+    end ??= "\n";
+    keepend ??= end === "\n";
     let code = function(string, inquotes) {
         if(inquotes) {
             return string;
@@ -3353,7 +3481,7 @@ function block_ranges(string, escaped, starts, ends, noquotefix) {
                     //console.log(levels.join(""));
                     i1 += closer.length;
                     if(!levels.length) {
-                        ranges[ranges.length] = i1;
+                        ranges.push(i1);
                     }
                     i1--;
                     skip = true;
@@ -3370,7 +3498,7 @@ function block_ranges(string, escaped, starts, ends, noquotefix) {
             ) {
                 //console.log("open: " + i1);
                 if(!levels.length) {
-                    ranges[ranges.length] = i1;
+                    ranges.push(i1);
                 }
                 levels[levels.length] = i2;
                 if(isquote(i2)) {

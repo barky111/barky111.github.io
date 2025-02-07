@@ -1,4 +1,4 @@
-const offline = false;
+const offline = true;
 const offline_url = "file:///C:/My Stuff/programming";
 // edit these to create an online/offline version.
 const info = {
@@ -16,15 +16,18 @@ const head = `<head>
     <title>` + info.site_name + `</title>
     <link href="script/style.css" rel="stylesheet" type="text/css" media="all"/>
 </head>`;
+const nav = `<nav>
+    ` + [
+        `<a href="` + info.url + `">home</a>`,
+        `<a href="aa_bm.html">armature artist</a>`,
+        `<a href="texttools.html">text tools</a>`,
+        `<a href="canvastools.html">canvas tools</a>`,
+        `<a href="misctools.html">misc tools</a>`
+    ].join(" " + String.fromCharCode(8226) + " ") + `
+</nav>`;
 const header = `<header>
     <h1><a href="` + info.url + `">` + info.site_name + `</a></h1>
-    <nav>
-        ` + [
-            `<a href="texttools.html">text tools</a>`,
-            `<a href="canvastools.html">canvas tools</a>`,
-            `<a href="misctools.html">misc tools</a>`
-        ].join(" " + String.fromCharCode(8226) + " ") + `
-    </nav>
+    ` + nav + `
 </header>`;
 const footer = `<footer>
     <a href="mailto:barky11111@gmail.com">contact</a>
