@@ -34,6 +34,8 @@
 	</head>
 	<body>
 		<script>
+		//document.write(header);
+		document.write(nav + "\n<br>");
 		let wrapper = {
 		// an object that stores things related to my "wrapper" system.
 		// - all tools are encased in a <details> thing
@@ -146,151 +148,6 @@
 			},
 		};
 		let verticalscreen = (window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight) > (window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth);
-		function converttime(input, fromnumbers, amount, shush) {
-		// only accepts XX:XX[a/p] format. this is not how javascript writes
-		// dates, it's how i write dates.
-		// - fromnumbers: if this is true, it'll use the input as a number
-		//   and convert to the time string instead.
-		// - amount: if this is true, it'll assume you're converting not a
-		//   time, but an amount of hours, minutes, and seconds.
-		//   - it accepts XhXXmXXs, XhXXm, XmXXs, Xh, Xm, and Xs.
-		//   - NOTE: it returns the seconds, not minutes! also, if you're
-		//     converting *to* a time amount, it will always write the seconds.
-		// - gotta make sure to test this... i always screw up with
-		//   functions like this, somehow.
-		//   - takes way longer than you'd think, too.
-		// - NOTE: it gets rid of "~" at the beginning, and it can process +/-
-		//   at the beginning
-		// =
-		// moved to reusables
-			let i1 = 0;
-			let i2 = 0;
-			if(!fromnumbers && input.startsWith("~")) {
-				input = input.slice(1);
-			};
-			if(amount) {
-				if(fromnumbers) {
-					let negative = input < 0;
-					input = Math.floor(Math.abs(input));
-					let seconds = input;
-					let minutes = Math.floor(seconds/60);
-					seconds -= minutes*60;
-					let hours = Math.floor(minutes/60);
-					minutes -= hours*60;
-					seconds += "";
-					minutes += "";
-					hours += "";
-					minutes = "0".repeat(2 - minutes.length) + minutes;
-					seconds = "0".repeat(2 - seconds.length) + seconds;
-					let output = hours + "h" + minutes + "m" + seconds + "s";
-					// example: 0h03m56s
-					if(hours === "0") {
-						output = output.slice(2);
-						if(minutes === "00") {
-							output = output.slice(3);
-							if(seconds === "00") {
-								output = output.slice(1);
-							}
-							else if(seconds.slice(0, 1) === "0") {
-								output = output.slice(1);
-							};
-						}
-						else if(minutes.slice(0, 1) === "0") {
-							output = output.slice(1);
-						};
-					};
-					return (negative ? "-" : "") + output;
-				}
-				else {
-					let negative = false;
-					if(input[0] === "+") {
-						input = input.slice(1);
-					}
-					else if(input[0] === "-") {
-						input = input.slice(1);
-						negative = true;
-					};
-					let nums = {};
-					let slicestart = 0;
-					for (i1 = 0; i1 < input.length; i1++) {
-						if("hms".includes(input[i1])) {
-							nums[input[i1]] = Number(input.slice(slicestart, i1));
-							if(slicestart !== 0 && i1 - slicestart !== 2) {
-							// only the largest type is allowed to have as many
-							// digits as it wants. (ex: 1h7m is invalid, 1m100s
-							// is invalid)
-								if(!shush) {
-									console.log("invalid input.");
-								}
-								return;
-							}
-							slicestart = i1 + 1;
-						}
-						else if(i1 === input.length - 1) {
-						// it should end with one of those.
-							if(!shush) {
-								console.log("invalid input.");
-							}
-							return;
-						}
-						else if(!"0123456789".includes(input[i1])) {
-						// it should only be numbers and h/m/s.
-							if(!shush) {
-								console.log("invalid input.");
-							}
-							return;
-						}
-					}
-					nums.h ??= 0;
-					nums.m ??= 0;
-					nums.s ??= 0;
-					return (negative ? -1 : 1)*(nums.h*60*60 + nums.m*60 + nums.s);
-				};
-			}
-			else {
-				if(fromnumbers) {
-					input %= 24*60;
-					let ampm = "";
-					if(input >= 12*60) {
-						input -= 12*60;
-						ampm += "p";
-					};
-					let hours = Math.floor(input/60).toString();
-					let minutes = (input%60).toString();
-					if(hours === "0") {
-						hours = "12";
-					};
-					hours = "0".repeat(2 - hours.length) + hours;
-					return hours + ":" + minutes + ampm;
-				}
-				else {
-					let hours = Number( input.slice(0, input.indexOf(":")) );
-					let minutes = Number( input.slice(input.indexOf(":") + 1, -1) );
-					if(
-					!input.includes(":")
-					||
-					(input.slice(-1) !== "a" && input.slice(-1) !== "p")
-					||
-					!hours || !Number.isInteger(hours) || hours < 1 || hours > 12
-					||
-					!input.slice(input.indexOf(":") + 1, -1) || !Number.isInteger(minutes) || minutes < 0 || minutes >= 60
-					) {
-						// hours shouldn't be zero, though that's valid in some
-						// systems (also empty space can be number-converted to
-						// 0 and i don't feel like dealing with it. except i
-						// already did for minutes.)
-						if(!shush) {
-							console.log("invalid converttime input.");
-						};
-						return;
-					};
-					if(hours === 12) {
-						hours = 0;
-					};
-					return hours * 60 + minutes + (input.slice(-1) === "p" ? 12*60 : 0);
-				};
-			};
-		}
 		function divideat(input, index) {
 		// returns an array of the part of the string before and after the index
 		// specified. use it with .indexOf.
@@ -763,7 +620,7 @@
 			for (i1 in input) {
 				if (input.hasOwnProperty(i1) && input[i1].trim()) {
 				// for each date... (that actually has text.)
-					let bullets = new Bullets(input[i1], true).split();
+					let bullets = Bullets.new(input[i1], true).split();
 					// an array of Bullets, broken up so each 0 indent bullet is
 					// the start of an index.
 					for (i2 = 0; i2 < bullets.length; i2++) {
@@ -794,7 +651,7 @@
 							let ref = projects[proj][i1];
 							// this project and this date
 							ref.time ??= 0;
-							ref.bullets ??= new Bullets("", true);
+							ref.bullets ??= Bullets.new("", true);
 							// create an empty time and bullets for this date
 							ref.time += seconds;
 							// add to the time
@@ -1003,13 +860,11 @@
 			createstate: function() {
 			// used to save undo/redo data. an array of the category every
 			// paragraph is in.
-				let date = 0;
-				let i1 = 0;
 				let state = [];
-				for(date in sorter.text) {
+				for(let date in sorter.text) {
 					if(sorter.text.hasOwnProperty(date)) {
 						let ref = sorter.text[date];
-						for(i1 = 0; i1 < ref.length; i1++) {
+						for(let i1 = 0; i1 < ref.length; i1++) {
 							state[ ref[i1].index ] = ref[i1].category;
 						}
 					}
@@ -1094,6 +949,7 @@
 						index++;
 					};
 				};
+				sorter.text.unknown ??= [];
 				let temp = structuredClone(sorter.text.unknown);
 				sorter.text = sortdatedobject(sorter.text);
 				sorter.text.unknown = structuredClone(temp);
@@ -3232,14 +3088,12 @@
 				if(!allowthese) {
 					allowthese = "-";
 				}
-				console.log(new Date().valueOf());
-				return new Bullets(input, myformatting, false, allowthese);
+				return Bullets.new(input, myformatting, false, allowthese);
 			},
 			run: function(type) {
 				let i1 = 0;
 				let i2 = 0;
 				let bullets = bul.bullets(type === "random");
-				console.log(new Date().valueOf());
 				if(bullets === null) {
 					return;
 				}
@@ -3372,7 +3226,7 @@
 					bul.element("filter indexes").value = keep.join(" ");
 				}
 				else if(type === "remove") {
-					bullets.remove(bul.getsetting("remove indexes", "index list") ?? [], bul.getsetting("remove flatten"));
+					bullets.remove(bul.getsetting("remove indexes", "index list") ?? []);
 				}
 				else if(type === "intent") {
 					bullets = bullets.intent(bul.getsetting("realizers", "strings"));
@@ -3380,14 +3234,17 @@
 				//
 				let linewidth = bul.getsetting("linewidth", ["over zero", "integer"]) ?? 33;
 				let output = bullets.string(linewidth, bul.getsetting("myformatting"));
+				bul.output(output, linewidth);
+			},
+			output: function(text, linewidth) {
 				if(bul.getsetting("editinput")) {
-					bul.element("input").value = output;
+					bul.element("input").value = text;
 					bul.element("input").cols = linewidth;
 					bul.element("output").innerHTML = "";
 				}
 				else {
-					bul.element("output").innerHTML = entityreplacement(output, true);
-				}
+					bul.element("output").innerHTML = entityreplacement(text, true);
+				};
 			},
 			initialize: function() {
 				let list = [`\n<ul>\n\t<li>`, `</li>\n\t<li>`, `</li>\n</ul>`];
@@ -3395,76 +3252,6 @@
 					`lets you use various methods of a class i made for my
 					bulleted style of text. they probably aren't useful to
 					anyone but me.`,
-					arraytoul([
-						/*
-						`the "sandwich" section of the filter is used for
-						certain tags. if you specify both a sandwich start and
-						end, it'll search the bullets for that start and end,
-						and apply include/exclude to the contents of the
-						sandwiches instead of the bullet in general.`,
-						`the indexes section of the filter lets you require the
-						bullet to be one of the specified indexes, ex: "0 7"
-						would only show the first and eighth bullet. this is
-						only really meant for making searches accumulate, only
-						allowing things that passed the first search in your
-						second search. it fills automatically whenever you run a
-						filter.`,
-						*/
-						`"intent" is like this complicated as fuck tag system
-						for organizing character notes. it's too obtuse to
-						understand without explanation, but also too obtuse to
-						expect someone to seriously read the explanation`,
-						[
-							`all tags must be used under an ancestor marked as
-							"(center)"`,
-							`(center) or (intent) tags represent something you
-							want to convey, and the "realizers" represent how
-							it's conveyed. ex: through character design, music,
-							story beats`,
-							[
-								`the point is to help with character design and
-								whatever by trimming down a really big concept
-								to key points you want to convey, and what was
-								already done to convey them.`,
-								`systems like this are either brilliant or dumb
-								as hell.`
-							],
-							`by default, they're associated with the closest
-							ancestor that's an intent or center, but you can
-							specify something different by putting a set of
-							brackets right after the tag type. it'll search for
-							an intent under the same center that has that phrase
-							inside it. (if there's multiple matches, it favors
-							the ones that share a closer common ancestor, then
-							the ones that have the lowest indent, then the ones
-							that show up earliest)`,
-							`realizers can also be parented to realizers of the
-							same type, through either of those methods.`,
-							`you can force it to parent to the center by typing
-							empty brackets. (useful if its ancestry would make
-							it parent to something else.)`,
-							`you can make the center/intent/realizer only show
-							part of the bullet's text by writing something like
-							(intent&#60;) or (intent&#62;)`,
-							`&#60; or &#62;s of the same type within the same
-							bullet can limit each other, ex: "a (intent&#62;) b
-							(intent&#60;) c" will create a single intent that
-							says "b", and "a (intent&#62;) b (intent&#62;) c"
-							will create two that say "b" and "c"`,
-							`or you can write entirely new content by putting a
-							colon after the tag type, ex: "a b c (intent: d)"`,
-							`a lot of realizers evoke simple traits like
-							"confident" or "cruel" that would be implied rather
-							than stated, so tags can create intents to parent
-							themselves to. "(desi #confident #cruel >)" would
-							put it under an intent that says "confident,
-							cruel".`,
-							`there can be any number of spaces, indents, etc
-							between stuff like the tag type, hashtags,
-							attachment parentheses, :/&#60;/&#62;/etc. the
-							interpreter will still be able to read it.`
-						]
-					]),
 					addhtml("bul", "textarea", "input", "rows=40 cols=60"),
 					`<br>` + addhtml("bul", "input", "linewidth", `type="number" value=33`, null, "line width:"),
 					`<br>` + addhtml("bul", "input", "myformatting", `type="checkbox" checked`, null, "use my formatting"),
@@ -3501,12 +3288,115 @@
 					].join(list[1]) + list[2],
 					//`</div>`,
 					addhtml("bul", "button", "remove") + list[0] + [
-						addhtml("bul", "input", "remove indexes", `type="text"`, null, "indexes:"),
-						addhtml("bul", "input", "remove flatten", `type="checkbox"`, null, "flatten")
+						addhtml("bul", "input", "remove indexes", `type="text"`, null, "indexes:")
 					].join(list[1]) + list[2],
-					addhtml("bul", "button", "intent") + list[0] + [
-						addhtml("bul", "textarea", "realizers", `rows=12 cols=12`)
+					addhtml("bul", "button", "intent") + arraytoul([
+						addhtml("bul", "textarea", "realizers", `rows=12 cols=12`),
+						`complicated as fuck tag system for organizing character
+						notes. it's too obtuse to understand without
+						explanation, but also too obtuse to expect someone to
+						seriously read the explanation.`,
+						`all tags must be used under an ancestor marked as
+						"(center)"`,
+						`(center) or (intent) tags represent something you
+						want to convey, and the "realizers" represent how
+						it's conveyed. ex: through character design, music,
+						story beats`,
+						[
+							`the point is to help with character design and
+							whatever by trimming down a really big concept
+							to key points you want to convey, and what was
+							already done to convey them.`,
+							`systems like this are either brilliant or dumb
+							as hell.`
+						],
+						`by default, they're associated with the closest
+						ancestor that's an intent or center, but you can
+						specify something different by putting a set of
+						brackets right after the tag type. it'll search for
+						an intent under the same center that has that phrase
+						inside it. (if there's multiple matches, it favors
+						the ones that share a closer common ancestor, then
+						the ones that have the lowest indent, then the ones
+						that show up earliest)`,
+						`realizers can also be parented to realizers of the
+						same type, through either of those methods.`,
+						`you can force it to parent to the center by typing
+						empty brackets. (useful if its ancestry would make
+						it parent to something else.)`,
+						`you can make the center/intent/realizer only show
+						part of the bullet's text by writing something like
+						(intent&#60;) or (intent&#62;)`,
+						`&#60; or &#62;s of the same type within the same
+						bullet can limit each other, ex: "a (intent&#62;) b
+						(intent&#60;) c" will create a single intent that
+						says "b", and "a (intent&#62;) b (intent&#62;) c"
+						will create two that say "b" and "c"`,
+						`or you can write entirely new content by putting a
+						colon after the tag type, ex: "a b c (intent: d)"`,
+						`a lot of realizers evoke simple traits like
+						"confident" or "cruel" that would be implied rather
+						than stated, so tags can create intents to parent
+						themselves to. "(desi #confident #cruel >)" would
+						put it under an intent that says "confident,
+						cruel".`,
+						`there can be any number of spaces, indents, etc
+						between stuff like the tag type, hashtags,
+						attachment parentheses, :/&#60;/&#62;/etc. the
+						interpreter will still be able to read it.`
+					]),
+					addhtml("bul", "button", "sort", null, "sort ideas") + list[0] + [
+						// addhtml(prefix, type, name, settings, inside, label)
+						"this one is pretty experimental. it'll take some time before i have input varied enough to be sure every aspect of it works.",
+						"unfinished.",
+						addhtml("bul", "textarea", "sort tags", "rows=12 cols=12")
 					].join(list[1]) + list[2],
+					addhtml("bul", "button", "living") + arraytoul([
+						"a tool for displaying a \"living document\". you enter a linear sequence of edits, and it organizes that into the Bullets it represents. (this way, deleted content is preserved, and it's easy to revert to a previous state of the document.)",
+						"lines that start with \"add\" add a bullet or branch, added as a child of the currently selected bullet.",
+						[
+							"the rest of the line is used as the text for the bullet.",
+							"if the lines after this are indented with spaces or tabs, will be added as descendants. (use the number of spaces to convey family structure.)",
+							"indented lines with nothing but a divider (=, -, a date) will be added as dividers for the descendant bullet after it.",
+							"the main bullet can have dividers too, by writing them between \"add\" and the colon.",
+							"if any bullet text starts with one of the allowed bullet characters besides the first, that first character will be sliced away and used as the bullet's character. (ex: if you allow -, *, and ^, starting text with * or ^ will mark it as a */^.)",
+							"the new bullet/branch is <i>not</i> selected."
+						],
+						"\"delete\" and \"clear\" delete bullets.",
+						[
+							"delete deletes the selected bullet and its whole branch.",
+							"clear deletes only deletes its descendants.",
+							"delete selects the parent afterward."
+						],
+						"\"rewrite:\" rewrites the text of the selected bullet.",
+						[
+							"it doesn't touch descendants.",
+							"special characters can be specified, just like how they're specified in add."
+						],
+						"lines that start with \"select\" select bullets.",
+						[
+							"\"select :\" selects based on text content. it selects a bullet that has the specified string. (if there's multiple matches, it'll pick the one with the lowest indent. if there's a tie, it'll pick the one with the lowest index.)",
+							"\"select >\" works the same, but only selects bullets that are descendants of the current bullet.",
+							"\"select @\" is used with the \"alias\" command.",
+							"\"select null\" will select nothing. (new bullets will be zero-indents.)"
+						],
+						"\"alias:\" sets a name for the currently selected bullet. it can be selected by writing \"select @ \" + this name.",
+						"DDmmmYY dates set a new date. all new bullets will use this date, with date dividers inserted to reflect that.",
+						"same with =/- dividers. writing a line of nothing but = or - will add that divider to the next zero-indent bullet you write.",
+						"paragraph breaks and paragraph dates are similar. they work just like how they do in a Bullets input text.",
+						[
+							"overview of how \"paragraphs\" work in Bullets",
+							[
+								"if the inputted text has a blank line between bullets, that'll be preserved in the Bullets object.",
+								"if there's a blank line, a line with nothing but a date, and another blank line, that date will be applied to all following paragraphs until the next date like that.",
+								[
+									"date dividers in the bullets can override these paragraph dates, but it gets reset back to the paragraph date whenever a paragraph ends and a new paragraph begins."
+								]
+							],
+							"using those paragraph breaks and dates in the script will make it use the same breaks/dates in the Bullets it creates.",
+							"most importantly, each script paragraph is totally self-contained. you can't select, delete, or edit bullets in other paragraphs, and aliases don't carry over between paragraphs either."
+						]
+					]),
 					addhtml("bul", "pre", "output")
 				].join("\n");
 				wrapper.create("bul", html);
@@ -3525,10 +3415,927 @@
 				bul.element("intent").onclick = function() {
 					bul.run("intent");
 				}
+				bul.element("sort").onclick = function() {
+					bul.sort.run();
+				}
+				bul.element("living").onclick = function() {
+					bul.living_run();
+				}
+				bul.sort.element("tags").value = "char/ main/  prot/  outs/  mant/ minc/  mina/  rela/   enem/   rivl/   fami/prem/ them/ sewo/ hico/ jnsq/rela/fixt/ loca/ fact/ obj/ etc/beat/ intr/ norm/ lowp/ reco/ clim/ reso/misc/game/tech".replaceAll("/", "\n");
 			},
+			sort: {
+			// data and functions related to the idea sort tool.
+				char: {
+					section: "###",
+					tag: "^",
+					subtag: "-",
+					list_start: "list(",
+					list_end: ")",
+				},
+				tags: [],
+				// an array of full tag names.
+				// - written as strings.
+				// - in the case of subtags, every ancestor is written, with
+				//   bul.sort.char.subtag as a separator, ex: "char-main-prot"
+				name_repeat: [],
+				// - for the sake of this explanation, a "name" is the last part of
+				//   a tag... "prot" would be "char-main-prot"'s name.
+				// - if more than one tag/subtag has the same name, it'll be in
+				//   here.
+				// - this is because most of the time, you can write a tag with its
+				//   name alone, *but,*
+				// - if multiple tags/subtags have the same name, ex: char-main-prot
+				//   and prem-prot,
+				// - referring to a tag only by the name is most likely a mistake,
+				//   since it's ambiguous which one they meant.
+				parseidea: function(idea) {
+				// gets the tags and lists the idea is supposed to be part of, and
+				// the text past that.
+				// - tags, lists: arrays of the full, proper names of tags/lists
+				//   used
+				// - tag_text, list_text: arrays of the actual text written for tags
+				//   and lists used
+				// - remainder: remaining text
+				// - returns a string if it encounters something invalid.
+					let i1 = 0;
+					let tags = [];
+					let lists = [];
+					let tag_text = [];
+					let list_text = [];
+					let done = false;
+					while(!done) {
+						if(idea.startsWith(bul.sort.char.tag)) {
+							let end = 0;
+							while(end < idea.length && idea[end].trim()) {
+								end++;
+							}
+							let tag = idea.slice(0, end);
+							idea = idea.slice(end).trim();
+							if(bul.sort.tags.includes(tag)) {
+							// format 1: listing every subtag (ex: prem-hico,
+							// char-main-prot)
+								tags.push(tag);
+								tag_text.push(tag);
+							}
+							else {
+								let _tag = tag.slice(bul.sort.char.tag.length).split(bul.sort.char.subtag);
+								let found = false;
+								if(_tag.length === 2) {
+								// format 2: first and last (ex: char-prot instead
+								// of char-main-prot. a subtag named "prot" that is
+								// a descendant of main tag "char".)
+									for(i1 = 0; i1 < bul.sort.tags.length && !found; i1++) {
+										if(bul.sort.tags[i1].startsWith(_tag[0] + bul.sort.char.subtag) && bul.sort.tags[i1].endsWith(bul.sort.char.subtag + _tag[1])) {
+											found = true;
+											_tag = bul.sort.tags[i1];
+										};
+									}
+								}
+								else if(_tag.length === 1) {
+								// format 3: last (prot instead of char-main-prot)
+									_tag = _tag[0];
+									if(bul.sort.name_repeat.includes(_tag)) {
+										return "invalid tag. there are multiple tags that end in " + _tag + ", so it's ambiguous which one " + tag + " refers to.";
+									};
+									for(i1 = 0; i1 < bul.sort.tags.length && !found; i1++) {
+										if(bul.sort.tags[i1] === _tag || bul.sort.tags[i1].endsWith(bul.sort.char.subtag + _tag)) {
+											found = true;
+											_tag = bul.sort.tags[i1];
+										};
+									}
+								};
+								if(found) {
+									tags.push(_tag);
+									tag_text.push(tag);
+								}
+								else {
+									return "invalid tag: \"" + tag + "\"";
+								};
+							}
+						}
+						else if(idea.startsWith(bul.sort.char.list_start)) {
+							idea = idea.slice(bul.sort.char.list_start.length);
+							let end = idea.indexOf(bul.sort.char.list_end);
+							if(end === -1) {
+								return "invalid list: doesn't have an end parenthese.";
+							};
+							let temp = idea.slice(0, end);
+							idea = idea.slice(end + bul.sort.char.list_end.length);
+							lists.push(temp.trim());
+							list_text.push(bul.sort.char.list_start + temp + bul.sort.char.list_end);
+						}
+						else {
+							done = true;
+						}
+					}
+					return {tags, lists, tag_text, list_text, remainder: idea};
+				},
+				element: (name) => document.getElementById(tohtmlid("bul sort " + name)),
+				sections: ["tags", "lists", "multi", "unsorted", "tree"],
+				run: function() {
+					let i0 = 0;
+					let i1 = 0;
+					let i2 = 0;
+					let i3 = 0;
+					let input = bul.getsetting("input") ?? null;
+					if(input === null) {
+						return;
+					};
+					let myformatting = bul.getsetting("myformatting");
+					let allowthese = bul.getsetting("allowthese") || "-";
+					input = input.split("\n");
+					let sect = {};
+					for(i1 = 0; i1 < bul.sort.sections.length; i1++) {
+						sect[ bul.sort.sections[i1] ] = [];
+					}
+					let name = "";
+					for(i1 = 0; i1 < input.length; i1++) {
+						if(input[i1].startsWith(bul.sort.char.section)) {
+							name = input[i1].slice(bul.sort.char.section.length).trim();
+							if(!bul.sort.sections.includes(name)) {
+								alert("invalid section name. the only valid names are " + bul.sort.sections.join(", "));
+								return;
+							};
+						}
+						else if(name) {
+							sect[name].push(input[i1]);
+						}
+					}
+					if(!name) {
+					// if there were no section divides at all, assume it's all
+					// unsorted ideas.
+						sect.unsorted = structuredClone(input);
+					}
+					for(i0 = 0; i0 < 2; i0++) {
+						for(i1 = 0; i1 < sect.tree.length; i1++) {
+							sect.tree[i1] = sect.tree[i1].replaceAll(bul.sort.char.tag, "").replaceAll(bul.sort.char.subtag, "");
+							if(!sect.tree[i1].trim()) {
+								sect.tree.splice(i1, 1);
+								i1--;
+							}
+						}
+						// remove empty lines
+						if(!i0) {
+						// if there was no tree section, or the tree section was
+						// nothing but empty lines, start over with the contents
+						// of the tags textarea.
+							if(sect.tree.length) {
+								i0++;
+							}
+							else {
+								sect.tree = bul.sort.element("tags").value.split("\n");
+							}
+						}
+					}
+					// don't error if there's no tags. there might be lists.
+					for(i1 in sect) {
+						if(sect.hasOwnProperty(i1)  && i1 !== "tree") {
+							let temp = sect[i1].length;
+							sect[i1] = Bullets.new(sect[i1].join("\n"), myformatting, false, allowthese);
+							if(!temp) {
+								sect[i1].splice(0, 1);
+							}
+						}
+					}
+					// make bullets
+					bul.sort.tags = [];
+					bul.sort.name_repeat = [];
+					let names = [];
+					let nums = [];
+					for(i1 = 0; i1 < sect.tree.length; i1++) {
+						let name = sect.tree[i1].trim();
+						if(names.includes(name)) {
+							bul.sort.name_repeat.push(name);
+						};
+						names.push(name);
+						nums.push(sect.tree[i1].length - sect.tree[i1].trimStart().length);
+					}
+					function addbranch(index, parent) {
+						parent ??= "";
+						let name = parent + (parent ? bul.sort.char.subtag : "") + names[index];
+						bul.sort.tags.push(name);
+						for(let i1 = index + 1; i1 < nums.length && nums[i1] > nums[index]; i1++) {
+							if(nums[i1] === nums[index] + 1) {
+								addbranch(i1, name);
+							}
+						}
+					}
+					for(i1 = 0; i1 < nums.length; i1++) {
+						if(!nums[i1]) {
+							addbranch(i1);
+						};
+					}
+					// form bul.sort tags and name_repeat.
+					//
+					// the sorting operation works by converting the input into
+					// just three pieces of data:
+					// - ideas (an array of Bullets, each being a zero indent,
+					//   its descendants, its date, etc)
+					// - list data (everything in a list that isn't an idea,
+					//   like explanation of what it is, and the date it was
+					//   made)
+					// - unsorted (the unsorted section after all ideas are
+					//   sorted. the main body is still left behind, with a
+					//   space put at the beginning that keeps it from being
+					//   sorted again.)
+					// this way, ideas can be sorted by date and stuff.
+					//
+					let ideas = [];
+					// objects for each idea in tags, lists, multi, and
+					// unsorted.
+					// - structure of one idea
+					//   - bullets
+					//     - always a zero-indent and its descendants, nothing
+					//       else.
+					//     - always has no dividers or newpara.
+					//   - date (of the main bullet, that is.)
+					//   - tags, lists
+					//   - tag_text, list_text
+					function branchtoidea(bullets, index) {
+						let i1 = 0;
+						let idea = {
+							bullets: bullets.branch(index),
+							date: null,
+						};
+						let parse = bul.sort.parseidea(idea.bullets[0].text);
+						idea.bullets[0].text = parse.remainder;
+						for(i1 in parse) {
+							if(parse.hasOwnProperty(i1) && i1 !== "remainder") {
+								idea[i1] = structuredClone(parse[i1]);
+							}
+						}
+						idea.date = idea.bullets[0].dividers[0];
+						idea.bullets[0].dividers = [];
+						idea.bullets[0].newpara = false;
+						for(i1 = 0; i1 < idea.bullets.length; i1++) {
+							idea.bullets[i1].indent -= bullets[index].indent;
+						}
+						return idea;
+					};
+					function readtagsection(index, parent) {
+					// looks through the branch for a tag or subtag, adds each
+					// idea to the ideas array, and does the same for further
+					// subtags.
+						let i1 = 0;
+						parent ??= "";
+						let indent = sect.tags[index].indent;
+						let name = sect.tags[index].text.trim();
+						let tag = parent + (parent && name ? bul.sort.char.subtag : "") + name;
+						if(!bul.sort.tags.includes(tag)) {
+							return "the tag section has a list called \"" + tag + "\", which doesn't match any tags.";
+						};
+						let end = index + sect.tags.desc_length(index) + 1;
+						let divide = -1;
+						for(i1 = index + 1; i1 < end; i1++) {
+							if(sect.tags[i1].indent === indent + 1 && sect.tags[i1].dividers.includes("=")) {
+								if(divide !== -1) {
+									return "the \"" + parent + "\" list has more than one = divider, when there should only be zero or one.";
+								}
+								divide = i1;
+							}
+						}
+						if(divide === -1 && bul.sort.tags.some((element) => element.startsWith(tag + bul.sort.char.subtag))) {
+						// if there's no divide, either all bullets are
+						// subcategories, or all bullets are ideas. if the tag
+						// has any subtags, subcategories will be made even if
+						// they're empty, so having subtags means the bullets
+						// must be subcategories.
+							divide = end;
+						};
+						for(i1 = (divide === -1 ? index + 1 : divide); i1 < end; i1++) {
+							if(sect.tags[i1].indent === indent + 1) {
+								let idea = branchtoidea(sect.tags, i1);
+								idea.bullets[0].text = sect.tags[i1].text;
+								idea.tags = [tag];
+								idea.lists = [];
+								idea.tag_text = [bul.sort.char.tag + tag];
+								idea.list_text = [];
+								ideas.push(idea);
+							}
+						}
+						if(divide !== -1) {
+							for(i1 = index + 1; i1 < divide; i1++) {
+								if(sect.tags[i1].indent === indent + 1) {
+									let error = readtagsection(i1, tag);
+									if(error) {
+										return error;
+									}
+								}
+							}
+						}
+						return "";
+					};
+					for(i1 = 0; i1 < sect.tags.length; i1++) {
+						if(sect.tags[i1].indent === 0) {
+							let error = readtagsection(i1);
+							if(error) {
+								alert(error);
+								return;
+							};
+						}
+					}
+					console.log(structuredClone(ideas));
+					for(i1 = 0; i1 < ideas.length; i1++) {
+						console.log([ideas[i1].date, ideas[i1].tag_text.join(" "), ideas[i1].list_text.join(" "), ideas[i1].bullets[0].text].join("\n"));
+					}
+					let list_data = [];
+					// data about the lists themselves.
+					// - structure of a list data
+					//   - name
+					//   - bullets
+					//     - the main body of the list, but also:
+					//     - any content before the list = divider in its
+					//       children is saved to this instead of being
+					//       interpreted as an idea.
+					//   - date
+					//   - tags, tag_text (tags that apply inherently, to any
+					//     tag in this list.)
+					//     - those tags won't be used in the ideas array though,
+					//       since it already knows which lists the idea is in.
+					//   - empty: used later, so it knows when to put a =
+					//     divider.
+					for(i1 = 0; i1 < sect.lists.length; i1++) {
+						if(sect.lists[i1].indent === 0) {
+							let data = bul.sort.parseidea(sect.lists[i1].text);
+							data = {
+								name: data.remainder.trim(),
+								bullets: sect.lists.branch(i1),
+								date: null,
+								tags: data.tags,
+								tag_text: data.tag_text,
+								empty: true,
+							};
+							data.date = data.bullets[0].dividers[0];
+							data.bullets[0].dividers = [];
+							data.bullets[0].newpara = false;
+							let index = 1;
+							let desc_length = data.bullets.desc_length(i1);
+							for(i2 = 1; i2 < data.bullets.length; i2++) {
+								if(data.bullets[i2].indent === 1 && data.bullets[i2].dividers.includes("=")) {
+									index = i2;
+								}
+							}
+							let remove = [];
+							for(i2 = index; i2 < data.bullets.length; i2++) {
+								if(data.bullets[i2].indent === 1) {
+									remove.push(i2);
+									let idea = branchtoidea(data.bullets, i2);
+									idea.lists = data.name;
+									idea.list_text = [bul.sort.char.list_start + data.name + bul.sort.char.list_end];
+									ideas.push(idea);
+								}
+							}
+							data.bullets.remove(remove);
+							// if there's = dividers, keep everything before the
+							// last one. otherwise, keep nothing. everything
+							// that omits is ideas.
+							list_data.push(data);
+						}
+					}
+					console.log(structuredClone(ideas));
+					for(i1 = 0; i1 < ideas.length; i1++) {
+						console.log([ideas[i1].date, ideas[i1].tag_text.join(" "), ideas[i1].list_text.join(" "), ideas[i1].bullets[0].text].join("\n"));
+					}
+					for(i0 = 0; i0 < 2; i0++) {
+						let bullets = i0 ? sect.unsorted : sect.multi;
+						for(i1 = 0; i1 < bullets.length; i1++) {
+							if(bullets[i1].indent === 0 && !(i0 && bullets[i1].text && !bullets[i1].text[0].trim())) {
+							// unsorted ideas should be ignored if they have a
+							// space at the beginning. the space means it was
+							// already sorted.
+								let idea = branchtoidea(bullets, i1);
+								let _obj = bul.sort.parseidea(bullets[i1].text);
+								// figures out the tags and lists it's part of
+								if(!i0 || idea.tags.length || idea.lists.length) {
+								// for unsorted ideas, don't sort it if there's
+								// nothing that makes it sortable.
+									ideas.push(idea);
+									if(i0) {
+									// NOTE: unsorted is the only section where
+									// the original content is actually kept
+									// around, albeit modified.
+										bullets[i1].text = " " + bullets[i1].text;
+										// add a space, so it won't be sorted
+										// next time
+										let temp = sect.unsorted.desc_length(i1);
+										if(temp) {
+										// remove the descendants
+											sect.unsorted.splice(i1 + 1, temp);
+										}
+									}
+								}
+							}
+						}
+					}
+					console.log(structuredClone(ideas));
+					for(i1 = 0; i1 < ideas.length; i1++) {
+						console.log([ideas[i1].date, ideas[i1].tag_text.join(" "), ideas[i1].list_text.join(" "), ideas[i1].bullets[0].text].join("\n"));
+					}
+					let categories = {};
+					// object of the tags, indexed by name, with a nested
+					// structure
+					//   - ex: char would be {sub, bullets}
+					//   - bullets is a Bullets of all the ideas that are char
+					//     but not a subtag
+					//   - sub is an object of further objects, indexed by the
+					//     names of char's subtags
+					//   - if those subtags have subtags themselves, those will
+					//     be in their .sub
+					function addtag(index, sub) {
+						let tag = bul.sort.tags[index];
+						let name = tag.split(bul.sort.char.subtag);
+						let gen = name.length;
+						name = name[name.length - 1];
+						sub[name] = {sub: {}, bullets: Bullets.new(sect.tags)};
+						sub = sub[name].sub;
+						for(let i1 = index + 1; i1 < bul.sort.tags.length && bul.sort.tags[i1].startsWith(tag); i1++) {
+							if(bul.sort.tags[i1].split(bul.sort.char.subtag).length === gen + 1) {
+								addtag(i1, sub);
+							};
+						}
+					}
+					for(i1 = 0; i1 < bul.sort.tags.length; i1++) {
+						let name = bul.sort.tags[i1];
+						if(!name.includes(bul.sort.char.subtag)) {
+							addtag(i1, categories);
+						}
+					}
+					// now, ideas that are tagged but not in any list have a
+					// place to go.
+					ideas.sort((a, b) => datecompare(b.date, a.date, true));
+					// sort by date
+					sect.multi = Bullets.new(sect.multi);
+					// clear multi
+					let earliest_tag_date = null;
+					// the date of the earliest idea that will be put in the
+					// tags section.
+					for(i1 = 0; i1 < ideas.length; i1++) {
+						let idea = ideas[i1];
+						let bullets = idea.bullets;
+						if(idea.lists.length === 1) {
+						// if it's part of one list, add it to that list.
+							let name = idea.lists[0];
+							let index = -1;
+							for(i2 = 0; i2 < list_data.length && index === -1; i2++) {
+								if(list_data[i2].name === name) {
+									index = i2;
+								}
+							}
+							if(index === -1) {
+							// if it doesn't exist, create it.
+								index = list_data.length;
+								list_data.push({
+									name,
+									bullets: Bullets.new(sect.lists),
+									date: idea.date,
+									tags: [], tag_text: [],
+									empty: true,
+								});
+								let temp = list_data[list_data.length - 1].bullets;
+								temp.push(structuredClone(Bullets.template));
+								temp[0].text = name;
+							};
+							let list = list_data[index];
+							if(list.empty) {
+							// if it's empty, that means it needs a = divider,
+							// to start the last area, where ideas are stored.
+								if(list.bullets.length > 1) {
+									bullets[0].dividers.splice(0, 0, "=");
+								};
+								list.empty = false;
+								if(idea.date !== list.date) {
+								// if it's different, add a date divider.
+									bullets[0].dividers.push(idea.date);
+								};
+							}
+							else if(idea.date !== (list.bullets.getchilddate(0) ?? list.date)) {
+							// if the list was empty, getchilddate shouldn't be
+							// used, since the = divider negates previous date
+							// dividers.
+								bullets[0].dividers.push(idea.date);
+							}
+							bullets[0].text = (idea.tag_text.length && bullets[0].text ? idea.tag_text.join(" ") + " " : "") + bullets[0].text;
+							// add the tag text
+							for(i2 = 0; i2 < bullets.length; i2++) {
+								let temp = structuredClone(bullets[i2]);
+								temp.indent++;
+								list.bullets.push(temp);
+							}
+						}
+						else if(idea.tags.length >= 2 || idea.lists.length >= 2) {
+						// if it has more than one list, or no lists and more
+						// than one tag, it has to go in multi.
+							let date = null;
+							if(sect.multi.length) {
+								for(i2 = sect.multi.length - 1; i2 >= 0; i2--) {
+									if(sect.multi[i2].indent === 0) {
+										date = sect.multi.getdate(i2) ?? date;
+										i2 = 0;
+									};
+								}
+								// find the date of the last zero-indent bullet.
+							}
+							if(date !== idea.date) {
+								bullets[0].dividers.splice(0, 0, idea.date);
+							};
+							if(idea.tag_text.length && bullets[0].text) {
+								bullets[0].text = idea.tag_text.join(" ") + " " + bullets[0].text;
+							};
+							if(idea.list_text.length && bullets[0].text) {
+								bullets[0].text = idea.list_text.join(" ") + " " + bullets[0].text;
+							};
+							for(i2 = 0; i2 < bullets.length; i2++) {
+								sect.multi.push(structuredClone(bullets[i2]));
+							}
+						}
+						else if(idea.tags.length === 1) {
+							earliest_tag_date ??= idea.date;
+							let tag = idea.tags[0].split(bul.sort.char.subtag);
+							let _obj = categories;
+							for(i2 = 0; i2 < tag.length; i2++) {
+								_obj = _obj[ tag[i2] ];
+								if(i2 !== tag.length - 1) {
+									_obj = _obj.sub;
+								};
+							}
+							//
+							let _bullets = _obj.bullets;
+							let date = null;
+							for(i2 = _bullets.length - 1; i2 >= 0 && !date; i2--) {
+								if(!_bullets[i2].indent) {
+									date = _bullets[i2].dividers.findLast((element) => !!datechecker(element)) ?? null;
+								}
+							}
+							date ??= earliest_tag_date;
+							if(bullets.length && idea.date !== date) {
+								bullets[0].dividers.push(idea.date);
+							};
+							//
+							for(i2 = 0; i2 < bullets.length; i2++) {
+								_bullets.push(structuredClone(bullets[i2]));
+							}
+							// keep indent at zero. it'll be properly indented
+							// while it's being converted into one Bullets.
+						}
+						else {
+						// for it to fail the list and multi conditional,
+						// list.length must be 0 and tags.length must be 0 or 1.
+						// if both are zero, it shouldn't have be in the ideas
+						// array to begin with.
+						// - just a log error isn't enough, because this might
+						//   cause ideas to go missing entirely.
+							alert("this shouldn't happen. email the dumb bastard at barky11111@gmail.com.");
+							return;
+						};
+					}
+					//
+					sect.tags = Bullets.new(sect.tags);
+					function addtotagsection(category, name, indent) {
+						let i1 = 0;
+						indent ??= 0;
+						let temp = structuredClone(Bullets.template);
+						temp.text = name;
+						temp.indent += indent;
+						sect.tags.push(temp);
+						indent++;
+						temp = false;
+						for(i1 in category.sub) {
+							if(category.sub.hasOwnProperty(i1)) {
+								temp = true;
+								addtotagsection(category.sub[i1], i1, indent);
+							}
+						}
+						for(i1 = 0; i1 < category.bullets.length; i1++) {
+							let bullet = structuredClone(category.bullets[i1]);
+							if(i1 === 0 && temp) {
+								bullet.dividers.splice(0, 0, "=");
+							}
+							bullet.indent += indent;
+							sect.tags.push(bullet);
+						}
+					};
+					for(i1 in categories) {
+						if(categories.hasOwnProperty(i1)) {
+							addtotagsection(categories[i1], i1);
+						};
+					}
+					if(sect.tags.length && datechecker(earliest_tag_date)) {
+						sect.tags[0].dividers.splice(0, 0, earliest_tag_date);
+					}
+					//
+					list_data.sort((a, b) => datecompare(a.date, b.date, true));
+					let date = null;
+					sect.lists = Bullets.new(sect.lists);
+					for(i1 = 0; i1 < list_data.length; i1++) {
+					// reform the Bullets for the lists section.
+						let _i1 = list_data[i1];
+						let bullets = _i1.bullets;
+						if(date !== _i1.date) {
+							date = _i1.date;
+							bullets[0].dividers.splice(0, 0, date);
+						}
+						bullets[0].text = (_i1.tag_text.length ? _i1.tag_text.join(" ") + " " : "") + bullets[0].text;
+						for(i2 = 0; i2 < bullets.length; i2++) {
+							sect.lists.push(structuredClone(bullets[i2]));
+						}
+					}
+					//
+					let linewidth = bul.getsetting("linewidth", ["over zero", "integer"]) ?? 33;
+					let output = [];
+					for(i1 = 0; i1 < bul.sort.sections.length; i1++) {
+						let _i1 = bul.sort.sections[i1];
+						if(i1 === "tree" ? sect[_i1] : sect[_i1].length) {
+						// if the section isn't empty, add it.
+							let temp = _i1 === "tree" ? sect[_i1].join("\n") : sect[_i1].string(linewidth, myformatting);
+							output.push(bul.sort.char.section + " " + _i1 + "\n\n" + temp);
+						}
+					}
+					output = output.join("\n\n");
+					// convert to string
+					//
+					bul.output(output, linewidth);
+				},
+			},
+			living_run: function() {
+				let i0 = 0;
+				let i1 = 0;
+				let i2 = 0;
+				let i3 = 0;
+				let linewidth = bul.getsetting("linewidth", ["over zero", "integer"]) ?? 33;
+				let myformatting = bul.getsetting("myformatting");
+				let allowthese = bul.getsetting("allowthese") || "-";
+				let input = bul.getsetting("input") ?? "";
+				input = input.trim().split("\n");
+				for(i1 = 0; i1 < input.length; i1++) {
+					input[i1] = input[i1].trimEnd();
+					if(i1 && !input[i1 - 1] && !input[i1]) {
+						input.splice(i1, 1);
+						i1--;
+					}
+				}
+				input = input ? input.join("\n").split("\n\n") : [];
+				while(input.length && datechecker(input[input.length - 1])) {
+					input.splice(input.length - 1, 1);
+				}
+				// break it up into paragraphs and paragraph dates, while
+				// avoiding complications
+				// - blank lines that don't technically count as blank lines
+				//   during .split
+				// - consecutive blank lines, which also complicate things
+				// - empty inputs
+				// - newpara dates at the end
+				let full_bullets = Bullets.new("", myformatting, false, allowthese);
+				full_bullets.splice(0, 1);
+				function set_text(bullet, text) {
+					// sets a bullet's .text and .character.
+					if(text && allowthese.indexOf(text[0]) >= 1) {
+						bullet.character = text[0];
+						text = text.slice(1);
+					}
+					else {
+						bullet.character = allowthese[0];
+					};
+					bullet.text = text;
+				};
+				let newpara_date = null;
+				for(i0 = 0; i0 < input.length; i0++) {
+					let newpara = true;
+					while(datechecker(input[i0])) {
+						newpara = input[i0];
+						newpara_date = input[i0];
+						i0++;
+					}
+					let bullets = Bullets.new("", myformatting, false, allowthese);
+					bullets.splice(0, 1);
+					let select = -1;
+					// which bullet is selected and should be edited.
+					// - -1 means that add should make a new zero-indent bullet
+					//   instead of a child of this bullet.
+					let alias = {};
+					// an object of indexes, set by the alias command and used by
+					// "select @".
+					let zero_dividers = [];
+					let date = newpara_date;
+					input[i0] = input ? input[i0].split("\n") : [];
+					for(i1 = 0; i1 < input[i0].length; i1++) {
+						let line = input[i0][i1];
+						let error = "line " + i1 + " (\"" + line + "\"): ";
+						if(!line.trim()) {
+							//
+						}
+						else if(datechecker(line)) {
+							date = line;
+						}
+						else if(Bullets.validdivider(line)) {
+							zero_dividers.push(line);
+							// save this and add it to the next zero-indent bullet.
+						}
+						else if(line.startsWith("add")) {
+							let temp = line.indexOf(":");
+				            if(temp === -1) {
+				                console.log(error + "\"add\" command has no colon.");
+				            }
+				            else {
+								let zero = !(select in bullets);
+								let dividers = trimunspecial(line.slice("add".length, temp));
+								line = line.slice(temp + ":".length).trim();
+				                dividers = dividers ? dividers.split(" ") : [];
+				                for(i2 = 0; i2 < dividers.length; i2++) {
+				                    if(!Bullets.validdivider(dividers[i2], null, myformatting)) {
+				                        console.log(error + "only dividers are allowed between an \"add\" and the colon, and \"" + dividers[i2] + "\" is not a valid divider.");
+				                        dividers.splice(i2, 1);
+				                        i2--;
+				                    };
+				                }
+								if(zero) {
+									dividers = structuredClone(zero_dividers).concat(dividers);
+									zero_dividers = [];
+								};
+								let _select = zero ? bullets.length - 1 : select;
+								//
+								let array = [structuredClone(Bullets.template)];
+								let first = array[0];
+								first.indent = zero ? 0 : bullets[select].indent;
+								set_text(first, line);
+								let _date = null;
+								// the date that will be assumed, if there's no
+								// date divider.
+								if(!zero) {
+									_date = dividers.includes("=") ? bullets.getdate(select) : bullets.getchilddate(select);
+									// - getchilddate tells you what the default
+									//   date of a new child would be.
+									// - but =s reset the date to what the
+									//   parent's date is.
+								}
+								else if(bullets.length) {
+								// use the date of the last zero-indent.
+									for(i2 = bullets.length - 1; i2 >= 0; i2--) {
+										if(!bullets[i2].indent) {
+											_date = bullets.getdate(i2);
+											i2 = 0;
+										}
+									}
+								}
+								else {
+								// paragraph is empty
+									_date = newpara_date;
+								};
+								if(date !== _date) {
+									dividers.push(date);
+								};
+								first.dividers = structuredClone(dividers);
+								dividers = [];
+								if(!bullets.length) {
+								// make sure the first bullet has newpara.
+									first.newpara = newpara;
+								}
+								//
+								i1++;
+								while(i1 < input[i0].length && input[i0][i1] && !input[i0][i1][0].trim()) {
+									let num = input[i0][i1].length - input[i0][i1].trimStart().length;
+									let _line = trimunspecial(input[i0][i1]);
+									if(Bullets.validdivider(_line, false, myformatting)) {
+										dividers.push(_line);
+									}
+									else {
+										array.push(structuredClone(Bullets.template));
+										let ref = array[array.length - 1];
+										set_text(ref, _line);
+										ref.indent = first.indent + num;
+										ref.dividers = structuredClone(dividers);
+										dividers = [];
+									}
+									i1++;
+								}
+								i1--;
+								let insert = zero ? bullets.length : _select + 1 + bullets.desc_length(_select);
+								for(i2 in alias) {
+									if(alias.hasOwnProperty(i2) && alias[i2] >= insert) {
+										// adjust alias indexes
+										alias[i2] += array.length;
+									}
+								}
+								for(i2 = 0; i2 < array.length; i2++) {
+									bullets.splice(insert + i2, 0, structuredClone(array[i2]));
+								}
+							}
+						}
+						else if(line === "delete" || line === "clear") {
+							if(!(select in bullets)) {
+								console.log(error + "no bullet is selected.");
+							}
+							else {
+								let branches = line === "clear" ? bullets.children(select) : [select];
+								if(line !== "clear") {
+									select = bullets.parent(select) ?? -1;
+								}
+								let indexes = bullets.remove(branches);
+								for(i2 in alias) {
+									if(alias.hasOwnProperty(i2) && alias[i2] !== -1) {
+										// adjust alias.
+										if(indexes.includes(alias[i2])) {
+											// represents a bullet that was deleted
+											delete alias[i2];
+										}
+										else {
+											// count the number of deleted bullets
+											// before this bullet, and subtract that
+											// from the value (makes sure it still
+											// refers to the same bullet, despite the
+											// indexes being shifted around.)
+											let count = 0;
+											for(i3 = 0; i3 < indexes.length; i3++) {
+												count += indexes[i3] < alias[i2];
+											}
+											alias[i2] -= count;
+										}
+									}
+								}
+							}
+						}
+						else if(line.startsWith("rewrite:")) {
+							if(!(select in bullets)) {
+								console.log(error + "no bullet is selected.");
+							}
+							else {
+								set_text(bullets[select], trimunspecial(line.slice("rewrite:".length)));
+							}
+						}
+						else if(line.startsWith("alias:")) {
+							if(!(select in bullets)) {
+								console.log(error + "no bullet is selected.");
+							}
+							else {
+								for(i2 in alias) {
+									if(alias.hasOwnProperty(i2) && alias[i2] === select) {
+										delete alias[i2];
+									}
+								}
+								alias[trimunspecial(line.slice("alias:".length))] = select;
+							}
+						}
+						else if(line.startsWith("select")) {
+							line = line.slice("select".length).trimStart();
+							if(line === "null") {
+								select = -1;
+							}
+							else if(line && ":>@".includes(line[0])) {
+								let type = line[0];
+								line = trimunspecial(line.slice(1));
+								if(type === "@") {
+									if(line in alias) {
+										if(alias[line] in bullets || alias[line] === -1) {
+											select = alias[line];
+										}
+										else {
+											console.log(error + "this shouldn't happen (alias leads to a nonexistent index)");
+										}
+									}
+									else {
+										console.log(error + "undefined alias");
+									}
+								}
+								else {
+									if(type === ">" && select === -1) {
+										type = ":";
+									}
+									let match = -1;
+									let start = type === ">" ? select + 1 : 0;
+									let end = type === ">" ? start + bullets.desc_length(select) - 1 : bullets.length - 1;
+									for(i2 = start; i2 <= end; i2++) {
+										if(bullets[i2].text.includes(line) && (match === -1 || bullets[i2].indent < bullets[match].indent)) {
+											match = i2;
+										}
+									}
+									// if there's multiple matches, pick the lower
+									// indent. if they're tied there, stick with the
+									// lower index.
+									if(match === -1) {
+										console.log(error + "bullet not found.");
+									}
+									else {
+										select = match;
+									}
+								}
+							}
+							else {
+								console.log(error + "select lines must use :, >, @, or null.");
+							};
+						}
+						else {
+							console.log(error + "unknown meaning.");
+						}
+					}
+					for(i1 = 0; i1 < bullets.length; i1++) {
+						full_bullets.push(bullets[i1]);
+					}
+				}
+				//
+				let output = full_bullets.string(bul.getsetting("linewidth", ["over zero", "integer"]) ?? 33, myformatting);
+				bul.output(output, linewidth);
+			}
 		}
 		bul.initialize();
-		//
 		/*
 		let pho = {
 			element: (name) => document.getElementById("pho_" + tohtmlid(name)),
