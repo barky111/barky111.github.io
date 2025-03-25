@@ -60,22 +60,13 @@ let _2dPoly = {
             points[i1] = [SER[i1][0], SER[i1][1]];
             // round it
         }
-        let rect = [
-            [],
-            // x coordinates
-            []
-            // y coordinates
-        ];
         for(i1 = points.length - 1; i1 >= 0; i1--) {
-        // splice, create rect
+        // splice
             if(deletepile.includes(i1)) {
                 points.splice(i1, 1)
-            }
-            else {
-                rect[0][ rect[0].length ] = points[i1][0];
-                rect[1][ rect[1].length ] = points[i1][1];
-            }
+            };
         }
+        let rect = Rect.frompoints(points);
         center = _2dPoly.center(points);
         if(points.length === 0) {
             return {
@@ -134,14 +125,6 @@ let _2dPoly = {
                 rect,
             };
         };
-        rect = {
-            x: Math.min(...rect[0]),
-            y: Math.min(...rect[1]),
-            w: Math.max(...rect[0]),
-            h: Math.max(...rect[1]),
-        };
-        rect.w -= rect.x;
-        rect.h -= rect.y;
         rect.w++;
         rect.h++;
         // ++ it so it includes all edges.
@@ -727,7 +710,7 @@ function addspheroids(points, fineness) {
     let i1 = 0;
     let i2 = 0;
     let i3 = 0;
-    fineness = Number.isInteger(Math.round(fineness)) ? fineness : 4;
+    fineness = Number.isInteger(fineness) && fineness >= 0 ? fineness : 4;
     // avoid non-numbers and values like Infinity or NaN
     //console.log(new Date().valueOf());
     if(fineness !== 0) {
@@ -936,8 +919,8 @@ let Color = {
         );
     },
     random: function(amount, dark, light) {
-    // dark, light: booleans for whether it should add an especially
-    // dark or light color to the mix.
+    // - dark, light: booleans for whether it should add an especially dark or
+    //   light color to the mix.
         let array = [];
         let length = amount ?? 1;
         for(let i1 = 0; i1 < length; i1++) {
@@ -1052,7 +1035,407 @@ let Color = {
     // - 1 - (1 - .5)*(1 - 1) | 1 - (1 - .5)*(1 - .5) | 1 - (1 - .5)*(1 - 0)
     // - 1 - .5*0 | 1 - .5*.5 | 1 - .5*1
     // - 1 | .75 | .5
+    hsvcalc: function(r, g, b) {
+    // calculates hue, saturation, and value from rgb numbers.
+    // - the inputs should be 0 to 255 numbers. the outputs are 0 to 1 numbers.
+        let array = [r/255, g/255, b/255];
+        let min = Math.min(...array);
+        let max = Math.max(...array);
+        let value = max;
+        let saturation = 1 - min/max;
+        let highest = [array[0] === max, array[1] === max, array[2] === max];
+        if(!highest.includes(false)) {
+            return [0, saturation, value];
+        }
+        else if(!highest.includes(true)) {
+            console.log("this shouldn't happen");
+            return;
+        };
+        let sector = (
+            highest[0] ? (highest[1] ? 1 : 0) :
+            highest[1] ? (highest[2] ? 3 : 2) :
+            highest[2] ? (highest[0] ? 5 : 4) :
+            null
+        );
+        // 0/6 red
+        // 1/6 yellow
+        // 2/6 green
+        // 3/6 cyan
+        // 4/6 blue
+        // 5/6 magenta
+        if(sector === null) {
+            console.log("this shouldn't happen");
+            return;
+        }
+        else if(sector%2) {
+            return [sector/6, saturation, value];
+        };
+        let mid = (
+            !highest[0] && array[0] !== min ? 0 :
+            !highest[1] && array[1] !== min ? 1 :
+            !highest[2] && array[2] !== min ? 2 :
+            -1
+        );
+        if(mid === -1) {
+            return [sector/6, saturation, value];
+        };
+        for(let i1 = 0; i1 < array.length; i1++) {
+            array[i1] = (array[i1] - min)/(max - min);
+        }
+        highest = sector/2;
+        let hue = sector/6;
+        hue += (mid === (highest + 1)%3 ? array[mid]/6 : -(1 - array[mid]))/6;
+        return [posmod(hue, 1), saturation, value];
+    },
+    named: [],
+    initialize: function() {
+        let named = `
+pink:
+MediumVioletRed C71585
+DeepPink FF1493
+PaleVioletRed DB7093
+HotPink FF69B4
+LightPink FFB6C1
+Pink FFC0CB
+
+red:
+DarkRed 8B0000
+Red FF0000
+Firebrick B22222
+Crimson DC143C
+IndianRed CD5C5C
+LightCoral F08080
+Salmon FA8072
+DarkSalmon E9967A
+LightSalmon FFA07A
+
+orange:
+OrangeRed FF4500
+Tomato FF6347
+DarkOrange FF8C00
+Coral FF7F50
+Orange FFA500
+
+yellow:
+DarkKhaki BDB76B
+Gold FFD700
+Khaki F0E68C
+PeachPuff FFDAB9
+Yellow FFFF00
+PaleGoldenrod EEE8AA
+Moccasin FFE4B5
+PapayaWhip FFEFD5
+LightGoldenrodYellow FAFAD2
+LemonChiffon FFFACD
+LightYellow FFFFE0
+
+brown:
+Maroon 800000
+Brown A52A2A
+SaddleBrown 8B4513
+Sienna A0522D
+Chocolate D2691E
+DarkGoldenrod B8860B
+Peru CD853F
+RosyBrown BC8F8F
+Goldenrod DAA520
+SandyBrown F4A460
+Tan D2B48C
+Burlywood DEB887
+Wheat F5DEB3
+NavajoWhite FFDEAD
+Bisque FFE4C4
+BlanchedAlmond FFEBCD
+Cornsilk FFF8DC
+
+purple:
+Indigo 4B0082
+Purple 800080
+DarkMagenta 8B008B
+DarkViolet 9400D3
+DarkSlateBlue 483D8B
+BlueViolet 8A2BE2
+DarkOrchid 9932CC
+Fuchsia FF00FF
+Magenta FF00FF
+SlateBlue 6A5ACD
+MediumSlateBlue 7B68EE
+MediumOrchid BA55D3
+MediumPurple 9370DB
+Orchid DA70D6
+Violet EE82EE
+Plum DDA0DD
+Thistle D8BFD8
+Lavender E6E6FA
+
+blue:
+MidnightBlue 191970
+Navy 000080
+DarkBlue 00008B
+MediumBlue 0000CD
+Blue 0000FF
+RoyalBlue 4169E1
+SteelBlue 4682B4
+DodgerBlue 1E90FF
+DeepSkyBlue 00BFFF
+CornflowerBlue 6495ED
+SkyBlue 87CEEB
+LightSkyBlue 87CEFA
+LightSteelBlue B0C4DE
+LightBlue ADD8E6
+PowderBlue B0E0E6
+
+cyan:
+Teal 008080
+DarkCyan 008B8B
+LightSeaGreen 20B2AA
+CadetBlue 5F9EA0
+DarkTurquoise 00CED1
+MediumTurquoise 48D1CC
+Turquoise 40E0D0
+Aqua 00FFFF
+Cyan 00FFFF
+Aquamarine 7FFFD4
+PaleTurquoise AFEEEE
+LightCyan E0FFFF
+
+green:
+DarkGreen 006400
+Green 008000
+DarkOliveGreen 556B2F
+ForestGreen 228B22
+SeaGreen 2E8B57
+Olive 808000
+OliveDrab 6B8E23
+MediumSeaGreen 3CB371
+LimeGreen 32CD32
+Lime 00FF00
+SpringGreen 00FF7F
+MediumSpringGreen 00FA9A
+DarkSeaGreen 8FBC8F
+MediumAquamarine 66CDAA
+YellowGreen 9ACD32
+LawnGreen 7CFC00
+Chartreuse 7FFF00
+LightGreen 90EE90
+GreenYellow ADFF2F
+PaleGreen 98FB98
+
+white:
+MistyRose FFE4E1
+AntiqueWhite FAEBD7
+Linen FAF0E6
+Beige F5F5DC
+WhiteSmoke F5F5F5
+LavenderBlush FFF0F5
+OldLace FDF5E6
+AliceBlue F0F8FF
+Seashell FFF5EE
+GhostWhite F8F8FF
+Honeydew F0FFF0
+FloralWhite FFFAF0
+Azure F0FFFF
+MintCream F5FFFA
+Snow FFFAFA
+Ivory FFFFF0
+White FFFFFF
+
+gray&black:
+Black 000000
+DarkSlateGray 2F4F4F
+DimGray 696969
+SlateGray 708090
+Gray 808080
+LightSlateGray 778899
+DarkGray A9A9A9
+Silver C0C0C0
+LightGray D3D3D3
+Gainsboro DCDCDC
+`;
+        named = named.split("\n");
+        let category = null;
+        let repeat = [];
+        for(let i1 = 0; i1 < named.length; i1++) {
+            let line = named[i1].trim();
+            if(!line) {
+            }
+            else if(line.endsWith(":")) {
+                category = line.slice(0, -1);
+            }
+            else {
+                line = line.split(" ");
+                if(!category || line.length !== 2 || line[1].length !== 6) {
+                    console.log("this shouldn't happen");
+                }
+                else {
+                    let obj = {
+                        name: line[0],
+                        category,
+                        code: "#" + line[1],
+                        short_code: "#",
+                        hue: null,
+                        saturation: null,
+                        value: null,
+                    };
+                    let rgb = [];
+                    for(let i2 = 0; i2 < 3; i2++) {
+                        rgb.push(parseInt(obj.code.slice(1 + 2*i2, 3 + 2*i2), 16));
+                        obj.short_code += "0123456789ABCDEF"[ Math.round(rgb[i2]/17) ];
+                    }
+                    if(!repeat.includes(obj.short_code)) {
+                    // if there's already another color that close to this one,
+                    // skip it.
+                        repeat.push(obj.short_code);
+                        let hsv = Color.hsvcalc(...rgb);
+                        obj.hue = hsv[0];
+                        obj.saturation = hsv[1];
+                        obj.value = hsv[2];
+                        Color.named.push(obj);
+                    }
+                }
+            }
+        }
+        Color.named.neutral_categories = ["white", "gray&black", "brown"];
+        Object.defineProperty(Color.named, "neutral", {
+            get() {
+                return this.filter((element) => this.neutral_categories.includes(element.category));
+            },
+        });
+        Object.defineProperty(Color.named, "vibrant", {
+            get() {
+                return this.filter((element) => !this.neutral_categories.includes(element.category));
+            },
+        });
+    },
+    split: function(string) {
+    // splits a string of multiple colors into an array of each individual
+    // color.
+        let i1 = 0;
+        let ranges = block_ranges(string, false, "(", ")");
+        let colors = [];
+        for(i1 = 0; i1 <= ranges.length; i1++) {
+            let block = string_block(string, ranges, i1);
+            if(!block) {
+            }
+            else if(i1%2) {
+            // parenthesed content; count it as a single word.
+                let start = block_start(string, ranges, i1);
+                //let end = block_end(string, ranges, i1);
+                if(start - 1 >= 0 && string[start - 1].trim() && colors.length) {
+                // if there's no space before it, consider the previous word
+                // part of this one
+                    block = colors[colors.length - 1] + block;
+                    colors.splice(colors.length - 1, 1);
+                };
+                colors.push(block);
+            }
+            else {
+            // unparenthesed content: split it into words, and add each one
+            // individually.
+                colors = colors.concat(trimunspecial(block).split(" "));
+            };
+        }
+        let separator = (char) => char.length === 1 && char.toUpperCase() === char.toLowerCase() && !"1234567890()".includes(char);
+        let palette = [];
+        for(i1 = 0; i1 < colors.length; i1++) {
+            let color = colors[i1];
+            if(separator(color.slice(-1))) {
+                color = color.slice(0, -1);
+            };
+            // the syntax used to be that colors were separated with &
+            // signs, and it's also just natural to use commas or
+            // something... so, if the word is nothing but one non-letter,
+            // non-digit, non-parenthese character, skip it, and if it ends
+            // with a character like that, slice it off.
+            palette.push(color.trim());
+        }
+        return palette;
+    },
+    format: function(color) {
+    // returns a string of the format of the given color.
+        let i1 = 0;
+        if(color.startsWith("#") && [3, 4, 6, 8].includes(color.length - 1)) {
+            let bool = true;
+            for(i1 = 1; bool && i1 < color.length; i1++) {
+                bool = "0123456789abcdef".includes(color[i1].toLowerCase());
+            }
+            return bool ? ("hex" + (color.length - 1)) : "unknown";
+        }
+        let temp = color.indexOf("(");
+        if(temp !== -1 && color.endsWith(")")) {
+            return color.slice(0, temp);
+        }
+        for(i1 = 0; i1 < Color.named.length; i1++) {
+            if(Color.named[i1].name === color) {
+                return "named";
+            }
+        }
+        return "unknown";
+    },
+    palette_canvas: function(ctx, palette, col, cell_w, cell_h, reverse, one_code) {
+    // uses the given canvas to visualize the given palette.
+    // - NOTE: it orders them in columns, not rows.
+    // - cell_w, cell_h: how big one color is.
+    // - reverse: if true, columns start at the bottom and end at the top.
+    // - one_code
+    //   - a palette index: only that color has its code written on it. (useful
+    //     for showing which one is selected.)
+    //   - -1: no codes are shown.
+    //   - any non-number: all codes are shown.
+        col ??= 16;
+        cell_w ??= 48;
+        cell_h ??= 16;
+        let w = cell_w*Math.ceil(palette.length/col);
+        let h = cell_h*col;
+        ctx.canvas.width = w;
+        ctx.canvas.height = h;
+        ctx.clearRect(0, 0, w, h);
+        ctx.font = "6px 'thick 4x4'";
+        ctx.textBaseline = "middle";
+        for(let i1 = 0; i1 < palette.length; i1++) {
+            let color = palette[i1].toLowerCase();
+            let format = Color.format(color);
+            color = format.startsWith("hex") ? color : colortohex(ctx, color);
+            let x = Math.floor(i1/col);
+            let y = reverse ? col - i1%col : i1%col;
+            // the colors go from down to up, then left to right. like the
+            // normal order, but rotated 90 counterclockwise.
+            ctx.fillStyle = color;
+            ctx.fillRect(x*cell_w, y*cell_h, cell_w, (reverse ? -1 : 1)*cell_h);
+            if(typeof one_code !== "number" || i1 === one_code) {
+            // indicate the selected color by writing the hexcode inside.
+                //*
+                let invert = [];
+                let inc = format === "hex3" || format === "hex4" ? 1 : 2;
+                for(let i2 = 0; i2 < 3; i2++) {
+                    invert[i2] = 255 - parseInt(color.slice(1 + inc*i2, 3 + inc*i2), 16);
+                }
+                let dark = Points.floor(Points.divide(invert, 8));
+                let light = Points.subtract([255, 255, 255], invert);
+                light = Points.floor(Points.divide(light, 8));
+                light = Points.subtract([255, 255, 255], light);
+                //*/
+                let coor = [x*cell_w + 2, (y + (reverse ? -1 : 1)/2)*cell_h + 1];
+                ctx.fillStyle = "black";
+                //ctx.fillStyle = "rgb(" + dark.join(", ") + ")";
+                ctx.fillText(color, coor[0] + 1, coor[1]);
+                ctx.fillText(color, coor[0] - 1, coor[1]);
+                ctx.fillText(color, coor[0] + 1, coor[1] + 1);
+                ctx.fillText(color, coor[0] - 1, coor[1] + 1);
+                ctx.fillText(color, coor[0], coor[1] - 1);
+                ctx.fillText(color, coor[0], coor[1] + 2);
+                ctx.fillStyle = "rgb(" + invert.join(", ") + ")";
+                ctx.fillText(color, coor[0], coor[1] + 1);
+                ctx.fillStyle = "white";
+                //ctx.fillStyle = "rgb(" + light.join(", ") + ")";
+                // the opposite color, and fully opaque if it wasn't already.
+                ctx.fillText(color, ...coor);
+            }
+        }
+    }
 };
+Color.initialize();
+
 const Raster = {
 // pseudoclass for an array that represents an image. each value is the color of
 // a pixel.
@@ -1411,10 +1794,12 @@ const Raster = {
         }
         return __this;
     },
-    outline: function(_this, w) {
+    outline: function(_this, w, diagonals) {
     // returns a matching array of booleans for whether each pixel is an outline
     // or not. pixels count as outlines if they aren't falsy and have at least
     // one falsy cardinal neighbor. used in fill and the aa silhouette creation.
+    // - diagonals: if true, pixels count as outline if they have *any* empty
+    //   neighbors.
         let i1 = 0;
         let array = [];
         const h = Math.ceil(_this.length/w);
@@ -1428,14 +1813,27 @@ const Raster = {
                     [0, w - 1].includes(_x)
                     ||
                     [0, h - 1].includes(_y)
+                    // edge of the image
                     ||
-                    !_this[i1 - w]
-                    ||
-                    !_this[i1 + w]
-                    ||
-                    !_this[i1 - 1]
-                    ||
-                    !_this[i1 + 1]
+                    (
+                        (
+                            !_this[i1 - 1] || !_this[i1 + 1]
+                            ||
+                            !_this[i1 - w] || !_this[i1 + w]
+                        )
+                        // empty cardinal neighbor
+                        ||
+                        (
+                            diagonals
+                            &&
+                            (
+                                !_this[i1 - w - 1] || !_this[i1 - w + 1]
+                                ||
+                                !_this[i1 + w - 1] || !_this[i1 + w + 1]
+                            )
+                        )
+                        // empty diagonal neighbor, and diagonals is on
+                    )
                 )
             );
             // a non-falsy pixel that's on the edge of the image or has
@@ -1772,6 +2170,7 @@ const Raster = {
         let i3 = 0;
         fineness ??= 4;
         offset ??= [0, 0, 0];
+        etc = typeof etc === "string" ? [etc] : Array.isArray(etc) ? etc : [];
         const is_aa = etc.includes("aa");
         // as in armature artist.
         // - the rectangle will be in the aa style, and the coordinates' floats
@@ -1850,6 +2249,84 @@ const Raster = {
             }
         }
         return {raster, rect};
+    },
+    bucket: function(raster, w, x, y, diagonal) {
+    // used for a paint bucket tool. give a raster and a coordinate, and it'll
+    // return a raster of booleans, for which pixels have the same value as the
+    // pixel at that coordinate and are connected to it by pixels that also have
+    // the same value.
+    // - diagonal: if true, the effect can spread diagonally instead of just
+    //   cardinally.
+        let i1 = 0;
+        let i2 = 0;
+        let empty = [];
+        for(i1 = 0; i1 < raster.length; i1++) {
+            empty.push(false);
+        }
+        const h = Math.ceil(raster.length/w);
+        if(
+            !Number.isInteger(x) || x < 0 || x >= w
+            ||
+            !Number.isInteger(y) || y < 0 || y >= h
+        ) {
+            return empty;
+        }
+        let _raster = structuredClone(empty);
+        // the raster it returns in the end.
+        let edge = structuredClone(empty);
+        // raster for which pixels were added last iteration. to save time, it
+        // only checks the neighbors of these pixels.
+        _raster[w*y + x] = true;
+        edge[w*y + x] = true;
+        let value = raster[w*y + x];
+        let done = false;
+        while(!done) {
+            done = true;
+            let _edge = structuredClone(edge);
+            edge = structuredClone(empty);
+            for(i1 = 0; i1 < _edge.length; i1++) {
+                if(_edge[i1]) {
+                // for every pixel of the previous edge,
+                    let _x = i1%w;
+                    let _y = Math.floor(i1/w);
+                    for(i2 = 0; i2 < 8; i2 += (diagonal ? 1 : 2)) {
+                    // check every neighbor, cardinal and maybe diagonal
+                        let __x = _x - (posmod(i2 - 3, 8) < 3) + (posmod(i2 - 7, 8) < 3);
+                        let __y = _y - (posmod(i2 - 5, 8) < 3) + (posmod(i2 - 1, 8) < 3);
+                        let index = w*__y + __x;
+                        if(__x >= 0 && __x < w && __y >= 0 && __y < h && raster[index] === value && !_raster[index]) {
+                        // if that neighbor exists, (ie it's in bounds) this
+                        // pixel has the same value as the pixel the bucket fill
+                        // started on, and this pixel isn't filled yet, add it
+                        // to the new edge.
+                            edge[index] = true;
+                        }
+                    }
+                }
+            }
+            for(i1 = 0; i1 < edge.length; i1++) {
+            // add the edge to _raster
+                if(edge[i1]) {
+                    done = false;
+                    _raster[i1] = true;
+                }
+            }
+        }
+        return _raster;
+    },
+    draw: function(ctx, raster, x, y, w) {
+        let rect = Rect.new(x, y, w, Math.ceil(raster.length/w));
+        for(let i1 = 0; i1 < raster.length; i1++) {
+            if(raster[i1]) {
+                let coor = Rect.getcoor(rect, i1);
+                if(coor === null) {
+                    console.log("this shouldn't happen");
+                }
+                else {
+                    ctx.fillRect(...coor, 1, 1);
+                };
+            }
+        }
     },
 };
 class Trace extends Array {
@@ -2337,7 +2814,7 @@ class Viewer {
     // converts coordinates from x/y/z space to screen coordinates.
     // - NOTE: this returns three coordinates, since z is still used for knowing
     //   what's on top of what.
-		if(this.disabled) {
+		if(this.disabled || this.range <= 0) {
 			return [x, y, z];
 		};
         for(let i1 = 0; i1 < 2; i1++) {
@@ -2367,7 +2844,7 @@ class Viewer {
     }
     inverse(x, y, z, plane) {
     // inverse of .convert.
-		if(this.disabled) {
+		if(this.disabled || this.range <= 0) {
 			return plane.planepoint(x, y, "z");
 		};
 		// you can turn off perspective for something by not giving the
@@ -2554,7 +3031,17 @@ class Line {
             this.z + anglenum[2]*number
         ];
     }
-    planeintersect(plane, shush) {
+    findplace(point) {
+    // does an inverse of findposition, which works even if the point isn't
+    // on the line.
+        if(!Array.isArray(point)) {
+            point = [0, 0, 0];
+        };
+        let place = this.plane().pointtotal( this.movetoline(point) );
+        let sign = Math.sign(this.plane().pointtotal( this.findposition(1) ));
+        return place*sign;
+    }
+    planeintersect(plane) {
     // returns the coordinates of a line/plane intersection.
         let point = [this.x, this.y, this.z];
         // a point where its distances from the Line's coordinate match the
@@ -2570,13 +3057,8 @@ class Line {
         // this is how much moving one unit in the Line's angle will change
         // the total.
         if(unit === 0) {
-            if(shush) {
-                return "parallel";
-            }
-            else {
-                console.log("this line will never intersect with the plane.");
-                return;
-            };
+            return null;
+            // parallel to the plane
         };
         return this.findposition(-total/unit);
         // if you go enough units for the change to be the opposite of the
@@ -2589,16 +3071,6 @@ class Line {
             point = [0, 0, 0];
         };
         return this.planeintersect(this.plane().parallel(point));
-    }
-    findplace(point) {
-    // does an inverse of findposition, which works even if the point isn't
-    // on the line.
-        if(!Array.isArray(point)) {
-            point = [0, 0, 0];
-        };
-        let place = this.plane().pointtotal( this.movetoline(point) );
-        let sign = Math.sign(this.plane().pointtotal( this.findposition(1) ));
-        return place*sign;
     }
     stretch_widen(point, stretch, widen) {
     // scales a point along the line. stretch multiplies its findplace,
@@ -3041,6 +3513,10 @@ class Plane {
     //   - simplifying logic, in general
         return this.x*point[0] + this.y*point[1] + this.z*point[2] + this.offset;
     }
+    pointsign(point) {
+    // returns -1, 0, or 1 for which side of the plane the point is on.
+        return Math.sign(this.pointtotal(point));
+    }
     linesegmentintersect(point1, point2, avoidequal) {
     // returns a coordinate, or null if they don't intersect.
     // - avoidequal: makes it return null if the intersection is on one of
@@ -3055,9 +3531,9 @@ class Plane {
                 point2[2] - point1[2]
             )
         );
-        let intersect = line.planeintersect(this, true);
+        let intersect = line.planeintersect(this);
         if(
-            typeof intersect === "string"
+            intersect === null
             ||
             intersect[0] < Math.min(point1[0], point2[0])
             ||
@@ -3601,7 +4077,7 @@ let Quat = {
             temp.x,
             temp.y,
             temp.z
-        ]
+        ];
         return _this.flip ? Points.multiply(temp, -1) : temp;
     },
     basis: (_this) => [
@@ -3663,6 +4139,8 @@ let Quat = {
         "flip: " + _this.flip
     ].join("\n"),
     valid: (_this) => (
+        _this
+        &&
         typeof _this === "object"
         &&
         typeof _this.w === "number"
@@ -4094,21 +4572,22 @@ const AAX = {
         hide: "no_default",
         // boolean for whether to hide the part. (there's no way to add parts
         // partway through the animation.)
-        silhouette: "",
-        // which silhouette group to use. (basically, you can make it so the
-        // arms are outlined separately, in a different color.)
-        // - stored as an array of a number (AAX.Color.silhouette index) and
-        //   string (subgroup name. parts in the same group but different
-        //   subgroups are drawn in the same color but with different outlines.)
-        connection: "",
-        // object for how it connects to the parent in the silhouette.
-        // - if .type === "generation", .value is an array of two numbers for
-        //   how many generations back/forward to connect to.
-        //   - [1, 0] means it connects to the parent. [2, 0] means it connects
-        //     to parent and grandparent. [0, 1] means it connects to children.
-        // - if .type === "capsule", .value is a number used for the width of a
-        //   capsule shape connecting the two parts. (it's used as an
-        //   approximation of a neck.)
+        silhouette: "body_exclusive",
+        // object of properties related to silhouette color and shape.
+        // - group: which index of AAX.Color.silhouette to use
+        // - subgroup: a string. parts with the same group but distinct
+        //   subgroups will have different outlines. (ex: separating the head
+        //   from the body, or the left arm from the right.)
+        // - anc: a number for how many generations of ancestors to add. ex: 1
+        //   means the parent, 2 means the parent and grandparent. 1 by default.
+        // - desc: the same, but for descendants. 0 by default.
+        // - core: the diameter of a sphere at the center of the part.
+        // - bone: a diameter. adds the bone between the part and its parent,
+        //   made into a capsule shape. used as an approximation of a neck.
+        // - silhouettes are formed by adding all of those images together, plus
+        //   the part's main image, and convexing them.
+        // - concave: if true, the convexing will happen before the part's main
+        //   image and the bone are added.
         shape: "",
         orient: "pose_getset",
         mirror: "body_exclusive",
@@ -4187,11 +4666,6 @@ const AAX = {
     // - creates hide, perspective, silhouette, connection, color1,
     //   color2
     // - symmetrical duplicates
-    shape_templates: {
-    // most of these will be created from AAX.Body.templates.standard, in
-    // AAX.initialize.
-        sphere: `0, 0, 0, 8`,
-    },
     body_read: {
     // an object of functions used in Body.new and body maker.
         comment_char: "//",
@@ -4466,11 +4940,10 @@ const AAX = {
 		//     descendants cycle through for their color1 or color2
 		//     - color1 and color2 override this and any ancestors'
 		//       branch_color, setting this color for this part only.
-		//   - branch_silhouette: silhouette number, which works similarly
-		//     - except it's just one value instead of an array. if the shoulder
-		//       has a .branch_silhouette of 1, that's applied to the entire
-		//       arm. but if the hand has a .silhouette of 0, the hand will be 0
-		//       instead
+		//   - branch_silgroup, silgroup: arrays of a silhouette group and
+        //     subgroup.
+        //     - it needs to be stored separately, so that non-branching can
+        //       override branching.
 		//   - no_mirror: means it shouldn't get a symmetrical counterpart,
 		//     despite a "l_" or "r_" prefix. this is assigned by branch too.
 		//     - sort of. it won't create a symmetrical counterpart if the
@@ -4546,7 +5019,7 @@ const AAX = {
                         // split further, and trim it
 						if(image.length >= 1 && image[0]) {
 						// if there's a shape
-							let temp = AAX.strings.shape(image[0], obj, i1);
+							let temp = AAX.Shape.new(image[0], obj, i1);
 							if(temp) {
 							// if it didn't error from invalid inputs, use that.
 								part.shape = structuredClone(temp);
@@ -4585,14 +5058,25 @@ const AAX = {
 			// by the end of this loop, part.image must exist, with
 			// a front and right, filled either by null or by text.
             for(i1 in obj) {
-				if(obj.hasOwnProperty(i1) && obj[i1].extra_text) {
+				if(obj.hasOwnProperty(i1)) {
                 // run through all the possible commands extra_text can give.
                     let part = obj[i1];
-                    //console.log(i1);
-                    let commands = AAX.body_read.extra_commands(part.extra_text);
-                    delete part.extra_text;
                     part.hide = false;
                     part.symmetry = null;
+                    part.silhouette = {
+                        group: 0,
+                        subgroup: "",
+                        anc: 1,
+                        desc: 0,
+                        core: 0,
+                        bone: 0,
+                        concave: false,
+                    };
+                    let commands = [];
+                    if(part.extra_text) {
+                        commands = AAX.body_read.extra_commands(part.extra_text);
+                        delete part.extra_text;
+                    };
                     for(i2 = 0; i2 < commands.length; i2++) {
                         let ref = commands[i2];
                         let content = ref.content;
@@ -4623,28 +5107,6 @@ const AAX = {
                                 }
                             }
                         }
-                        else if(ref.name === "silhouette" || ref.name === "silhouette*") {
-                        // silhouette, branch_silhouette
-                            const branch = !ref.name.endsWith("*");
-                            let sub = 0;
-                            // stands for "subgroup"
-                            for(sub = content.length - 1; sub >= 0 && content[sub].toLowerCase() !== content[sub].toUpperCase(); sub--) {
-                            // find the last non-letter character
-                            }
-                            sub++;
-                            // so that it's at the end of that last non-letter, and
-                            // can be used as a slice index
-                            content = [
-                                content.slice(0, sub),
-                                content.slice(sub)
-                            ];
-                            let num = Number(content[0]);
-                            sub = content[1];
-                            if(!Number.isInteger(num) || num < 0) {
-                                return "invalid input. (invalid silhouette group number. must be a positive integer.)";
-                            };
-                            part[(branch ? "branch_" : "") + "silhouette"] = [num, sub];
-                        }
                         else if(ref.name === "perspective") {
                         // perspective.coor
                             content = content.split(",");
@@ -4674,33 +5136,53 @@ const AAX = {
                             }
                             part.perspective.coor = structuredClone(coor);
                         }
-                        else if(ref.name === "capsule") {
-                        // capsule connections
-                            content = AAX.posint(content);
-                            if(isNaN(content)) {
-                                return "invalid input. (invalid capsule width.)";
+                        else if(ref.name === "group" || ref.name === "group*") {
+                        // silhouette group/subgroup, branch_silgroup
+                            const branch = !ref.name.endsWith("*");
+                            let sub = 0;
+                            // stands for "subgroup"
+                            for(sub = content.length - 1; sub >= 0 && content[sub].toLowerCase() !== content[sub].toUpperCase(); sub--) {
+                            // find the last non-letter character
+                            }
+                            sub++;
+                            // so that it's at the end of that last non-letter, and
+                            // can be used as a slice index
+                            content = [
+                                content.slice(0, sub),
+                                content.slice(sub)
+                            ];
+                            let num = Number(content[0]);
+                            sub = content[1];
+                            if(!Number.isInteger(num) || num < 0) {
+                                return "invalid input. (invalid silhouette group number. must be a positive integer.)";
                             };
-                            part.connection = {
-                                type: ref.name,
-                                value: content,
-                            };
+                            part[(branch ? "branch_" : "") + "silgroup"] = [num, sub];
                         }
                         else if(ref.name === "generation") {
-                        // generation connections
-                            content = content.split(",");
+                        // silhouette ancestor/descendants
+                            content = content ? content.split(",") : [];
                             content = [
-                                Number(content[0]),
+                                Number(content[0] ?? 0),
                                 Number(content[1] ?? 0)
                             ];
                             if(!Number.isInteger(content[0]) || !Number.isInteger(content[1])) {
-                                return "invalid input. (generation connections are supposed to be integers representing how many generations back/forward you want the part to connect to.)";
+                                return "invalid input. (generation() inputs are supposed to be integers representing how many generations back/forward you want the part to connect to.)";
                             }
                             else {
-                                part.connection = {
-                                    type: ref.name,
-                                    value: content,
-                                };
-                            }
+                                part.silhouette.anc = content[0];
+                                part.silhouette.desc = content[1];
+                            };
+                        }
+                        else if(ref.name === "core" || ref.name === "bone") {
+                        // silhouette core/bone
+                            content = AAX.posint(content);
+                            if(isNaN(content)) {
+                                return "invalid input. (invalid " + ref.name + " diameter.)";
+                            };
+                            part.silhouette[ref.name] = content;
+                        }
+                        else if(ref.name === "concave") {
+                            part.silhouette[ref.name] = true;
                         }
                         else if(ref.name === "hide") {
                             part[ref.name] = true;
@@ -4730,7 +5212,8 @@ const AAX = {
 						"shape",
 						"image",
 						"perspective",
-						"hide"
+						"hide",
+                        "silhouette"
 					];
 					for(i2 = 0; i2 < order.length; i2++) {
 						part[ order[i2] ] = structuredClone( obj[i1][ order[i2] ] );
@@ -4750,10 +5233,16 @@ const AAX = {
 				if(!Array.isArray(values)) {
 					values = [values];
 				}
-				body[part][property] = structuredClone(values[0]);
+                if(property === "silgroup") {
+                    body[part].silhouette.group = values[0][0];
+                    body[part].silhouette.subgroup = values[0][1];
+                }
+                else {
+                    body[part][property] = structuredClone(values[0]);
+                }
 				let temp = structuredClone(values[0]);
 				values.splice(0, 1);
-				values[values.length] = temp;
+				values.push(temp);
 				// cycle through
 				for (i1 in body) {
 					if(body.hasOwnProperty(i1) && body[i1].parent === part) {
@@ -4763,10 +5252,9 @@ const AAX = {
 			};
             for(i1 in body) {
                 if(body.hasOwnProperty(i1) && body[i1].parent === "standpoint") {
-                // set the default colors/silhouette
+                // set the default colors
                     branchassign(body, i1, "color1", [1, 2]);
                     branchassign(body, i1, "color2", [0]);
-                    branchassign(body, i1, "silhouette", [[0, ""]]);
                 }
             }
 			for (i1 in body) {
@@ -4777,8 +5265,8 @@ const AAX = {
 					if(obj[i1].hasOwnProperty("branch_color2")) {
 						branchassign(body, i1, "color2", obj[i1].branch_color2);
 					};
-					if(obj[i1].hasOwnProperty("branch_silhouette")) {
-						branchassign(body, i1, "silhouette", [obj[i1].branch_silhouette]);
+					if(obj[i1].hasOwnProperty("branch_silgroup")) {
+						branchassign(body, i1, "silgroup", [obj[i1].branch_silgroup]);
 					};
 				};
 			}
@@ -4791,9 +5279,10 @@ const AAX = {
 					if(obj[i1].hasOwnProperty("color2")) {
 						body[i1].color2 = obj[i1].color2;
 					};
-					if(obj[i1].hasOwnProperty("silhouette")) {
-						body[i1].silhouette = structuredClone(obj[i1].silhouette);
-					};
+                    if(obj[i1].hasOwnProperty("silgroup")) {
+                        body[i1].silhouette.group = obj[i1].silgroup[0];
+                        body[i1].silhouette.subgroup = obj[i1].silgroup[1];
+                    };
 				};
 			}
 			// a loop to set the non-branch stuff
@@ -4817,9 +5306,6 @@ const AAX = {
 				if (body.hasOwnProperty(i1)) {
 				// interpret images
 					let part = body[i1];
-					part.connection = structuredClone(obj[i1].connection ?? {type: "generation", value: [1, 0]});
-					// done here so that it's right after silhouette.
-					// - if it's absent, connect to parents.
 					const oddness = AAX.oddness(body, i1);
 					for(i2 = -2; i2 < 4; i2++) {
 						const imageobj = part[i2 < 0 ? "image" : "perspective"];
@@ -4937,7 +5423,7 @@ const AAX = {
                             console.log("this shouldn't happen");
                         }
                     };
-                    if(body[name1].silhouette[0] && !body[name1].silhouette[1]) {
+                    if(body[name1].silhouette.group && !body[name1].silhouette.subgroup) {
                     // if they're not in group 0 (probably don't want them
                     // differentiated) and they don't have a subgroup already,
                     // (the user probably already did something with that,
@@ -4945,11 +5431,11 @@ const AAX = {
                     // silhouette subgroups.
                         let temp = symmetry[i1].prefix1;
                         for(i2 = 0; i2 < temp.length; i2++) {
-                            body[name1].silhouette[1] += temp[i2].toLowerCase() === temp[i2].toUpperCase() ? "" : temp[i2];
+                            body[name1].silhouette.subgroup += temp[i2].toLowerCase() === temp[i2].toUpperCase() ? "" : temp[i2];
                         }
                         temp = symmetry[i1].prefix2;
                         for(i2 = 0; i2 < temp.length; i2++) {
-                            body[name2].silhouette[1] += temp[i2].toLowerCase() === temp[i2].toUpperCase() ? "" : temp[i2];
+                            body[name2].silhouette.subgroup += temp[i2].toLowerCase() === temp[i2].toUpperCase() ? "" : temp[i2];
                         }
                         // have it match the prefixes, with all non-letters
                         // removed for aesthetics
@@ -5002,24 +5488,24 @@ const AAX = {
 `wrist:			0, 0, 0
  thumb_1:		-5, -3, 1
   thumb_2:		-10, -8, 0
-   thumb_3:		-2, -6, 0
-    thumb_4:	0, -6, 0
+   thumb_3:		-2, -8, 0
+    thumb_4:	0, -7, 0
  index_1:		-9, -24, -1
   index_2:		0, -12, 0
-   index_3:		0, -6, 0
-    index_4:	0, -4, 0
+   index_3:		0, -8, 0
+    index_4:	0, -5, 0
  middle_1:		-1, -25, -3
   middle_2:		0, -14, 0
-   middle_3:	0, -6, 0
-    middle_4:	0, -4, 0
+   middle_3:	0, -8, 0
+    middle_4:	0, -5, 0
  ring_1:		6, -23, -1
   ring_2:		0, -11, 0
-   ring_3:		0, -6, 0
-    ring_4:		0, -4, 0
- pinkie_1:		13, -19, 1
-  pinkie_2:		0, -6, 0
-   pinkie_3:	0, -5, 0
-    pinkie_4:	0, -5, 0
+   ring_3:		0, -8, 0
+    ring_4:		0, -5, 0
+ pinkie_1:		13, -20, 1
+  pinkie_2:		0, -7, 0
+   pinkie_3:	0, -7, 0
+    pinkie_4:	0, -6, 0
 // the spacing between knuckles/fingers is about 8
 // the gap when the fingers point straight up is less than 1/4 of that, but making it 1 makes poses more clear
 // so the finger width is 3
@@ -5069,38 +5555,38 @@ const AAX = {
 0, 0, 0, 6
 ###
 wrist:
-    generation(0, 1)
     color1*(3)
-	silhouette(0a)
+	group(0a)
+    generation(0, 1)
 thumb_1:
-    generation(0)
     color1(4, 3)
+    generation()
 thumb_2:
+    group(0b)
     generation(2)
-    silhouette(0b)
 //thumb_3:
 //thumb_4:
 index_1:
-    generation(0)
-    silhouette(1a)
+    group(1a)
+    generation()
 //index_2:
 //index_3:
 //index_4:
 middle_1:
-	generation(0)
-	silhouette(1b)
+	group(1b)
+    generation()
 //middle_2:
 //middle_3:
 //middle_4:
 ring_1:
-    generation(0)
-    silhouette(1c)
+    group(1c)
+    generation()
 //ring_2:
 //ring_3:
 //ring_4:
 pinkie_1:
-    generation(0)
-    silhouette(1d)
+    group(1d)
+    generation()
 //pinkie_2:
 //pinkie_3:
 //pinkie_4:	`,
@@ -5181,25 +5667,26 @@ torso:
 	color1(2, 1)
 	generation(1, 2)
 neckbase:
-	generation(0)
+	generation()
 headbase:
-	capsule(16)
+	bone(16)
+    concave()
 head:
-	generation(0)
-	silhouette(0b)
+    group(0b)
+	generation()
 manubrium:
-	generation(0)
+	generation()
 shoulder:
 	symmetry()
 	color1(3, 4)
-	silhouette(1)
-	generation(0)
+	group(1)
+	generation()
 hand:
-	generation(0)
+	generation()
 hip:
 	symmetry()
-	generation(0)
-	silhouette(2)
+	group(2)
+    generation()
 knee:
 	generation(2)`,
 			standard:
@@ -5211,9 +5698,8 @@ knee:
     head: 0, -12, 0
   manubrium: 0, -5, 4.5
    shoulder: -9, 5, -5
-    elbow: -3, 12, -2
-     wrist: -2.5, 11.5, -1.5
-      hand: 0, 3.5, 0.5
+    elbow: -2.5, 11.5, -1.5
+     hand: -2.5, 11.5, -1.5
  hip: -5, 3, 2
   knee: -0.5, 16.5, -1.5
    ankle: -0.5, 15.5, -0.5
@@ -5307,44 +5793,46 @@ x // jaw fulcrum
 [ shoulder ]
 0, 0, 0, 6
 [ elbow ]
-0, 0, 0, 6
-[ wrist ]
-||
-----------------
-----------------
-----------------
-----------------
-----------------
--------%%-------
-------%%%%------
------%%%%%%-----
------%%%%%%-----
------%%%%%%-----
------%%%%%%-----
------%%%%%%-----
------%%%%%%-----
------%%%%%%-----
-------%%%%------
--------%%-------
-|
-----------------
-----------------
-----------------
-----------------
-----------------
-------%%%-------
------%%%%%------
-----%%%%%%%-----
----%%%%%%%%-----
----%%%%%%%%-----
----%%%%%%%%-----
----%%%%%%%%-----
----%%%%%%%%-----
----%%%%%%%%-----
-----%%%%%%------
------%%%%-------
+0, 0, 0, 4
 [ hand ]
-0, 0, 0
+||
+-----------------
+-----------------
+-----------------
+-----------------
+-----------------
+-----------------
+-----------------
+-----------------
+-------%%%-------
+------%%%%%------
+------%%%%%------
+-----%%%%%%------
+----%%%%%%%------
+----%%%%%%-------
+-----%%%%%%------
+------%%%%-------
+-------%%--------
+|
+-------------------
+-------------------
+-------------------
+-------------------
+-------------------
+-------------------
+-------------------
+-------------------
+--------%%%%-------
+-------%%%%%%------
+-------%%%%%%%-----
+------%%%%%%%%-----
+------%%%%%%%%%----
+------%%%%%%%%%----
+------%%%%%%%%%----
+------%%%%%%%%-----
+------%%%%%%%------
+-------%%%%%%------
+--------%%%--------
 [ hip ]
 0, 0, 0, 9
 [ knee ]
@@ -5360,27 +5848,32 @@ torso:
 	color1(2, 1)
 	generation(1, 2)
 neckbase:
-	generation(0)
+	generation()
 headbase:
-	capsule(8)
+	group(0b)
+	bone(8)
+	generation()
+	concave()
 head:
-	capsule()
-	silhouette(0b)
+	group(0b)
+	generation()
+	concave()
 manubrium:
-	generation(0)
+	generation()
 shoulder:
 	symmetry()
 	color1(3, 4)
-	silhouette(1)
-    generation(0)
+	group(1)
+	generation()
 hand:
-	generation(0)
+	core(4)
+	concave()
 hip:
 	symmetry()
 	color1(1, 2)
 knee:
-	generation(2)
-	silhouette(2)`,
+	group(2)
+	generation(2)`,
 		}
     },
     Part: class {
@@ -6327,6 +6820,7 @@ knee:
             let data = Raster.from3d(points, drawsettings.fineness || 8, _abscoor, perspectived ? drawsettings.viewer : null, "aa");
             // within and rect that these shapes cover.
             //console.log(data.rect);
+            data = Raster.from3d(points, drawsettings.fineness || 8, _abscoor, perspectived ? drawsettings.viewer : null, "aa");
             if(!data.raster.length) {
                 //console.log(this.name, _view, data);
                 let array = [];
@@ -6436,19 +6930,10 @@ knee:
         }
         get silhouettelist() {
         // list of parts to include in their portion of the silhouette
-            let conn = this.connection;
+            let sil = this.silhouette;
             let list = [this.name];
-            // self
-            if(conn.type === "generation") {
-                if(conn.value[0] > 0) {
-                    list = list.concat(AAX.getanc(this.pose, this.name).slice(-conn.value[0]));
-                };
-                // ancestors
-                if(conn.value[1] > 0) {
-                    list = list.concat(AAX.getdesc(this.pose, this.name, conn.value[1]));
-                };
-                // descendants
-            }
+            list = sil.anc ? list.concat(AAX.getanc(this.pose, this.name).slice(-sil.anc)) : list;
+            list = sil.desc ? list.concat(AAX.getdesc(this.pose, this.name, sil.desc)) : list;
             return list;
         }
         oddify(axis, hypot) {
@@ -6544,45 +7029,57 @@ knee:
         let groups = [];
         for(i1 in pose) {
             if(pose.hasOwnProperty(i1) && !pose[i1].hide) {
-            // now, combine those shapes according to how the parts' connection
-            // properties work. (skip hidden parts.)
-                let conn = pose[i1].connection;
-                if(conn.type === "generation") {
-                    groups.push([]);
-                    let ref = groups[groups.length - 1];
-                    let list = AAX.getanc(pose, i1);
-                    list = [i1].concat( list.slice(list.length - conn.value[0]) ).concat( AAX.getdesc(pose, i1, conn.value[1]) );
-                    for(i2 = 0; i2 < list.length; i2++) {
-                    // combine the partshapes of itself and all applicable
-                    // ancestors and descendants.
-                        let _i2 = list[i2];
-                        let shape = partshapes[_i2];
-                        for(i3 = 0; i3 < shape.length; i3++) {
-                            ref.push(structuredClone(shape[i3]));
-                        }
-                    }
+            // now, combine those shapes according to how the parts' silhouettes
+            // work. (skip hidden parts.)
+                let sil = pose[i1].silhouette;
+                let list = pose[i1].silhouettelist;
+                if(sil.concave) {
+                // if it's concave, don't convex the main shape with all the
+                // others.
+                    list.splice(list.indexOf(i1), 1);
+                };
+                let group = [];
+                for(i2 = 0; i2 < list.length; i2++) {
+                // combine the partshapes of itself and all applicable
+                // ancestors and descendants.
+                    group = group.concat(structuredClone(partshapes[ list[i2] ]));
                 }
-                else if(conn.type === "capsule") {
-                // capsule makes the part's silhouette concave.
-                    let ref = pose[i1].orientedshape;
-                    for(i2 = 0; i2 < ref.length; i2++) {
-                        groups.push([]);
-                        for(i3 = 0; i3 < ref[i2].length; i3++) {
-                            let point = structuredClone(ref[i2][i3]);
+                if(sil.core) {
+                    group.push([...all_abs[i1], sil.core]);
+                };
+                if(sil.bone && pose[i1].parent !== "standpoint") {
+                    let start = [...all_abs[i1], sil.bone];
+                    let end = [...all_abs[pose[i1].parent], sil.bone];
+                    if(sil.concave) {
+                    // make a new group
+                        groups.push([structuredClone(start), structuredClone(end)]);
+                    }
+                    else {
+                    // add to the old one
+                        group.push(structuredClone(start));
+                        group.push(structuredClone(end));
+                    };
+                };
+                if(group.length) {
+                    groups.push(group);
+                };
+                if(sil.concave) {
+                    let shape = pose[i1].orientedshape;
+                    for(i2 = 0; i2 < shape.length; i2++) {
+                    // if it's concave, add each group of the shape as a new
+                    // group of the final product.
+                        let group = [];
+                        for(i3 = 0; i3 < shape[i2].length; i3++) {
+                            let point = structuredClone(shape[i2][i3]);
                             point[0] += all_abs[i1][0];
                             point[1] += all_abs[i1][1];
                             point[2] += all_abs[i1][2];
-                            groups[groups.length - 1].push(point);
+                            group.push(point);
                         }
+                        if(group.length) {
+                            groups.push(structuredClone(group));
+                        };
                     }
-                    let parent = pose[i1].parent;
-                    if(conn.value && parent !== "standpoint") {
-                        let start = pose[i1].abscoor;
-                        let end = pose[pose[i1].parent].abscoor;
-                        start.push(conn.value);
-                        end.push(conn.value);
-                        groups.push([start, end]);
-                    };
                 };
             }
         }
@@ -7103,6 +7600,17 @@ knee:
                 -this.cell.w/2
             );
         }
+        get perspectived_standpoint() {
+            let x = this.standpoint.x;
+            let y = this.standpoint.y;
+            if(this.range !== "none") {
+                let temp = [0, 0, this.viewer.central_z];
+                temp = Points.subtract(this.viewer.convert(...temp), temp);
+                x += Math.trunc(temp[0]);
+                y += Math.trunc(temp[1]);
+            };
+            return {x, y};
+        }
         screen_z(point, view, perspectived) {
             return AAX.camerarotations(
                 point, view,
@@ -7212,6 +7720,9 @@ knee:
         }
     },
     initialize: function() {
+        AAX.DrawSettings.template.standpoint.x = Math.floor(AAX.DrawSettings.template.cell.w/2 + AAX.DrawSettings.template.standpoint.x);
+        AAX.DrawSettings.template.standpoint.y = Math.floor(AAX.DrawSettings.template.cell.h/2 + AAX.DrawSettings.template.standpoint.y);
+        // they start out relative to the center
         for (let property in AAX.part_properties) {
         // complete part_properties
             if (AAX.part_properties.hasOwnProperty(property)) {
@@ -7252,9 +7763,9 @@ knee:
         for(i1 = 0; i1 < array.length; i1++) {
         // create shape templates from the standard body.
             let _i1 = array[i1];
-            AAX.shape_templates[_i1] = temp[_i1].split("\n||\n")[0];
+            AAX.Shape.templates[_i1] = temp[_i1].split("\n||\n")[0];
             if(_i1 === "head") {
-                AAX.Body.templates.stocky = AAX.Body.templates.stocky.replace("[ " + _i1 + " ]", "[ " + _i1 + " ]\n" + AAX.shape_templates[_i1]);
+                AAX.Body.templates.stocky = AAX.Body.templates.stocky.replace("[ " + _i1 + " ]", "[ " + _i1 + " ]\n" + AAX.Shape.templates[_i1]);
             }
         }
         array = [];
@@ -7637,8 +8148,6 @@ knee:
         },
         color_area: {
             prefix: "color",
-            direction: "r",
-            adjust: 2,
             h: 4,
             actions: [],
             // finished in initialize
@@ -8001,6 +8510,62 @@ knee:
                 return false;
             },
         },
+        checkbox: function(ctx, color, x, y, type) {
+        // draws the box of a checkbox.
+        // - color: an array of three colors, like DrawSettings.buttons
+        // - type:
+        //   - "checked"
+        //   - "unchecked"
+        //   - "special check" (draws a filled square instead of an x)
+        //   - "radio off" (unselected radio button)
+        //   - "radio on" (selected radio button)
+        //   =
+        //   - if it isn't one of these, it'll pick checked or unchecked based
+        //     on whether it's truthy.
+        // - NOTE: remember to take one block off the left side of your rect.
+        //   that way.
+            let styletemp = [ctx.fillStyle, ctx.strokeStyle];
+            const types = "checked / unchecked / special check / radio off / radio on".split(" / ");
+            type = types.includes(type) ? type : type ? "checked" : "unchecked";
+            //
+            let box = Rect.expand_all(Rect.new(x, y, AAX.ui.block, AAX.ui.block), -1);
+            ctx.fillStyle = color[1];
+            if(type === "radio off" || type === "radio on") {
+                let full = Raster.fullellipse(box.w, box.h);
+                Raster.draw(ctx, full, box.x, box.y, box.w);
+                ctx.fillStyle = color[0];
+                let outline = Raster.outline(full, box.w);
+                Raster.draw(ctx, outline, box.x, box.y, box.w);
+                if(type === "radio on") {
+                    let center = [];
+                    for(let i1 = 0; i1 < full.length; i1++) {
+                        center[i1] = full[i1] && !outline[i1];
+                    }
+                    let _outline = Raster.outline(center, box.w);
+                    for(let i1 = 0; i1 < full.length; i1++) {
+                        center[i1] = center[i1] && !_outline[i1];
+                    }
+                    Raster.draw(ctx, center, box.x, box.y, box.w);
+                }
+            }
+            else {
+                ctx.strokeStyle = color[0];
+                ctx.fillRect(box.x + 1, box.y + 1, box.w, box.h);
+                Rect.fauxstroke(box, ctx);
+                box = Rect.expand_all(box, -2);
+                ctx.strokeStyle = bm.color.buttons[0];
+                if(type === "checked") {
+                    linespecial(ctx, box.x, box.y, box.x + box.w, box.y + box.h);
+                    linespecial(ctx, box.x + box.w, box.y, box.x, box.y + box.h);
+                }
+                else if(type === "special check") {
+                    ctx.fillRect(box.x, box.y, box.w + 1, box.h + 1);
+                };
+            }
+            //
+            ctx.fillStyle = styletemp[0];
+            ctx.strokeStyle = styletemp[1];
+        }
     },
     camerarotations: function(point, view, xz, yz, etc) {
     // returns a version of the point that has been rotated to match the given
@@ -8151,9 +8716,30 @@ knee:
 		console.log("this shouldn't happen");
 		return null;
     },
-    noderadius: 1,
+    noderadius: 2,
     // how close a click has to be to count as clicking a node.
-    draw_background: function(ctx, drawsettings, color, perspectived, numofcells) {
+    //noderadius_mouse: 1,
+    // - this was going to be a noderadius that only applies if they're using a
+    //   mouse. mouse users can use a more strict noderadius since the node
+    //   highlighting that happens with mouse hover gives you enough feedback to
+    //   be crazy precise with your clicks.
+    // - but that'd be awkward to adjust if i ever make it possible to change
+    //   noderadius. and there just isn't much reason not to be more lax.
+    //   - it's easy to tell if a click was from a mouse, pen, or touch, but not
+    //     to tell which one is the device "default". we may think of it as pc =
+    //     mouse and phone = touch, but either device could use any of these.
+    //   - i could use a document.onpointerdown thing to set the expected click
+    //     type when the user first clicks but whatever...
+    draw_background: function(ctx, drawsettings, color, perspectived, viewtype, side_tint_invert) {
+    // - ctx: canvas context
+    // - drawsettings, color: an AAX.DrawSettings, an AAX.Color
+    // - perspectived: boolean for whether it's in perspective
+    // - viewtype: something in AAX.valid.viewtype. describes what views it's
+    //   drawing.
+    //   - "multi4": all 4 views
+    //   - "multi2": view 0 and 1
+    //   - 0, 1, 2, 3: just one view
+        let i0 = 0;
         let i1 = 0;
         let i2 = 0;
         let loop = new Loop("AAX.draw_background");
@@ -8164,22 +8750,19 @@ knee:
             !(drawsettings instanceof AAX.DrawSettings)
             ||
             !(color instanceof AAX.Color)
-            ||
-            !Number.isInteger(numofcells) || numofcells <= 0 || numofcells > 4
         ) {
             console.log("invalid arguments.");
             return;
         }
         let ref = drawsettings;
-        numofcells ??= 4;
+        viewtype = AAX.valid.viewtype.includes(viewtype) ? viewtype : "multi4";
+        let viewlist = viewtype === "multi4" ? [0, 1, 2, 3] : viewtype === "multi2" ? [0, 1] : [viewtype];
         let cell = ref.cell;
-        let imagedata = [];
-        for(view = 0; view < numofcells; view++) {
-            imagedata[view] = ctx.getImageData(view*cell.w, 0, cell.w, cell.h);
-        }
         ctx.canvas.width = cell.w;
         ctx.canvas.height = cell.h;
-        for(view = 0; view < numofcells; view++) {
+        let imagedata = [];
+        for(let i0 = 0; i0 < viewlist.length; i0++) {
+            view = viewlist[i0];
             loop.tick("view");
             ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
             if(ref.background !== "blank") {
@@ -8231,11 +8814,9 @@ knee:
                     if(perspectived && ref.range !== "none") {
                     // if it's in perspective mode, apply perspective to the
                     // standpoint.
-                        let temp = [0, 0, ref.viewer.central_z];
-                        temp = Points.subtract(ref.viewer.convert(...temp), temp);
-                        // converting [0, 0, 0] should get you how much
-                        // standpoint moved from perspective.
-                        coor = Points.add(coor, [temp[0], temp[1]]);
+                        let temp = ref.perspectived_standpoint;
+                        coor[0] += ((view === 1 || view === 2) ? -1 : 0)*(temp.x - ref.standpoint.x);
+                        coor[1] += temp.y - ref.standpoint.y;
                     };
                     if(coor[1] >= 0 && coor[1] < cell.h) {
                         ctx.fillRect(0, coor[1], cell.w, 1);
@@ -8247,33 +8828,37 @@ knee:
                     }
                 }
             }
-            if(ref.background !== "blank" && view%2 === 1) {
+            if(ref.background !== "blank" && invertboolean(view%2, side_tint_invert)) {
                 // add side tint
                 ctx.fillStyle = color.side_tint;
                 ctx.fillRect(0, 0, cell.w, cell.h);
             };
-            imagedata[view] = ctx.getImageData(0, 0, cell.w, cell.h);
+            imagedata.push(ctx.getImageData(0, 0, cell.w, cell.h));
         }
         loop.end();
-        ctx.canvas.width = numofcells*cell.w;
-        ctx.clearRect(0, 0, numofcells*cell.w, cell.h);
-        for(view = 0; view < numofcells; view++) {
-            loop.tick("view");
-            ctx.putImageData(imagedata[view], view*cell.w, 0);
+        ctx.canvas.width = viewlist.length*cell.w;
+        ctx.clearRect(0, 0, viewlist.length*cell.w, cell.h);
+        for(i1 = 0; i1 < viewlist.length; i1++) {
+            ctx.putImageData(imagedata[i1], i1*cell.w, 0);
         }
-        loop.end();
     },
     draw: function(
-        ctx, drawsettings, color, perspectived, numofcells,
+        ctx, drawsettings, color, perspectived, viewtype,
         pose, nodes, strokecache, rotatecoor, basis
     ) {//yyyaad
     // draws or redraws the main canvas, the one with the multiview on it.
     // - NOTE it also defines the nodes.
+    // - viewtype: something in AAX.valid.viewtype. describes what views it's
+    //   drawing.
+    //   - "multi4": all 4 views
+    //   - "multi2": view 0 and 1
+    //   - 0, 1, 2, 3: just one view
     // - rotatecoor: the return of an aa.rotatecoor running, with the
     //   absolute argument as true. used in the rotate pose tool's mid-click
     //   visualization. parts in here will be drawn differently.
     // - basis: used to draw axes.
         //let time = new Date().valueOf();
+        let i0 = 0;
         let i1 = 0;
         let i2 = 0;
         let i3 = 0;
@@ -8281,8 +8866,9 @@ knee:
         let loop = new Loop("AAX.draw", 10000);
         let view = 0;
         let ds = drawsettings;
-        numofcells ??= 4;
-        nodes ??= {};
+        viewtype = AAX.valid.viewtype.includes(viewtype) ? viewtype : "multi4";
+        let viewlist = viewtype === "multi4" ? [0, 1, 2, 3] : viewtype === "multi2" ? [0, 1] : [viewtype];
+        nodes ??= [[], [], [], []];
         let coortocanvas = (point, view, nonulls, viewoffset) => AAX.coortocanvas(ds.cell, ds.standpoint, point, view, nonulls, viewoffset);
         let nodeline = function(x1, y1, x2, y2, view, viewoffset) {
             let center = coortocanvas([0, 0, 0], view, true, viewoffset);
@@ -8292,9 +8878,9 @@ knee:
         };
         let getnode = (view, name) => AAX.getnode(nodes, view, name);
         let imagedata = [];
-        for(i1 = 0; i1 < numofcells; i1++) {
+        for(i1 = 0; i1 < viewlist.length; i1++) {
             loop.tick(1);
-            imagedata[i1] = ctx.getImageData(i1*ds.cell.w, 0, ds.cell.w, ds.cell.h);
+            imagedata.push(ctx.getImageData(i1*ds.cell.w, 0, ds.cell.w, ds.cell.h));
         }
         loop.end();
         let abs = AAX.all_abs(pose);
@@ -8507,7 +9093,7 @@ knee:
             let node = getnode(view, partname);
             node = [
                 node.x - view*ds.cell.w,
-                node.y,
+                node.y
             ];
             // reverse view offset
             for(let i1 = 0; i1 < shape.length; i1++) {
@@ -8607,9 +9193,10 @@ knee:
             }
             loop.end();
         };
-        for(view = 0; view < numofcells; view++) {
+        for(i0 = 0; i0 < viewlist.length; i0++) {
+            view = viewlist[i0];
             loop.tick("view");
-            ctx.putImageData(imagedata[view], 0, 0);
+            ctx.putImageData(imagedata[i0], 0, 0);
             nodes[view] = [];
             let _nodes = nodes[view];
             // used in the clickable interface. objects of x, y, name, and a
@@ -8626,12 +9213,12 @@ knee:
                         coor[0] += _coor[0];
                         coor[1] += _coor[1];
                     };
-                    _nodes[_nodes.length] = {
+                    _nodes.push({
                         x: coor[0],
                         y: coor[1],
                         z: ds.screen_z(abs[i1], view, perspectived),
                         name: i1,
-                    };
+                    });
                     if(pose[i1].parent === "standpoint") {
                         stems[i1] = structuredClone(coor);
                     };
@@ -8718,71 +9305,86 @@ knee:
                     for(i2 = 0; i2 < parts.length; i2++) {
                         let _i2 = parts[i2];
                         if(visible(pose[_i2], "silhouette")) {
-                            let group = ds.silhouette === "overlap" ? pose[_i2].silhouette : [0, ""];
+                            let group = ds.silhouette === "overlap" ? [pose[_i2].silhouette.group, pose[_i2].silhouette.subgroup] : [0, ""];
                             for(i3 = groups.length; i3 <= group[0]; i3++) {
                                 groups.push({});
                             }
                             groups[ group[0] ][ group[1] ] ??= [];
                             // it'll be an array of _2dPoly.getdatas, for now
-                            if(pose[_i2].connection.type === "capsule") {
-                                let image = partimage(pose[_i2], view);
-                                let dim = pose[_i2].dim(perspectived ? view : view%2 ? "right" : "front", image.length);
-                                // gotta convert view to "front"/"right", to
-                                // match where the image came from. if
-                                // applicable.
-                                single[_i2] = {
-                                    rect: Raster.dimrect(...dim),
-                                    within: Raster.rewrite(image, (value) => !!value),
+                            let sil = pose[_i2].silhouette;
+                            let convex = [];
+                            let list = pose[_i2].silhouettelist;
+                            if(sil.concave) {
+                                list.splice(list.indexOf(_i2), 1);
+                            };
+                            for(i3 = 0; i3 < list.length; i3++) {
+                                convex = convex.concat(temp[ list[i3] ]);
+                            }
+                            let node = getnode(view, _i2);
+                            let x = node.x - view*ds.cell.w;
+                            let y = node.y;
+                            if(sil.core) {
+                                let rect = Raster.dimrect(
+                                    AAX.onedim(sil.core, !!(x%1)),
+                                    AAX.onedim(sil.core, !!(y%1))
+                                );
+                                rect.x += x;
+                                rect.y += y;
+                                let core = Raster.fullellipse(rect.w, rect.h);
+                                convex = convex.concat(Raster._2dPoly(core, rect));
+                            };
+                            let bone = null;
+                            if(sil.bone && pose[_i2].parent !== "standpoint") {
+                                let parent = getnode(view, pose[_i2].parent);
+                                let _x = parent.x - view*ds.cell.w;
+                                let _y = parent.y;
+                                bone = Raster.capsule(x, y, _x, _y, sil.bone/2);
+                                if(!sil.concave) {
+                                    let _convex = Raster._2dPoly(bone.raster, bone.w);
+                                    for(i3 = 0; i3 < _convex.length; i3++) {
+                                        convex.push([
+                                            bone.x + _convex[i3][0],
+                                            bone.y + _convex[i3][1]
+                                        ]);
+                                    }
+                                }
+                            };
+                            convex = convex.length < 3 ? null : _2dPoly.getdata(_2dPoly.convexed(convex), true, sl_center);
+                            let shape = sil.concave ? [] : convex;
+                            if(sil.concave) {
+                                if(convex) {
+                                    shape.push(convex);
                                 };
-                                // _2dPoly.getdata format.
-                                let node = getnode(view, _i2);
-                                single[_i2].rect.x += node.x - view*ds.cell.w;
-                                single[_i2].rect.y += node.y;
+                                if(bone) {
+                                    shape.push({rect: Rect.new(bone.x, bone.y, bone.w, bone.h), within: bone.raster});
+                                };
+                                let image = partimage(pose[_i2], view);
+                                let oddness = [!!(x%1), !!(y%1)];
+                                let dim = AAX.l_dim(image.length, oddness);
+                                if(dim === null) {
+                                    console.log("this shouldn't happen");
+                                }
+                                let rect = Raster.dimrect(...dim);
+                                rect.x += x;
+                                rect.y += y;
                                 // make it relative to the top left corner of
                                 // the cell
-                                if(pose[_i2].connection.value && pose[_i2].parent !== "standpoint") {
-                                // add capsule
-                                    let r = pose[_i2].connection.value/2;
-                                    let start = getnode(view, _i2);
-                                    let end = getnode(view, pose[_i2].parent);
-                                    start = [
-                                        start.x - view*ds.cell.w,
-                                        start.y
-                                    ];
-                                    end = [
-                                        end.x - view*ds.cell.w,
-                                        end.y
-                                    ];
-                                    // start and end of the capsule
-                                    let temp = Raster.capsule(...start, ...end, r);
-                                    single[_i2] = _2dPoly.mergedata([
-                                        single[_i2],
-                                        {
-                                            rect: {x: temp.x, y: temp.y, w: temp.w, h: temp.h},
-                                            within: temp.raster,
-                                        }
-                                    ]);
-                                    // merge without convexing
-                                }
-                                //console.log(_i2);
-                                //console.log(Raster.totext(single[_i2].within, single[_i2].rect.w));
-                            }
-                            else {
-                                let shape = [];
-                                let list = pose[_i2].silhouettelist;
-                                for(i3 = 0; i3 < list.length; i3++) {
-                                    shape = shape.concat(temp[ list[i3] ]);
-                                }
-                                single[_i2] = _2dPoly.getdata(_2dPoly.convexed(shape), true, sl_center);
-                            }
-                            groups[ group[0] ][ group[1] ].push( structuredClone(single[_i2]) );
+                                shape.push({
+                                    rect,
+                                    within: image,
+                                });
+                                // _2dPoly.getdata format.
+                                shape = _2dPoly.mergedata(shape);
+                            };
+                            shape ??= {rect: Rect.new(0, 0, 0, 0), within: []};
+                            groups[ group[0] ][ group[1] ].push( structuredClone(shape) );
                             // add to the data for this combo
                             single[_i2] = {
-                                x: single[_i2].rect.x,
-                                y: single[_i2].rect.y,
-                                w: single[_i2].rect.w,
-                                h: single[_i2].rect.h,
-                                array: structuredClone(single[_i2].within),
+                                x: shape.rect.x,
+                                y: shape.rect.y,
+                                w: shape.rect.w,
+                                h: shape.rect.h,
+                                raster: structuredClone(shape.within),
                             };
                             // convert to a better format
                         }
@@ -8856,14 +9458,14 @@ knee:
                         if(_i1 in single) {
                             let num = AAX.getstemnum(pose, _i1);
                             let _rect = single[_i1];
-                            let array = _rect.array;
-                            for(i2 = 0; i2 < array.length; i2++) {
+                            let raster = _rect.raster;
+                            for(i2 = 0; i2 < raster.length; i2++) {
                                 if(array[i2]) {
                                     // if the part covers this spot:
                                     let index = Rect.getindex(rect, ...Rect.getcoor(_rect, i2));
                                     // Rect.getcoor is the coordinates relative to
                                     // the corner of the cell, Rect.getindex is
-                                    // which index of image.array that should be.
+                                    // which index of image.raster that should be.
                                     // (-1 if it's out of bounds.)
                                     if(index !== -1) {
                                         coverage[index] = num;
@@ -9066,16 +9668,14 @@ knee:
                 // draw node interiors
             }
             //
-            imagedata[view] = ctx.getImageData(0, 0, ds.cell.w, ds.cell.h);
+            imagedata[i0] = ctx.getImageData(0, 0, ds.cell.w, ds.cell.h);
         }
         loop.end();
-        ctx.canvas.width = numofcells*ds.cell.w;
-        ctx.clearRect(0, 0, numofcells*ds.cell.w, ds.cell.h);
-        for(view = 0; view < numofcells; view++) {
-            loop.tick("view");
-            ctx.putImageData(imagedata[view], view*ds.cell.w, 0);
+        ctx.canvas.width = viewlist.length*ds.cell.w;
+        ctx.clearRect(0, 0, viewlist.length*ds.cell.w, ds.cell.h);
+        for(i1 = 0; i1 < viewlist.length; i1++) {
+            ctx.putImageData(imagedata[i1], i1*ds.cell.w, 0);
         }
-        loop.end();
         //console.log("AAX.draw took " + (new Date().valueOf() - time)/1000 + " seconds.");
     },
     posint: (num) => Math.abs(Math.round(typeof num === "string" ? Number(num) : num)),
@@ -9218,199 +9818,6 @@ knee:
             }
             return tilt;
         },
-        shape: function(string) {
-            let i1 = 0;
-            let i2 = 0;
-            let i3 = 0;
-            let loop = new Loop("AAX.strings.shape");
-            let shape = {
-                points: [],
-            };
-            let total = 0;
-            // number of points in finished groups.
-            string = uncomment(string.trim()).split("|");
-            let lastreal = null;
-            // last point that wasn't a duplicate or inversion. (array of group
-            // index and point index.)
-            for(i1 = 0; i1 < string.length; i1++) {
-            // |s split them into groups
-                loop.tick(1);
-                shape.points[i1] = [];
-                string[i1] = string[i1].trim().split("\n");
-                for(i2 = 0; i2 < string[i1].length; i2++) {
-                    // line breaks split it up into points
-                    loop.tick(2);
-                    string[i1][i2] = string[i1][i2].trim();
-                    if(string[i1][i2]) {
-                    // skip blank lines. those could be interpreted as "copy
-                    // point 0". benign, but inefficient
-                        let point = string[i1][i2];
-                        let temp = shape.points[i1].length;
-                        // store the previous length so it can tell if a point
-                        // was added this loop
-                        if(point.includes(",")) {
-                            point = point.split(",");
-                            let coor = AAX.strings.coor(point.slice(0, 3));
-                            let dim = AAX.strings.dimension(point.slice(3, 6));
-                            // makes sure they're valid,
-                            // returns null if they're not
-                            let tilt = AAX.strings.tilt(point.slice(6).join(","));
-                            // quaternion
-                            if(coor) {
-                                point = structuredClone(coor);
-                                if(dim && Math.hypot(...dim)) {
-                                    // ignore null, but also 0
-                                    // radius
-                                    point = point.concat(dim);
-                                    if(tilt) {
-                                        point[point.length] = structuredClone(tilt);
-                                    };
-                                }
-                                lastreal = [i1, temp];
-                                shape.points[i1][ temp ] = structuredClone(point);
-                            }
-                        }
-                        else {
-                            // duplicate or inversion of a previous point.
-                            let invert = [false, false, false];
-                            for(i3 = 0; i3 < 3; i3++) {
-                                loop.tick(3);
-                                if(point.startsWith("xyz"[i3])) {
-                                    invert[i3] = !invert[i3];
-                                    point = point.slice(1);
-                                }
-                            }
-                            loop.end();
-                            // if it starts with axis letters, invert those
-                            // axes.
-                            let index = null;
-                            if(point.trim()) {
-                                // if there's content after the axis letters, take
-                                // it as a linear index.
-                                index = Number(point);
-                                if(Number.isInteger(index)) {
-                                    if(index < 0) {
-                                        // interpret -1 as the previous point, -2 as the
-                                        // point before that, etc.
-                                        index += total + temp;
-                                    };
-                                    if(point >= 0 && index < total + temp) {
-                                        index = AAX.points_linear_index(shape.points, num);
-                                        console.log({
-                                            points: structuredClone(shape.points),
-                                            num,
-                                            index,
-                                        });
-                                    }
-                                    else {
-                                        index = null;
-                                    };
-                                }
-                                else {
-                                    index = null;
-                                };
-                            }
-                            else {
-                                // otherwise, just use the last non-duplicate point.
-                                index = lastreal;
-                            };
-                            if(index !== null) {
-                                // this also catches uses of lastreal before the
-                                // first real point.
-                                shape.points[i1][ temp ] = structuredClone(shape.points[ index[0] ][ index[1] ]);
-                                let point = shape.points[i1][ temp ];
-                                for(i3 = 0; i3 < 3; i3++) {
-                                    if(invert[i3]) {
-                                    // position inversion
-                                        point[i3] *= -1;
-                                    }
-                                }
-                                if(point.length >= 7) {
-                                // quaternion inversion
-                                // - technically, if it has more than one
-                                //   dimension at all, it should get a
-                                //   quaternion, so it can be flipped.
-                                // - but these are spheroids. perfectly
-                                //   symmetrical shapes. if there's no previous
-                                //   rotations giving it asymmetry, there's no
-                                //   point inverting that nonexistent asymmetry.
-                                    //point[5] ??= point[4];
-                                    //point[6] ??= Quat.new();
-                                    point[6] = Quat.mirror.multi(point[6], ...invert);
-                                };
-                            };
-                        };
-                    };
-                };
-                loop.end();
-                total += shape.points[i1].length;
-            }
-            loop.end();
-            return shape;
-        },
-    },
-    shapetostring: function(shape) {
-        let i1 = 0;
-        let i2 = 0;
-        let i3 = 0;
-        let text = [];
-        for(i1 = 0; i1 < shape.points.length; i1++) {
-            let group = shape.points[i1];
-            if(i1) {
-                text.push("|");
-            }
-            let invert_base = null;
-            // used when making point inversions. the last point that was
-            // written as numbers, not inversion letters.
-            for(i2 = 0; i2 < group.length; i2++) {
-                let point = group[i2];
-                let invert = "";
-                if(invert_base && compareobject(point.slice(3), invert_base.slice(3))) {
-                // check if this point can be made into an inversion of the
-                // previous, and find out what axes it has to be inverted with.
-                    let nah = false;
-                    for(i3 = 0; i3 < 3 && !nah; i3++) {
-                        if(point[i3] === invert_base[i3]) {
-                            // this needs to go before the negative check, so
-                            // that, if the coordinates are zero and therefore
-                            // both are true, it'll opt for less letters.
-                        }
-                        else if(point[i3] === -invert_base[i3]) {
-                            invert += "xyz"[i3];
-                        }
-                        else {
-                        // at least one coordinate matches neither invert_base
-                        // nor the inversion of invert_base.
-                            nah = true;
-                        }
-                    }
-                };
-                if(invert) {
-                    text.push(invert);
-                }
-                else {
-                    let line = [];
-                    for(i3 = 0; i3 < point.length; i3++) {
-                        if(i3 < 6) {
-                            line.push(point[i3]);
-                        }
-                        else if(i3 === 6 && Quat.valid(point[i3])) {
-                            for(let i4 in point[i3]) {
-                                line.push(i4 + ": " + point[i3][i4]);
-                            }
-                        }
-                        else {
-                            console.log("this shouldn't happen");
-                            console.log("i: " + [i1, i2, i3].join(", "));
-                            console.log(structuredClone(point));
-                        }
-                    }
-                    text.push(line.join(", "));
-                    invert_base = point;
-                }
-            }
-        }
-        return text.join("\n");
     },
     getchildren: function(body, part) {
         let i1 = 0;
@@ -9496,13 +9903,15 @@ knee:
             "orientedshape",
             "rasterize perspective"
         ],
-        connection: ["generation", "capsule"],
         view: ["front", "right", 0, 1, 2, 3],
         refresh: ["draw", "ui", "states"],
         part_properties: ["", "no_default", "body_exclusive", "pose_exclusive", "pose_getset"],
         // valid part_properties types
         rotate_type: ["true", "local", "custom"],
         rotate_axis_setters: "parent child cross true local written".split(" "),
+        px_export: "frame anim all_x all_y".split(" "),
+        viewtype: ["multi4", "multi2", 0, 1, 2, 3],
+        // used in draw_background and draw.
     },
     cache_init: {
         oriented: null,
@@ -9813,64 +10222,276 @@ knee:
             point[0]
         );
     },
-    shape_radius: function(points) {
-    // used in body maker. the radius of the tightest sphere the shape could fit
-    // in.
-    // - NOTE: does NOT account for spheroid rotation.
-    // - returns null if the shape has no points.
-        let radius = null;
-        for(let i1 = 0; i1 < points.length; i1++) {
-            for(let i2 = 0; i2 < points[i1].length; i2++) {
-                let point = points[i1][i2];
-                if(point.length < 3) {
-                    console.log("this shouldn't happen");
-                }
-                else {
-                    let coor = point.slice(0, 3);
-                    let hypot = Math.hypot(...coor);
-                    if(point.length === 4) {
-                        hypot += Math.abs(point[3])/2;
-                    }
-                    else if(point.length > 4) {
-                        let temp = Points.normalized(coor);
-                        for(let i3 = 0; i3 < 3; i3++) {
-                            temp[i3] *= Math.abs(point[3 + i3] ?? point[3])/2;
+    Shape: {
+    // a pseudoclass. an object of functions related to the shapes you can use
+    // in armature artist and body maker.
+        new: function(string) {
+            let i1 = 0;
+            let i2 = 0;
+            let i3 = 0;
+            let loop = new Loop("AAX.Shape.new");
+            let shape = {
+                points: [],
+            };
+            let total = 0;
+            // number of points in finished groups.
+            string = uncomment(string.trim()).split("|");
+            let lastreal = null;
+            // last point that wasn't a duplicate or inversion. (array of group
+            // index and point index.)
+            for(i1 = 0; i1 < string.length; i1++) {
+                // |s split them into groups
+                loop.tick(1);
+                shape.points[i1] = [];
+                string[i1] = string[i1].trim().split("\n");
+                for(i2 = 0; i2 < string[i1].length; i2++) {
+                    // line breaks split it up into points
+                    loop.tick(2);
+                    string[i1][i2] = string[i1][i2].trim();
+                    if(string[i1][i2]) {
+                        // skip blank lines. those could be interpreted as "copy
+                        // point 0". benign, but inefficient
+                        let point = string[i1][i2];
+                        let temp = shape.points[i1].length;
+                        // store the previous length so it can tell if a point
+                        // was added this loop
+                        if(point.includes(",")) {
+                            point = point.split(",");
+                            let coor = AAX.strings.coor(point.slice(0, 3));
+                            let dim = AAX.strings.dimension(point.slice(3, 6));
+                            // makes sure they're valid,
+                            // returns null if they're not
+                            let tilt = AAX.strings.tilt(point.slice(6).join(","));
+                            // quaternion
+                            if(coor) {
+                                point = structuredClone(coor);
+                                if(dim && Math.hypot(...dim)) {
+                                    // ignore null, but also 0
+                                    // radius
+                                    point = point.concat(dim);
+                                    if(tilt) {
+                                        point.push(structuredClone(tilt));
+                                    };
+                                }
+                                lastreal = [i1, temp];
+                                shape.points[i1][ temp ] = structuredClone(point);
+                            }
                         }
-                        hypot += Math.hypot(...temp);
-                    }
-                    radius = Math.max(radius ?? 0, hypot);
-                }
-            }
-        }
-        return radius;
-    },
-    shape_bounds: function(points) {
-    // used in body maker. the edges of the smallest box the shape could fit in.
-    // - NOTE: again, it does NOT account for spheroid rotation.
-    // - returns null if the shape has no points.
-        let bounds = null;
-        for(let i1 = 0; i1 < points.length; i1++) {
-            for(let i2 = 0; i2 < points[i1].length; i2++) {
-                let point = points[i1][i2];
-                if(point.length < 3) {
-                    console.log("this shouldn't happen");
-                }
-                else {
-                    let coor = point.slice(0, 3);
-                    bounds ??= {
-                        l: coor[0], r: coor[0],
-                        u: coor[1], d: coor[1],
-                        b: coor[2], f: coor[2],
+                        else {
+                            // duplicate or inversion of a previous point.
+                            let invert = [false, false, false];
+                            for(i3 = 0; i3 < 3; i3++) {
+                                loop.tick(3);
+                                if(point.startsWith("xyz"[i3])) {
+                                    invert[i3] = !invert[i3];
+                                    point = point.slice(1);
+                                }
+                            }
+                            loop.end();
+                            // if it starts with axis letters, invert those
+                            // axes.
+                            let index = null;
+                            if(point.trim()) {
+                                // if there's content after the axis letters, take
+                                // it as a linear index.
+                                index = Number(point);
+                                if(Number.isInteger(index)) {
+                                    if(index < 0) {
+                                        // interpret -1 as the previous point, -2 as the
+                                        // point before that, etc.
+                                        index += total + temp;
+                                    };
+                                    if(point >= 0 && index < total + temp) {
+                                        index = AAX.points_linear_index(shape.points, num);
+                                        console.log({
+                                            points: structuredClone(shape.points),
+                                            num,
+                                            index,
+                                        });
+                                    }
+                                    else {
+                                        index = null;
+                                    };
+                                }
+                                else {
+                                    index = null;
+                                };
+                            }
+                            else {
+                                // otherwise, just use the last non-duplicate point.
+                                index = lastreal;
+                            };
+                            if(index !== null) {
+                                // this also catches uses of lastreal before the
+                                // first real point.
+                                shape.points[i1][ temp ] = structuredClone(shape.points[ index[0] ][ index[1] ]);
+                                let point = shape.points[i1][ temp ];
+                                for(i3 = 0; i3 < 3; i3++) {
+                                    if(invert[i3]) {
+                                        // position inversion
+                                        point[i3] *= -1;
+                                    }
+                                }
+                                if(point.length >= 7) {
+                                    // quaternion inversion
+                                    // - technically, if it has more than one
+                                    //   dimension at all, it should get a
+                                    //   quaternion, so it can be flipped.
+                                    // - but these are spheroids. perfectly
+                                    //   symmetrical shapes. if there's no previous
+                                    //   rotations giving it asymmetry, there's no
+                                    //   point inverting that nonexistent asymmetry.
+                                    //point[5] ??= point[4];
+                                    //point[6] ??= Quat.new();
+                                    point[6] = Quat.mirror.multi(point[6], ...invert);
+                                };
+                            };
+                        };
                     };
-                    for(let i3 = 0; i3 < 3; i3++) {
-                        let dim = Math.abs(point[3 + i3] ?? (point[3] ?? 0))/2;
-                        bounds["lub"[i3]] = Math.min(bounds["lub"[i3]], coor[i3] - dim);
-                        bounds["rdf"[i3]] = Math.max(bounds["rdf"[i3]], coor[i3] + dim);
+                };
+                loop.end();
+                total += shape.points[i1].length;
+            }
+            loop.end();
+            return shape;
+        },
+        string: function(shape) {
+        // inverse of new. turns it into a string.
+        // - NOTE: comments aren't preserved after a shape string is turned into
+        //   a shape and turned back into a string.
+            let i1 = 0;
+            let i2 = 0;
+            let i3 = 0;
+            let text = [];
+            for(i1 = 0; i1 < shape.points.length; i1++) {
+                let group = shape.points[i1];
+                if(i1) {
+                    text.push("|");
+                }
+                let invert_base = null;
+                // used when making point inversions. the last point that was
+                // written as numbers, not inversion letters.
+                for(i2 = 0; i2 < group.length; i2++) {
+                    let point = group[i2];
+                    let invert = "";
+                    if(invert_base && compareobject(point.slice(3), invert_base.slice(3))) {
+                    // check if this point can be made into an inversion of the
+                    // previous, and find out what axes it has to be inverted with.
+                        let nah = false;
+                        for(i3 = 0; i3 < 3 && !nah; i3++) {
+                            if(point[i3] === invert_base[i3]) {
+                                // this needs to go before the negative check, so
+                                // that, if the coordinates are zero and therefore
+                                // both are true, it'll opt for less letters.
+                            }
+                            else if(point[i3] === -invert_base[i3]) {
+                                invert += "xyz"[i3];
+                            }
+                            else {
+                            // at least one coordinate matches neither invert_base
+                            // nor the inversion of invert_base.
+                                nah = true;
+                            }
+                        }
+                    };
+                    if(invert) {
+                        text.push(invert);
+                    }
+                    else {
+                        let line = [];
+                        for(i3 = 0; i3 < point.length; i3++) {
+                            if(i3 < 6) {
+                                line.push(point[i3]);
+                            }
+                            else if(i3 === 6 && Quat.valid(point[i3])) {
+                                for(let i4 in point[i3]) {
+                                    if(point[i3].hasOwnProperty(i4) && i4 !== "flip") {
+                                        line.push(i4 + ": " + point[i3][i4]);
+                                    }
+                                }
+                                //if(point[i3].flip) {
+                                //    line.push("flip");
+                                //}
+                            }
+                            else {
+                                console.log("this shouldn't happen");
+                                console.log("i: " + [i1, i2, i3].join(", "));
+                                console.log(structuredClone(point));
+                            }
+                        }
+                        text.push(line.join(", "));
+                        invert_base = point;
                     }
                 }
             }
-        }
-        return bounds;
+            return text.join("\n");
+        },
+        templates: {
+        // most of these will be created from AAX.Body.templates.standard, in
+        // AAX.initialize.
+        // - note that these are text, not shapes.
+            sphere: `0, 0, 0, 8`,
+        },
+        radius: function(points) {
+        // used in body maker. the radius of the tightest sphere the shape could fit
+        // in.
+        // - NOTE: does NOT account for spheroid rotation.
+        // - returns null if the shape has no points.
+            let radius = null;
+            for(let i1 = 0; i1 < points.length; i1++) {
+                for(let i2 = 0; i2 < points[i1].length; i2++) {
+                    let point = points[i1][i2];
+                    if(point.length < 3) {
+                        console.log("this shouldn't happen");
+                    }
+                    else {
+                        let coor = point.slice(0, 3);
+                        let hypot = Math.hypot(...coor);
+                        if(point.length === 4) {
+                            hypot += Math.abs(point[3])/2;
+                        }
+                        else if(point.length > 4) {
+                            let temp = Points.normalized(coor);
+                            for(let i3 = 0; i3 < 3; i3++) {
+                                temp[i3] *= Math.abs(point[3 + i3] ?? point[3])/2;
+                            }
+                            hypot += Math.hypot(...temp);
+                        }
+                        radius = Math.max(radius ?? 0, hypot);
+                    }
+                }
+            }
+            return radius;
+        },
+        bounds: function(points) {
+        // used in body maker. the edges of the smallest box the shape could fit in.
+        // - NOTE: again, it does NOT account for spheroid rotation.
+        // - returns null if the shape has no points, or if any of the
+        //   dimensions would be zero.
+            let bounds = null;
+            for(let i1 = 0; i1 < points.length; i1++) {
+                for(let i2 = 0; i2 < points[i1].length; i2++) {
+                    let point = points[i1][i2];
+                    if(point.length < 3) {
+                        console.log("this shouldn't happen");
+                    }
+                    else {
+                        let coor = point.slice(0, 3);
+                        bounds ??= {
+                            l: coor[0], r: coor[0],
+                            u: coor[1], d: coor[1],
+                            b: coor[2], f: coor[2],
+                        };
+                        for(let i3 = 0; i3 < 3; i3++) {
+                            let dim = Math.abs(point[3 + i3] ?? (point[3] ?? 0))/2;
+                            bounds["lub"[i3]] = Math.min(bounds["lub"[i3]], coor[i3] - dim);
+                            bounds["rdf"[i3]] = Math.max(bounds["rdf"[i3]], coor[i3] + dim);
+                        }
+                    }
+                }
+            }
+            return (bounds.l === bounds.r || bounds.u === bounds.d || bounds.b === bounds.f) ? null : bounds;
+        },
     },
     save: function(filename, text) {
     // saves a string as a txt file.
@@ -11252,6 +11873,22 @@ let Rect = {
         rect.h -= rect.y;
         return rect;
     },
+    frompoints: function(points) {
+    // returns the smallest rectangle that would fit all the given points.
+        if(!points.length) {
+            return null;
+        };
+        let edges = [points[0][0], points[0][0], points[0][1], points[0][1]];
+        for(let i1 = 1; i1 < points.length; i1++) {
+            edges = [
+                Math.min(edges[0], points[i1][0]),
+                Math.max(edges[1], points[i1][0]),
+                Math.min(edges[2], points[i1][1]),
+                Math.max(edges[3], points[i1][1])
+            ];
+        }
+        return Rect.fromedges(...edges);
+    },
     divide: function(rect, target, prefix, suffixes, horizontal) {
     // divides up the given rect and defines them as properties of target, named
     // with the prefix and suffixes.
@@ -11369,10 +12006,10 @@ let Rect = {
         };
         return _rect;
     },
-    l: (rect) => rect.x,
-    r: (rect) => rect.x + rect.w,
-    u: (rect) => rect.y,
-    d: (rect) => rect.y + rect.h,
+    l: (rect) => Math.min(rect.x, rect.x + rect.w),
+    r: (rect) => Math.max(rect.x, rect.x + rect.w),
+    u: (rect) => Math.min(rect.y, rect.y + rect.h),
+    d: (rect) => Math.max(rect.y, rect.y + rect.h),
     edges: (rect) => [Rect.l(rect), Rect.r(rect), Rect.u(rect), Rect.d(rect)],
     ui: function(areas, omit) {
     // a very meaty function that creates an entire ui at once.
@@ -11769,21 +12406,112 @@ let Rect = {
     ),
     // rounds edges to integers in whichever direction will make the rectangle
     // bigger.
-    getcoor: (_this, index) => (
-        (!Number.isInteger(index) || index < 0 || index >= _this.w*_this.h) ? null :
+    getcoor: (rect, index) => (
+        (!Number.isInteger(index) || index < 0 || index >= rect.w*rect.h) ? null :
         [
-            _this.x + index%_this.w,
-            _this.y + Math.floor(index/_this.w)
+            rect.x + index%rect.w,
+            rect.y + Math.floor(index/rect.w)
         ]
     ),
-    getindex: (_this, x, y) => (
+    getindex: (rect, x, y) => (
         (
-            x < _this.x || x >= _this.x + _this.w
+            x < rect.x || x >= rect.x + rect.w
             ||
-            y < _this.y || y >= _this.y + _this.h
+            y < rect.y || y >= rect.y + rect.h
         ) ? -1 :
-        _this.w*(Math.floor(y) - _this.y) + (Math.floor(x) - _this.x)
+        rect.w*(Math.floor(y) - rect.y) + (Math.floor(x) - rect.x)
     ),
+    // these are used when iterating for every pixel of a rectangle.
+    // - each indexes represent one pixel of the rectangle, starting at the top
+    //   left and going left to right for each row.
+    // - getcoor converts indexes to coordinates, getindex converts coordinates
+    //   to indexes
+    // - getindex returns -1 if it's invalid or out of bounds, getcoor returns
+    //   null.
+    convertindex: function(rect1, rect2, index) {
+        let coor = Rect.getcoor(rect1, index);
+        return coor === null ? -1 : Rect.getindex(rect2, ...coor);
+    },
+    // a common operation. converts a rect1 index to a rect2 index.
+    valid: (rect) => (
+        rect
+        &&
+        typeof rect === "object"
+        &&
+        typeof rect.x === "number"
+        &&
+        typeof rect.y === "number"
+        &&
+        typeof rect.w === "number"
+        &&
+        typeof rect.h === "number"
+    ),
+    encloses: (rect1, rect2) => (
+        Rect.l(rect2) >= Rect.l(rect1)
+        &&
+        Rect.r(rect2) <= Rect.r(rect1)
+        &&
+        Rect.u(rect2) >= Rect.u(rect1)
+        &&
+        Rect.d(rect2) <= Rect.d(rect1)
+    ),
+    // returns whether rect2 is entirely inside rect1.
+    snap: (rect, x, y) => [
+        rect.x + Math.floor((x - rect.x)/rect.w)*rect.w,
+        rect.y + Math.floor((y - rect.y)/rect.h)*rect.h
+    ],
+    // treats the rect like a grid, and snaps the coordinates to it. i'm not
+    // sure if it works with negative dimensions rects.
+    overlap: function(rect1, rect2) {
+    // returns a rect of the two inputted rects' overlap. (or null if they don't
+    // overlap.)
+        let edge1 = Rect.edges(rect1);
+        let edge2 = Rect.edges(rect2);
+        let edge = [
+            Math.max(edge1[0], edge2[0]),
+            Math.min(edge1[1], edge2[1]),
+            Math.max(edge1[2], edge2[2]),
+            Math.min(edge1[3], edge2[3])
+        ];
+        return (edge[1] < edge[0] || edge[3] < edge[2]) ? null : Rect.fromedges(...edge);
+    },
+    border: function(rect) {
+    // returns an array of 2d points for each pixel of the border.
+    // - inward pixels, that is. so, if it has 0 w or 0 h, it's empty.
+    // - used for PixelArt's select border.
+        let border = [];
+        let x_sign = Math.sign(rect.w);
+        let y_sign = Math.sign(rect.h);
+        if(!x_sign || !y_sign) {
+            return border;
+        }
+        let start = [
+            rect.x - (x_sign === -1),
+            rect.y - (y_sign === -1)
+        ];
+        let end = [
+            rect.x + rect.w - (x_sign !== -1),
+            rect.y + rect.h - (y_sign !== -1)
+        ];
+        let cursor = structuredClone(start);
+        while(x_sign && Math.sign(end[0] - cursor[0]) === x_sign) {
+            border.push(structuredClone(cursor));
+            cursor[0] += x_sign;
+        }
+        while(y_sign && Math.sign(end[1] - cursor[1]) === y_sign) {
+            border.push(structuredClone(cursor));
+            cursor[1] += y_sign;
+        }
+        while(x_sign && Math.sign(start[0] - cursor[0]) === -x_sign) {
+            border.push(structuredClone(cursor));
+            cursor[0] -= x_sign;
+        }
+        while(y_sign && Math.sign(start[1] - cursor[1]) === -y_sign) {
+            border.push(structuredClone(cursor));
+            cursor[1] -= y_sign;
+        }
+        return border;
+    },
 }
 class DrawApp {
 // used to create drawing apps, for use in various tools.
@@ -11927,7 +12655,7 @@ class CellToy {
                     "<label>color: <input type=\"text\" name=\"grid color\" value=\"#00000000\"></label>"
                 ].join("\n\t<br>") + "\n</ul>"
             ].join("\n<br>").replaceAll("\n", "\n\t\t") + "\n\t</ul>\n</details>",
-            "<details>\n\t<summary>script system</summary>\n\t" + arraytoul([
+            "<details class=\"text\">\n\t<summary>script system</summary>\n\t" + arraytoul([
                 "i wrote a very tiny language for spawning cells. it centers around moving a cursor, and spawning cells relative to it.",
                 "it sounds frivolous, but spawning cells is an ordeal even with a mouse, let alone a touchscreen. this gives much more control.",
                 "actions:",
@@ -11962,7 +12690,7 @@ class CellToy {
                 "you can write \"random\" in place of any coordinates to use a random position anywhere on the grid.",
                 "write \"//\" to make the rest of the line a comment. (ignored by the interpreter.)"
             ]).replaceAll("\n", "\n\t") + "\n</details>",
-            "<details>\n\t<summary>exception system</summary>\n\t" + arraytoul([
+            "<details class=\"text\">\n\t<summary>exception system</summary>\n\t" + arraytoul([
                 "the basic format for rules is that you specify what numbers of alive neighbors will allow a cell to give birth, and what numbers of alive neighbors will allow a cell to survive.",
                 "but i added a system that lets you add exceptions to these rules.",
                 "for example, \"d141:2\".",
@@ -12082,7 +12810,7 @@ class CellToy {
                 ].join("\n\t\t")
             ].join("\n\t")
         ].join("\n");
-        this.html.scripting.onkeydown = tabhandler;
+        this.html.scripting.onkeydown = textarea_tab;
         let buttons = container.querySelectorAll("button");
         for(i1 = 0; i1 < buttons.length; i1++) {
             this.html[buttons[i1].name.replaceAll(" ", "_")] = buttons[i1];
@@ -13237,34 +13965,37 @@ function copy(ctx, x, y, w, h, background) {
     }
     return copydata;
 };
-function paste(ctx, x, y, copydata) {
+function paste(ctx, copydata, x, y) {
 // copydata: data returned by copy().
-    let i1 = 0;
-    let i2 = 0;
-    let i3 = 0;
     let styletemp = ctx.fillStyle;
-    let imagedata = ctx.getImageData(x, y, copydata.w, copydata.h);
-    for(i1 = 0; i1 < copydata.w; i1++) {
-        for(i2 = 0; i2 < copydata.h; i2++) {
-            let index = i2*copydata.w + i1;
-            let color = new Uint8ClampedArray(copydata[index]);
-            if(color[3] !== 0) {
-                if(color[3] !== 255) {
-                    let under = imagedata.data.slice(index*4, (index + 1)*4);
-                    for(i3 = 0; i3 < 3; i3++) {
-                        const temp = under[i3] + Math.round((color[i3] - under[i3])*color[3]/255);
-                        console.log(under[i3] - temp);
-                        color[i3] = temp;
-                        //rgb = rgb1 + (rgb2 - rgb1)*alpha2;
-                    }
-                    color[3] = 255 - ((255 - under[3]) * (255 - color[3])/255);
-                    //alpha = 255 - ((255 - color1) * (255 - color2)/255);
-                };
-                ctx.fillStyle = "rgba(" + color.slice(0, 3) + "," + color[3]/255 + ")";
-                ctx.clearRect(x + i1, y + i2, 1, 1);
-                ctx.fillRect(x + i1, y + i2, 1, 1);
+    let _rect = Rect.new(x, y, copydata.w, copydata.h);
+    // rectangle you're trying to put the image on
+    let rect = Rect.overlap(_rect, Rect.new(0, 0, ctx.canvas.width, ctx.canvas.height));
+    if(!rect || !rect.w || !rect.h) {
+    // entirely out of bounds
+        return;
+    }
+    let imagedata = ctx.getImageData(rect.x, rect.y, rect.w, rect.h);
+    // rectangle of what's actually in the canvas
+    for(let i1 = 0; i1 < rect.w*rect.h; i1++) {
+        let coor = Rect.getcoor(rect, i1);
+        let color = new Uint8ClampedArray(copydata[ Rect.getindex(_rect, ...coor) ]);
+        if(color[3] !== 0) {
+            if(color[3] !== 255) {
+                let under = imagedata.data.slice(i1*4, (i1 + 1)*4);
+                for(let i2 = 0; i2 < 3; i2++) {
+                    const temp = under[i2] + Math.round((color[i2] - under[i2])*color[3]/255);
+                    //console.log(under[i2] - temp);
+                    color[i2] = temp;
+                    //rgb = rgb1 + (rgb2 - rgb1)*alpha2;
+                }
+                color[3] = 255 - ((255 - under[3]) * (255 - color[3])/255);
+                //alpha = 255 - ((255 - color1) * (255 - color2)/255);
             };
-        }
+            ctx.fillStyle = "rgba(" + color.slice(0, 3) + "," + color[3]/255 + ")";
+            ctx.clearRect(...coor, 1, 1);
+            ctx.fillRect(...coor, 1, 1);
+        };
     }
     ctx.fillStyle = styletemp;
 }
@@ -13812,450 +14543,6 @@ function get2dangle(x, y, shush) {
         return posmod(returnangle, 2*Math.PI);
     };
 }
-class Animator {
-// a class that creates an animation player.
-// structure:
-// - name
-// - ctx: canvas the animation is displayed on. element id is name +
-//   "_canvas".
-// - frames: array of ImageDatas. it animates by using putImageData with
-//   this. add to this by using .clear to clear the canvas, applying edits,
-//   and using .set to put it in .frames.
-// - background: color to use when clearing the canvas.
-// - a few getters/setters
-// - ui: object describing what buttons/inputs to create. the property
-//   name is the type/name.
-//   - fps (frames per second, number input)
-//   - play (button)
-//   - loop (checkbox)
-//   - pingpong (checkbox, makes it go back and forth)
-//   - sheet (hideable canvas of all the frames. update it with
-//     .updatesheet.)
-//     - hidden by default.
-//     - cols: number of columns.
-//   - "button_" + whatever: extra button
-//   -
-//   - save: buttons that save images of the canvas or the spritesheet.
-//     - no_frame, no_sheet: by default, buttons for both the frame and the
-//       sheet are created.
-//     - prefix, name, suffix: the saved file name will be prefix + name +
-//       suffix. the reason i bother splitting it up is because if name is
-//       omitted, it defaults to filedate().
-//   =
-//   - properties of properties:
-//     - br: adds a linebreak before it. (or multiple, if the value is a
-//       number instead of a boolean.)
-//     - space: adds a space before it.
-//     - onclick: function you want run when it's clicked
-//     - text: text you want it to use. (by default, it'll just use the
-//       property name.)
-//   - the html id will be .name + "_" + the property name of the html
-//     element. so fps would be "anim_fps" or whatever.
-//     - except for "button_". it'll omit the beginning of that.
-//   - null is treated the same as an empty object.
-// - fps, looping: getters/setters connected to the html elements if those
-//   exist, primitives if not.
-    /*
-    new Animator(
-        "name",
-        {
-            fps: {
-                br: true,
-            },
-            play: {
-                space: true,
-            },
-            loop: {
-                br: true,
-            },
-        },
-        div, fps, background, w, h
-    );
-    */
-    constructor(name, ui, div, fps, background, w, h) {
-        let i1 = 0;
-        if(!div) {
-            document.write(`<div id="` + name + `_div"></div>`);
-            div = document.getElementById(name + `_div`);
-        };
-        if(!Number.isInteger(fps) || fps <= 0) {
-            fps = 24;
-        };
-        ui ??= structuredClone(Animator.default_ui);
-        w ??= 256;
-        h ??= 256;
-        background ??= "black";
-        this.name = name;
-        this.div = div;
-        this.defaultfps = fps;
-        this.background = background;
-        let temp = name + `_canvas`;
-        let string = ``;
-        string += `<canvas id="` + temp + `" name="` + temp + `" width=` + w + ` height=` + h + `></canvas>`;
-        for(i1 in ui) {
-            if(ui.hasOwnProperty(i1)) {
-                ui[i1] ??= {};
-                let obj = ui[i1];
-                const text = (
-                    obj.hasOwnProperty("text") ? obj.text :
-                    i1.startsWith("button_") ? i1.slice("button_".length) :
-                    i1
-                );
-                if(obj.hasOwnProperty("br")) {
-                    if(Number.isInteger(obj.br) && obj.br >= 0) {
-                        string += `<br>`.repeat(obj.br);
-                    }
-                    else if(obj.br) {
-                        string += `<br>`;
-                    };
-                };
-                if(obj.hasOwnProperty("space") && obj.space) {
-                    string += ` `;
-                };
-                if(i1 === "fps") {
-                    string += `<label>` + text + `: <input type="number" id="` + name + `_fps" value=` + fps + `>`;
-                }
-                else if(i1 === "play") {
-                    string += `<button id="` + name + `_play">` + text + `</button></label>`;
-                }
-                else if(i1 === "loop") {
-                    string += `<label>` + text + `: <input type="checkbox" id="` + name + `_loop"></label>`;
-                }
-                else if(i1 === "pingpong") {
-                    string += `<label>` + text + `: <input type="checkbox" id="` + name + `_pingpong"></label>`;
-                }
-                else if(i1 === "sheet") {
-                    string += `<button id="` + name + `_hidesheet">show sheet</button></label>`;
-                    string += `<br><canvas id="` + name + `_sheet" name="` + temp + `" width=` + w + ` height=` + h + ` hidden></canvas>`;
-                }
-                else if(i1 === "save") {
-                    let frame = !("no_frame" in obj) || !obj.no_frame;
-                    let sheet = (!("no_sheet" in obj) || !obj.no_sheet) && "sheet" in ui;
-                    string += (
-                        (frame ? `<button id="` + name + `_save_frame">save frame</button>` : ``)
-                        +
-                        (frame && sheet ? ` ` : ``)
-                        +
-                        (sheet ? `<button id="` + name + `_save_sheet">save sheet</button>` : ``)
-                    );
-                }
-                else if(i1.startsWith("button_")) {
-                    string += `<button id="` + name + `_` + i1.slice("button_".length) + `">` + text + `</button>`;
-                }
-                else {
-                    console.log("invalid ui property name.");
-                };
-            }
-        }
-        div.innerHTML = string;
-        this.ctx = document.getElementById(temp).getContext("2d");
-        this.ctx.fillStyle = background;
-        this.ctx.fillRect(0, 0, w, h);
-        this.viewer = {
-            x: this.w/2,
-            y: this.h/2,
-            z: this.w/2,
-            ratio: this.w/60,
-            // ratio = pixels/degrees, screen_pixels = 60*degrees
-            // if ratio === screen_pixels/60
-            // screen_pixels = 60*screen_pixels/60
-            offset: {
-                x: 0,
-                y: 0,
-                z: 0,
-            },
-            lamp: {
-            // USE .single === true IF THERE'S ONLY ONE LAMP.
-                x: this.w,
-                y: 0*this.h,
-                z: -this.w,
-                brightness: 1,
-                baselightlevel: -1,
-                single: true,
-            },
-            // baselightlevel
-            // until i figure out how to convert colors to rgb, colors should be an
-            // array.
-        };
-        // viewer is kind of a mess and should really be a class. don't try
-        // too hard to make sense of this.
-        this.frames = [];
-        this._frame = 0;
-        this._playing = false;
-        this.interval = null;
-        if(ui.hasOwnProperty("fps")) {
-            Object.defineProperty(this, "fps", {
-                get() {
-                    let temp = Number(document.getElementById(this.name + `_fps`).value);
-                    if(!Number.isInteger(temp) || temp <= 0) {
-                        temp = this.defaultfps;
-                        document.getElementById(this.name + `_fps`).value = temp;
-                    };
-                    return temp;
-                },
-                set(value) {
-                    let temp = Number(value);
-                    if(!Number.isInteger(temp) || temp <= 0) {
-                        temp = this.defaultfps;
-                    };
-                    document.getElementById(this.name + `_fps`).value = temp;
-                },
-            })
-        }
-        else {
-            this.fps = fps;
-        };
-        for(i1 = 0; i1 < 2; i1++) {
-            let type = ["loop", "pingpong"][i1];
-            let propertyname = ["looping", "pingpong"][i1]
-            if(ui.hasOwnProperty(type)) {
-                Object.defineProperty(this, propertyname, {
-                    get() {
-                        return document.getElementById(this.name + `_` + type).checked;
-                    },
-                    set(value) {
-                        document.getElementById(this.name + `_` + type).checked = !!value;
-                    },
-                })
-            }
-            else {
-                this[propertyname] = false;
-            };
-        }
-        // define fps, loop, and pingpong as a getter/setter if there's an
-        // html element, and a primitive if it's not.
-        this.reverse = false;
-        // boolean for whether it's playing backwards. necessary for
-        // pingpong.
-        let _this = this;
-        for(i1 in ui) {
-            if(ui.hasOwnProperty(i1) && ui[i1]) {
-            // add event listeners
-                if(i1 === "play") {
-                    document.getElementById(name + `_` + i1).onclick = function() { _this.playpause(_this) };
-                }
-                else if(i1 === "pingpong") {
-                    document.getElementById(name + `_` + i1).onclick = function() { _this.reverse = false };
-                    // keeps reverse from lingering outside of pingpong.
-                }
-                else if(i1 === "sheet") {
-                    let ref = document.getElementById(_this.name + `_` + i1);
-                    this.sheet = ref.getContext("2d");
-                    this.sheet_cols = ui[i1].cols ?? 0;
-                    document.getElementById(name + `_hidesheet`).onclick = function() {
-                        ref.hidden = !ref.hidden;
-                        document.getElementById(_this.name + `_hidesheet`).innerHTML = (ref.hidden ? "show" : "hide") + " sheet";
-                    };
-                    this.updatesheet();
-                }
-                else if(i1 === "save") {
-                    let _name = (ui[i1].prefix ?? "") + (ui[i1].name ?? filedate()) + (ui[i1].suffix ?? "") + ".png";
-                    if(!("no_frame" in ui[i1]) || !ui[i1].no_frame) {
-                        document.getElementById(name + `_` + i1 + `_frame`).onclick = function() { savecanvas(_this.ctx.canvas, _name) };
-                    };
-                    if((!("no_sheet" in ui[i1]) || !ui[i1].no_sheet) && "sheet" in ui) {
-                        let sheet = document.getElementById(_this.name + `_sheet`);
-                        document.getElementById(name + `_` + i1 + `_sheet`).onclick = function() { savecanvas(sheet, _name) };
-                    };
-                }
-                else if(ui[i1].hasOwnProperty("onclick")) {
-                    let id = name + "_" + (
-                        i1.startsWith("button_")
-                        ?
-                        i1.slice("button_".length)
-                        :
-                        i1
-                    );
-                    document.getElementById(id).onclick = ui[i1].onclick;
-                }
-            }
-        }
-        this.ui = ui;
-    }
-    static default_ui = {
-        fps: {
-            br: true,
-        },
-        play: {
-            space: true,
-        },
-        loop: {
-            br: true,
-        },
-        pingpong: {
-            br: true,
-        },
-        save: {
-            br: true,
-        },
-        sheet: {
-            br: true,
-        },
-    }
-    get w() {
-        return this.ctx.canvas.width;
-    }
-    set w(value) {
-        this.ctx.canvas.width = value;
-    }
-    get h() {
-        return this.ctx.canvas.height;
-    }
-    set h(value) {
-        this.ctx.canvas.height = value;
-    }
-    get duration() {
-        return this.frames.length;
-    }
-    set duration(value) {
-        if(Number.isInteger(value) && value >= 0) {
-            if(value < this.duration) {
-                this.frames = this.frames.slice(0, value);
-            }
-            else if(value > this.duration) {
-                let temp = this.ctx.getImageData(0, 0, this.w, this.h);
-                this.clear();
-                let i1 = 0;
-                for(i1 = this.duration; i1 < value; i1++) {
-                    this.frames[i1] = this.ctx.getImageData(0, 0, this.w, this.h);
-                }
-                this.ctx.putImageData(temp, 0, 0);
-            }
-        }
-    }
-    get frame() {
-        return this._frame;
-    }
-    set frame(value) {
-        if(this.duration === 0) {
-            this._frame = 0;
-        }
-        else if(Number.isInteger(value)) {
-            this._frame = value%this.duration;
-        };
-    }
-    get playing() {
-        return this._playing;
-    }
-    set playing(value) {
-        if(this.duration === 0) {
-            value = false;
-        };
-        this._playing = !!value;
-        if(value) {
-            let _this = this;
-            this.interval = setInterval(function() { _this.updateframe(_this) }, 1000/this.fps);
-        }
-        else {
-            clearInterval(this.interval);
-            this.interval = null;
-        };
-        document.getElementById(this.name + `_play`).innerHTML = (value ? "pause" : "play");
-    }
-    clear() {
-        this.ctx.clearRect(0, 0, this.w, this.h);
-        this.ctx.fillStyle = this.background;
-        this.ctx.fillRect(0, 0, this.w, this.h);
-    }
-    saveframe(frame, ctx, x, y) {
-        ctx ??= this.ctx;
-        x ??= 0;
-        y ??= 0;
-        this.frames[frame] = ctx.getImageData(x, y, this.w, this.h);
-        if(this.frames.includes(undefined)) {
-            this.clear();
-            let i1 = 0;
-            for(i1 = 0; i1 < this.duration; i1++) {
-                if(!this.frames[i1]) {
-                    this.frames[i1] = ctx.getImageData(0, 0, this.w, this.h);
-                }
-            }
-            ctx.putImageData(this.frames[frame], 0, 0);
-        };
-    }
-    updateframe(_this) {
-        _this ??= this;
-        if(_this.duration === 0) {
-            _this.clear();
-        }
-        else {
-            if(_this.playing) {
-                _this.frame = posmod(_this.frame + (_this.reverse ? -1 : 1), _this.duration);
-                // loop back to the opposite end if you reach the end. (that
-                // way, when it reaches the end and isn't looping, it stops
-                // at the first frame.)
-                // - the order isn't 0 1 2 3, it's 1 2 3 0. (since it
-                //   already starts at 0, and animations that aren't playing
-                //   are supposed to show the first frame.)
-            };
-            _this.ctx.putImageData(_this.frames[_this.frame], 0, 0);
-            if(_this.frame === ((!!_this.reverse === !!_this.pingpong) ? 0 : _this.duration - 1)) {
-            // end of the animation, so stop the interval or switch
-            // directions
-            // - if pingpong is false
-            //   - if reverse is false, the last frame is duration - 1, and
-            //     it resets back to 0. so end at 0.
-            //   - if reverse is true, the last frame is 0, and it resets
-            //     back to duration - 1, so end at duration - 1
-            // - if pingpong is true
-            //   - if reverse is false, it should switch directions at
-            //     duration - 1.
-            //   - if reverse is true, it should switch directions or end at
-            //     0.
-            // - 0 if both are false or both are true. duration - 1
-            //   otherwise.
-                if(_this.pingpong) {
-                // if it's not looping and it's already in the second
-                // half, stop. no matter what, switch directions.
-                    if(!_this.looping && _this.reverse) {
-                        _this.playing = false;
-                    };
-                    _this.reverse = !_this.reverse;
-                }
-                else if(!_this.looping) {
-                    _this.playing = false;
-                };
-            };
-        };
-    }
-    playpause(_this) {
-        _this ??= this;
-        _this.playing = !_this.playing;
-    }
-    updatesheet(_this, ctx, cols, gap, gapcolor) {
-    // makes the specified canvas a spritesheet of all the frames. or if
-    // there's no ctx specified and the Animator has a sheet element, it
-    // edits that.
-        let i1 = 0;
-        _this ??= this;
-        ctx ??= _this.sheet;
-        cols ??= _this.sheet_cols;
-        gap ??= 0;
-        gapcolor ??= _this.background;
-        if((ctx ?? null) === null) {
-            console.log("sheet canvas is unspecified.");
-            return;
-        };
-        if((ctx ?? null) === null) {
-            console.log("number of rows is unspecified.");
-            return;
-        };
-        cols = cols ? cols : _this.duration;
-        // if it's falsy, it'll print them all in one row.
-        ctx.canvas.width = cols*_this.w;
-        ctx.canvas.height = Math.ceil(_this.duration/cols)*_this.h;
-        ctx.fillStyle = gapcolor;
-        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-        ctx.fillRect(0, 0, ctx.canvas.width, ctx.canvas.height);
-        for(i1 = 0; i1 < _this.duration; i1++) {
-            ctx.putImageData(
-                _this.frames[i1],
-                (i1%cols)*(_this.w + gap),
-                Math.floor(i1/cols)*(_this.h + gap)
-            );
-        }
-    }
-};
 function numtohex(num, numofdigits) {
 // converts an integer to a hexadecimal string
     if(!Number.isInteger(num) || num < 0) {
@@ -14303,7 +14590,10 @@ function getcolor(ctx, x, y, rgbaformat) {
     }
     return value;
 }
-function colortohex(ctx, color) {
+function colortohex(ctx, color, compress) {
+// - compress: if true, it'll return 3 or four digit codes instead, by rounding
+//   values to the nearest 17.
+//   - in css, a color like #07F7 acts as shorthand for #0077FF77.
     let styletemp = ctx.fillStyle;
     ctx.fillStyle = color;
     let value = ctx.fillStyle;
@@ -14328,10 +14618,23 @@ function colortohex(ctx, color) {
                 return;
             };
             //
+            if(compress) {
+                num = Math.round(num/17)*17;
+            };
+            //
             if(i1 !== 3 || num !== 255) {
-                value += numtohex(num, 2);
+                num = numtohex(num, 2);
+                value += compress ? num[0] : num;
             }
         }
+    }
+    else if(compress) {
+        let _value = value;
+        value = "#";
+        for(let i1 = 1; i1 < _value.length; i1 += 2) {
+            let num = Math.round(parseInt(_value.slice(i1, i1 + 2), 16)/17);
+            value += "0123456789abcdef"[num];
+        };
     }
     return value;
 }
@@ -14345,86 +14648,308 @@ function colorbutton(button, ctx, color) {
         _color[i1] = 255 - parseInt(color.slice(1 + 2*i1, 3 + 2*i1), 16);
     }
     _color = "rgb(" + _color.join(", ") + ")";
-    button.style.color = _color;
+    button.style.color = "white";
+    button.style.textShadow = "1px 0px 1px black, 0px 1px 1px black, -1px 0px 1px black, 0px -1px 1px black";
     button.style.border = "thin solid " + _color;
     button.style.borderRadius = "8px";
 }
 
 class PixelArt {
 // class that creates and operates a pixel art tool.
-    constructor(container) {
+// - probably the most confusing thing is the frame system. read this so you
+//   don't get lost.
+//   - this.canvas: the drawing area. this doesn't exist anywhere on the page,
+//     it's created with document.createElement. this is where the image is
+//     stored and edited.
+//   - this.html.frame: the canvas that shows the drawing area. part of it,
+//     anyway.
+//   - there's three sliders that change where the frame shows and how big it
+//     is: this.html frame_x, frame_y, and frame_size.
+//   - this frame_w_inc and frame_h_inc: how many pixels each increment of the
+//     frame_size slider changes the frame dimensions by.
+//   - this.frame_rect: rectangle getter.
+    constructor(container, prefix, viewport_size, frame_w_inc, frame_h_inc) {
+    // - container: div that will be turned into the pixel art tool.
+    // - prefix: used for certain global level things. this is usually only
+    //   needed if there's multiple PixelArts used in the same page.
+    //   - you see, for it to make radio buttons for the different tools, those
+    //     tools have to share the same name...
+    //   - by default, that name is "px_tool". prefix + "_tool".
+    //   - but maybe that conflicts with something. particularly, another
+    //     PixelArt with the same prefix?
+    //   - so, you can set this as something that won't cause conflicts.
         let i1 = 0;
         let i2 = 0;
+        //verticalscreen = true;
+        this.prefix = typeof prefix === "string" ? prefix : "px";
+        this.frame_w_inc = (Number.isInteger(frame_w_inc) && frame_w_inc > 0) ? frame_w_inc : 4;
+        this.frame_h_inc = (Number.isInteger(frame_h_inc) && frame_h_inc > 0) ? frame_h_inc : 4;
+        this.viewport_size = (Number.isInteger(viewport_size) && viewport_size > 0) ? viewport_size : 256/4;
+        let viewport_w = this.viewport_size*this.frame_w_inc;
+        let viewport_h = this.viewport_size*this.frame_h_inc;
         if(!(container instanceof HTMLElement)) {
             console.log("invalid input. you must give an html container for everything to go inside.");
             return;
         };
         this.html = {};
         this.html.container = container;
-        this.zoom = 1;
-        let display = "inline-block";
+        let today = new Date();
+        today = datestring(today.getFullYear(), today.getMonth(), today.getDate());
+        let manual = arraytoul([
+            "most of this tool is pretty self-explanatory, but there's a few confusing bits, and hidden information...",
+            "forecolor is the color tools like pen and line draw in.",
+            "backcolor is used for erasing, and treated like transparency for things like copy and pasting.",
+            "palette",
+            [
+                "the colorful image to the left of the viewport is the palette.",
+                "with the buttons to the left of it, you can add colors, delete colors, set forecolor/backcolor as them, etc.",
+                "click a color on the palette to select it.",
+                "click the color you already have selected to set it as the forecolor.",
+                "the \"save palette\" button saves the palette as an image. both the file name and the image show the color codes of the palette's colors, so you can load the palette later by copying the file name and entering it into the \"add colors\" button."
+            ],
+            "viewport",
+            [
+                "there's three scrollbars near the viewport.",
+                "the bottom scrollbar controls how much of the image the viewport shows. at the max value, it shows the whole thing.",
+                "the other two control which part of the image it shows.",
+                "dotted borders show up when it's at the edge of the image.",
+                "the \"viewport hue\" slider near the color buttons controls the color shown below the canvas. by messing with it, you can tell what pixels are transparent."
+            ],
+            "keyboard shortcuts",
+            [
+                "ctrl+z, ctrl+shift+z: undo, redo",
+                "ctrl+s, ctrl+o: save, load",
+                "ctrl+x, ctrl+c, ctrl+v: cut, copy, paste",
+                "w, a, s, d, q, e: controls the three viewport sliders.",
+            ],
+            //*
+            "grid",
+            [
+                "by making a selection and clicking the \"set as grid\" button, you can set that selection as the new grid.",
+                "the grid is not shown visually. it's only used in certain tools and buttons.",
+                [
+                    "grid select tool",
+                    "shift by grid buttons",
+                    "the move and paste tools' \"snap to grid\" checkbox"
+                ],
+                "it's useful for avoiding small inaccuracies, like when you're trying to select animation frames."
+            ],
+            //*/
+            "color ramp",
+            [
+                "draws two colors, and the colors between them.",
+                "as for entering the colors, the same rules as the color replace button apply here. you can use numbers to indicate colors in the palette, and leaving it empty makes it use forecolor/backcolor. (forecolor for start, backcolor for end.)"
+            ],
+            "animation test",
+            [
+                "used for testing spritesheets.",
+                "to use this tool, you have to select something. select the first frame of your animation.",
+                "the second frame should be a rectangle of equal dimensions to the right of it, the third frame is another rectangle to the right of that, etc.",
+                "unless \"vertical\" is on. then it moves down instead of right.",
+                "while this tool is selected, the viewport is used to show the animation. clicking the viewport will pause or play it.",
+                "number of frames, fps, and loop are all pretty obvious.",
+                "\"wrap\" is how many frames there are in a row before it moves on to the next row. (or, if vertical is on, how many frames in a column before it goes to the next column.) if wrap is 0, it assumes all the frames are in one row.",
+                "the arrow buttons move to the previous or next frame."
+            ],
+            "misc",
+            [
+                "there's a few buttons that explain themselves in the prompts they give you.",
+                "the color picker can be held down. while it's held, you can see how it'll change the forecolor/backcolor or the palette, but that change is only finalized when you release it. this way, if you're trying to get the color of something really small, you can be more precise by carefully moving your click until you see the color you want."
+            ]
+        ]);
+        let dither_menu = [];
+        for(i1 in dithers) {
+            if(dithers.hasOwnProperty(i1)) {
+                dither_menu.push("<option value=\"" + i1 + "\">" + i1 + "</option>");
+            }
+        }
+        //grid-template-columns: repeat(6, 1fr);
+        //style=\"grid-column: span 2\"
+        let tool_settings = [
+            "<label><input type=\"number\" name=\"pen r\" value=0 style=\"width: 4em\"> radius</label>",
+            "<label><input type=\"number\" name=\"eraser r\" value=2 style=\"width: 4em\"> radius</label>",
+            "<br class=\"eraser\"><label><input type=\"checkbox\" name=\"eraser mask\"> create transparency</label>",
+            "<label><input type=\"number\" name=\"dither r\" value=4 style=\"width: 4em\"> radius</label>",
+            //"<div name=\"dither div\" style=\"display: inline flow\">",
+            "<br class=\"dither\"><select name=\"dither type\">\n\t\t" + dither_menu.join("\n\t\t") + "\n\t</select>",
+            "<label><input type=\"checkbox\" name=\"dither invert\"> invert</label>",
+            //"</div>",
+            "<br class=\"dither\"><label><input type=\"checkbox\" name=\"dither back\"> draw on backcolor only</label>",
+            "<label><input type=\"checkbox\" name=\"bucket diagonal\"> spread diagonally</label>",
+            "<br class=\"bucket\"><label><input type=\"checkbox\" name=\"bucket mask\"> create transparency</label>",
+            "<label><input type=\"checkbox\" name=\"shape fill\"> fill</label>",
+            "<label>text: <input type=\"text\" name=\"text text\" value=\"" + today + "\"></label>",
+            "<label><input type=\"string\" name=\"ramp start\" style=\"width: 8em\"> start color</label>",
+            "<br class=\"ramp\"><label><input type=\"string\" name=\"ramp end\" style=\"width: 8em\"> end color</label>",
+            "<br class=\"ramp\"><label><input type=\"number\" name=\"ramp number\" style=\"width: 3em\" value=3 step=1 min=0> number of betweens</label>",
+            "<br class=\"ramp\"><label><input type=\"number\" name=\"ramp size\" style=\"width: 3em\" value=2 step=1 min=1> size</label>",
+            "<br class=\"ramp\"><label><input type=\"checkbox\" name=\"ramp vertical\"> vertical</label>",
+            "<label><input type=\"checkbox\" name=\"select move snap\"> snap to grid</label>",
+            "<label><input type=\"number\" name=\"anim duration\" style=\"width: 3em\" value=1 step=1 min=1> number of frames</label>",
+            "<br class=\"anim\"><label><input type=\"number\" name=\"anim wrap\" style=\"width: 3em\" value=0 step=1 min=0> wrap</label>",
+            "<br class=\"anim\"><label><input type=\"checkbox\" name=\"anim vertical\"> vertical</label>",
+            "<br class=\"anim\"><label><input type=\"checkbox\" name=\"anim loop\" checked> loop</label>",
+            "<br class=\"anim\"><label><input type=\"number\" name=\"anim fps\" style=\"width: 3em\" value=12 step=1 min=1> frames per second</label>",
+            "<br class=\"anim\"><button name=\"anim prev\">&#160;&#60;&#160;</button>",
+            "<button name=\"anim next\">&#160;&#62;&#160;</button>",
+            "<label><input type=\"checkbox\" name=\"paste snap\"> snap to grid</label>",
+        ];
+        // tool settings elements
+        let temp = null;
+        tool_settings = [
+            "<" + (verticalscreen ? "td colspan=2" : "div") + " name=\"tool settings\" style=\"vertical-align: top; padding: 8px; " + (verticalscreen ? "font-size: 0.8em" : "background-color: #FFF5; overflow-y: scroll; width: 20em; height: 5em; border: solid 1px black") + "\">",
+            "\t" + tool_settings.join("\n\t"),
+            "</" + (verticalscreen ? "td" : "div") + ">"
+        ].join("\n");
+        let tool_area = [];
+        if(!verticalscreen) {
+            tool_area.push("\t" + tool_settings.replaceAll("\n", "\n\t"));
+        };
+        for(i1 = 0; i1 < PixelArt.valid.tools.length; i1++) {
+            let _i1 = PixelArt.valid.tools[i1];
+            let __i1 = (
+                _i1 === "colorpick" ? "color picker" :
+                _i1 === "bucket" ? "bucket fill" :
+                _i1 === "rectangle" ? "box" :
+                _i1 === "ramp" ? "color ramp" :
+                _i1 === "anim" ? "animation test" :
+                _i1.startsWith("select ") ? _i1.replace("select ", "") :
+                _i1
+            );
+            let line = "<label" + (_i1 === "select scale" ? " hidden" : "") + "><input type=\"radio\" name=\"" + this.prefix + "_tool\" value=\"" + _i1 + "\"" + ((_i1.startsWith("select ") || _i1 === "paste") ? " disabled" : "") + "> " + __i1 + "</label>";
+            if(_i1 === "colorpick") {
+                line += " <button name=\"colorpick type\">" + PixelArt.valid.colorpick_type[0] + "</button>";
+            }
+            else if(_i1 === "select") {
+                line += " <button name=\"deselect\" disabled>deselect</button>";
+            };
+            // these are too important to hide away in the box.
+            if((verticalscreen ? i1 : true) && _i1 !== "rectangle" && _i1 !== "ellipse" && _i1 !== "select scale") {
+                line = "<br>" + line;
+            };
+            tool_area.push(line);
+        }
+        // tool menu complete
+        tool_area = [
+            "tools:<ul style=\"font-size: 0.8em\">\n\t" + tool_area.join("\n\t") + "</ul>",
+            "selection actions:<ul name=\"selection actions\" style=\"font-size: 0.8em\">\n\t" + [
+                "<button name=\"cut\">cut</button> <button name=\"copy\">copy</button>",
+                //"<button name=\"set as grid\">set as grid</button>",
+                [
+                    "<button name=\"swap l\" style=\"font-family: inherit\">l</button>",
+                    "<button name=\"swap r\" style=\"font-family: inherit\">r</button>",
+                    "<button name=\"swap u\" style=\"font-family: inherit\">u</button>",
+                    "<button name=\"swap d\" style=\"font-family: inherit\">d</button>"
+                ].join("") + " swap",
+                [
+                    "<button name=\"shift l\" style=\"font-family: inherit\">l</button>",
+                    "<button name=\"shift r\" style=\"font-family: inherit\">r</button>",
+                    "<button name=\"shift u\" style=\"font-family: inherit\">u</button>",
+                    "<button name=\"shift d\" style=\"font-family: inherit\">d</button>"
+                ].join("") + " shift",
+                [
+                    "<button name=\"grid shift l\" style=\"font-family: inherit\">l</button>",
+                    "<button name=\"grid shift r\" style=\"font-family: inherit\">r</button>",
+                    "<button name=\"grid shift u\" style=\"font-family: inherit\">u</button>",
+                    "<button name=\"grid shift d\" style=\"font-family: inherit\">d</button>"
+                ].join("") + " shift by grid",
+                (
+                    "<button name=\"x mirror\" style=\"font-family: inherit\">x</button>" +
+                    "<button name=\"y mirror\" style=\"font-family: inherit\">y</button>" +
+                    " mirror"
+                ),
+                (
+                    "<button name=\"rotate 90\" style=\"font-family: inherit\">&#160;90</button>" +
+                    "<button name=\"rotate 180\" style=\"font-family: inherit\">180</button>" +
+                    "<button name=\"rotate 270\" style=\"font-family: inherit\">270</button>" +
+                    " rotate"
+                ),
+                "<button name=\"color replace\">replace color</button>",
+                "<button name=\"color add\">add colors to palette</button>"
+            ].join("\n\t<br>") + "</ul>"
+        ].join("\n");
+        // include actions too
         let text = [
-            "<div style=\"display: table\">",
-            "<div style=\"display: " + display + "; place-items: center; align-items: center; justify-content: center; width: 256px; height: 256px; overflow: scroll; border: 2px dashed; background-color: orange\">",
+            "<tr style=\"height: " + viewport_h + "px\">",
+            "<td style=\"display: inline-grid; grid-template-columns: repeat(6, 1fr); width: 192px; height: " + viewport_h + "px\">",
+            "<button name=\"palette add\" style=\"grid-column: span 2\">add color</button>",
+            "<button name=\"palette edit\" style=\"grid-column: span 2\">edit color</button>",
+            "<button name=\"palette delete\" style=\"grid-column: span 2\">delete color</button>",
+            "<button name=\"palette up\" style=\"grid-column: span 3\">shift up</button>",
+            "<button name=\"palette down\" style=\"grid-column: span 3\">shift down</button>",
+            "<button name=\"palette save\" style=\"grid-column: span 3\">save palette</button>",
+            "<button name=\"palette clear\" style=\"grid-column: span 3\">clear palette</button>",
+            "<button name=\"palette forecolor\" style=\"grid-column: span 3\">set as forecolor</button>",
+            "<button name=\"palette backcolor\" style=\"grid-column: span 3\">set as backcolor</button>",
+            //"<button name=\"palette viewport\" style=\"grid-column: span 6\">set as viewport color</button>",
+            "<button name=\"forecolor\" style=\"grid-column: span 3; font-family: inherit\"></button>",
+            "<button name=\"backcolor\" style=\"grid-column: span 3; font-family: inherit\"></button>",
+            "<button name=\"color switch\" style=\"grid-column: span 6\">color switch</button>",
+            "</td>",
+            // ui related to colors and palettes
+            "<td><canvas name=\"palette\" style=\"image-rendering: crisp-edges\"></canvas></td>",
+            // to the right of it, the palette canvas
+            // place-items: center; align-items: center; justify-content: center;
+            "<td><div name=\"viewport\" style=\"display: block; width: " + viewport_w + "px; height: " + viewport_h + "px; background-color: orange\">",
+            // viewport
             // - give it rigid dimensions
             // - use scroll bars if the insides get bigger than that
             // - center the canvas (no idea how it takes three properties to do
             //   that, but whatever.)
             // - add a dashed border
-            "<canvas width=64 height=64 style=\"display: " + display + "image-rendering: crisp-edges; touch-action: none; border: 1px solid; scale: " + this.zoom + "\"></canvas>",
-            // no anti-aliasing, and touching it on mobile shouldn't drag around the
-            // page.
-            "</div>",
-            // viewport and canvas
-            "<canvas name=\"palette\" style=\"display: " + display + "; image-rendering: crisp-edges\"></canvas>",
-            // to the right of it, the palette canvas
-            "<div style=\"display: " + display + "; height: 256px; overflow: scroll\">",
-            "<button name=\"palette add\">add color</button>",
-            "<button name=\"palette edit\">edit color</button>",
-            "<br><button name=\"palette delete\">delete color</button>",
-            "<br><button name=\"palette up\">shift up</button>",
-            "<button name=\"palette down\">shift down</button>",
-            "<br><button name=\"palette save\">save palette</button>",
-            "<br><button name=\"palette clear\">clear palette</button>",
-            "<br><button name=\"palette forecolor\">set as forecolor</button>",
-            "<br><button name=\"palette backcolor\">set as backcolor</button>",
-            "<br><button name=\"palette viewport\">set as viewport color</button>",
-            "<br><button name=\"forecolor\" style=\"font-family: inherit\" disabled></button>",
-            "<br><button name=\"backcolor\" style=\"font-family: inherit\" disabled></button>",
-            "<br><button name=\"color switch\">color switch</button>",
-            "</div>",
-            // to the right of that, ui related to colors and palettes
-            "</div>",
-            //
-            "<br><button name=\"undo\">undo</button><button name=\"redo\">redo</button>",
-            "<label>zoom: <input type=\"number\" name=\"zoom\" value=1 step=.25 style=\"width: 3em\"></label>",
-            "<br>tools:<ul>\n\t" + [
-                "<label><input type=\"radio\" name=\"px_tool\" value=\"pen\"> pen</label> <label><input type=\"number\" name=\"pen r\" value=0 style=\"width: 4em\"> radius</label>",
-                "<label><input type=\"radio\" name=\"px_tool\" value=\"eraser\"> eraser</label> <label><input type=\"number\" name=\"eraser r\" value=2 style=\"width: 4em\"> radius</label>",
-                "<label><input type=\"radio\" name=\"px_tool\" value=\"colorpick\"> color picker</label> <button name=\"colorpick type\">" + PixelArt.valid.colorpick_type[0] + "</button>",
-                "<label><input type=\"radio\" name=\"px_tool\" value=\"select\"> select</label>",
-                "<label><input type=\"radio\" name=\"px_tool\" value=\"select cells\"> select cells</label>",
-                "<label><input type=\"radio\" name=\"px_tool\" value=\"bucket\"> bucket fill</label> <label><input type=\"checkbox\" name=\"bucket diagonal\"> spread diagonally</label>"
-                //  pen (radius)
-                //  eraser (radius)
-                //  color picker
-                //  select
-                //  select grid cells
-                // select scale
-                // select move
-                // dither
-                //  bucket (diagonal)
-                // spray
-                // rectangle, ellipse (fill)
-                // line
-                // text
-                // color ramp (number, scale, curve, in/out, horizontal/vertical)
-                // paste
-            ].join("\n\t<br>"),
+            "<canvas name=\"frame\" style=\"image-rendering: crisp-edges; touch-action: none; width: 100%; height: 100%\"></canvas>",
+            // frame canvas
+            // - no anti-aliasing
+            // - touching it on mobile shouldn't drag around the page
+            // - take up the whole viewport.
+            "</div></td>",
+            "<td style=\"display: inline grid\"><input type=\"range\" name=\"frame y\" style=\"writing-mode: vertical-lr; height: " + viewport_h + "px\" value=0 step=1 min=0></td>",
+            (verticalscreen ? "" : "\n<td rowspan=2 style=\"height: " + viewport_h + "px; vertical-align: top; overflow: scroll\">\n" + tool_area + "\n</td>"),
+            "</tr>",
+            "<tr>",
+            "<td colspan=2 style=\"vertical-align: top\">",
+            "<label style=\"grid-column: span 6; font-size: 0.8em\"><input type=\"range\" name=\"palette viewport\" style=\"width: 100%\" value=30 step=5 min=0 max=360><br>viewport hue</label>",
+            "</td>",
+            "<td colspan=2 style=\"vertical-align: top\">",
+            "<input type=\"range\" name=\"frame x\" style=\"width: " + viewport_w + "px\" value=0 step=1 min=0>",
+            "<br><input type=\"range\" name=\"frame size\" style=\"width: " + viewport_w + "px\" value=1 step=1 min=1>",
+            "<br><small name=\"dimension text\"></small>",
+            "<br>" + [
+                "<button name=\"undo\">undo</button>",
+                "<button name=\"redo\">redo</button>",
+                "<button name=\"save\">save</button>",
+                "<button name=\"load\">load</button>",
+            ].join(" "),
+            "<br><button name=\"canvas size\">change canvas size</button>",
+            "<br><label style=\"font-size: 0.8em\"><input type=\"number\" name=\"grid inc\" style=\"width: 4em\" value=8 min=1> grid increment</label>",
+            "</td>",
+            "</tr>"
+        ];
+        if(verticalscreen) {
+            text = text.concat([
+                "<tr>",
+                tool_settings,
+                "<td colspan=2 style=\"vertical-align: top\">",
+                tool_area,
+                "</td>",
+                "</tr>"
+            ]);
+        };
+        text = [
+            "<details class=\"text\">",
+            "<summary>manual</summary>",
+            manual,
+            "</details>",
+            "<table>",
+            text.join("\n"),
+            "</table>"
         ].join("\n");
-        container.innerHTML = text;
-        this.html.canvas = container.querySelector("canvas");
-        this.html.viewport = this.html.canvas.parentElement;
+        container.innerHTML += text;
+        this.canvas = document.createElement("canvas");
+        this.canvas.width = 64;
+        this.canvas.height = 64;
+        //this.html.frame = container.querySelectorAll("canvas")[1];
+        //this.html.viewport = this.html.frame.parentElement;
         let _this = this;
         function addtohtml(element) {
             let list = element.children;
@@ -14449,37 +14974,28 @@ class PixelArt {
         }
         addtohtml(container);
         //
-        this.html.zoom.onchange = function(e) {
-            let zoom = Number(_this.html.zoom.value);
-            if(isNaN(zoom) || zoom === Infinity || zoom === -Infinity || zoom <= 0) {
-                zoom = 1;
-                _this.html.zoom.value = zoom;
-            }
-            if(zoom !== _this.zoom) {
-                _this.zoom = zoom;
-                _this.html.canvas.style.scale = _this.zoom;
-            };
-        }
         this.html.colorpick_type.onclick = function(e) {
             let values = PixelArt.valid.colorpick_type;
             e.target.innerText = values[(values.indexOf(e.target.innerText) + 1)%values.length];
+            _this.tool = "colorpick";
         }
         // this makes the button act like a radio button or dropdown, pretty
         // much. clicking it makes the text cycle through the strings in that
         // array, and the current text of the button is used to get what "mode"
         // is currently selected.
-        //
         this.html.palette_add.onclick = function(e) {
-            let color = (prompt("enter a new color to add to the palette. you can add multiple colors by separating them with & symbols.") ?? "").trim();
-            if(!color) {
+            let input = trimunspecial(prompt("enter a new color to add to the palette. you can add multiple colors by separating them with spaces. (it's fine to use commas and stuff though.)") ?? "");
+            if(!input) {
                 return;
             }
-            color = color.split("&");
-            for(let i1 = 0; i1 < color.length; i1++) {
-
-                color[i1] = colortohex(_this.ctx, color[i1].trim());
-                _this.remove_color(color[i1]);
-                _this.palette.push(color[i1]);
+            let add = Color.split(input);
+            for(let i1 = 0; i1 < add.length; i1++) {
+                let color = add[i1];
+                if(color) {
+                    color = colortohex(_this.ctx, color);
+                    //_this.remove_color(color);
+                    _this.palette.push(color);
+                };
             }
             _this.palette_index = _this.palette.length - 1;
             _this.refresh_palette();
@@ -14534,7 +15050,23 @@ class PixelArt {
         this.html.palette_down.onclick = function(e) { movecolor(-1) };
         this.html.palette_save.onclick = function(e) {
             _this.refresh_palette(true);
-            savecanvas(_this.html.palette, _this.palette.join(" & ") + ".png");
+            let palette = [];
+            for(let i1 = 0; i1 < _this.palette.length; i1++) {
+                let color = _this.palette[i1];
+                if(color.startsWith("#") && (color.length === 7 || color.length === 9)) {
+                // if applicable, compress into 3 or 4 digits to keep the file
+                // name short. (ex: #0077ff22 => #07f2)
+                    let _color = "#";
+                    for(let i2 = 1; i2 < color.length; i2 += 2) {
+                        _color = (color[i2] === color[i2 + 1]) ? (_color + color[i2]) : "";
+                    }
+                    if(_color) {
+                        color = _color;
+                    }
+                };
+                palette.push(color);
+            }
+            savecanvas(_this.html.palette, palette.join(" ") + ".png");
             _this.refresh_palette();
         }
         this.html.palette_clear.onclick = function(e) {
@@ -14551,8 +15083,29 @@ class PixelArt {
         this.html.palette_backcolor.onclick = function(e) {
             _this.backcolor = _this.palette[_this.palette_index];
         }
-        this.html.palette_viewport.onclick = function(e) {
-            _this.html.viewport.style.backgroundColor = _this.palette[_this.palette_index];
+        //this.html.palette_viewport.onclick = function(e) {
+        //    _this.html.viewport.style.backgroundColor = _this.palette[_this.palette_index];
+        //}
+        this.html.palette_viewport.oninput = function(e) {
+            let hue = posmod(Number(_this.html.palette_viewport.value), 360);
+            _this.html.viewport.style.backgroundColor = "hsl(" + hue + ", 50%, 50%)";
+        }
+        this.html.palette_viewport.onchange = function(e) { document.documentElement.focus() };
+        this.html.forecolor.onclick = function(e) {
+            let color = (prompt("enter a new forecolor.") ?? "").trim();
+            if(!color) {
+                return;
+            }
+            color = colortohex(_this.ctx, color);
+            _this.forecolor = color;
+        }
+        this.html.backcolor.onclick = function(e) {
+            let color = (prompt("enter a new backcolor.") ?? "").trim();
+            if(!color) {
+                return;
+            }
+            color = colortohex(_this.ctx, color);
+            _this.backcolor = color;
         }
         this.html.color_switch.onclick = function(e) {
             let temp = _this.backcolor;
@@ -14560,14 +15113,99 @@ class PixelArt {
             _this.forecolor = temp;
         }
         //
-        this.html.canvas.onpointerdown = function(e) { _this.mousedown(e, _this) };
-        this.html.canvas.onpointermove = function(e) { _this.mousemove(e, _this) };
-        this.html.canvas.onpointerup = function(e) { _this.mouseup(e, _this) };
-        this.ctx = this.html.canvas.getContext("2d");
-        let w = this.html.canvas.width;
-        let h = this.html.canvas.height;
+        this.html.canvas_size.onclick = function(e) {
+            let i1 = 0;
+            let dim = [_this.canvas.width, _this.canvas.height];
+            let input = prompt([
+                "enter a letter for which side to expand or trim, and a number for how it should be affected. for example...",
+                "\"u +30\": expands the top by 30 pixels.",
+                "\"d -20\": trims the bottom by 20 pixels.",
+                "\"r 128\": trims or expands the right side so that the canvas is 128 pixels wide.",
+                "current size: " + dim.join(", ")
+            ].join("\n\n")) ?? "";
+            const sides = "lrud";
+            const valid = sides + " -+1234567890";
+            for(i1 = 0; i1 < input.length; i1++) {
+                if(!valid.includes(input[i1])) {
+                // just in case they assume they need to use commas or
+                // something. i don't want that to screw it up. especially since
+                // my explanation wasn't very clear.
+                    input = input.slice(0, i1) + " " + input.slice(i1 + 1);
+                }
+            }
+            input = trimunspecial(input);
+            if(!input) {
+                return;
+            }
+            input = input.split(" ");
+            let ctx = _this.ctx;
+            let image = _this.states.current.image;
+            let newstate = false;
+            for(i1 = 0; i1 < input.length - 1; i1++) {
+                let side = sides.indexOf(input[i1]);
+                if(side !== -1 && input[i1].length === 1) {
+                    let axis = Math.floor(side/2);
+                    i1++;
+                    let num = input[i1];
+                    num = (
+                        num.startsWith("-") ? Number(num) :
+                        num.startsWith("+") ? Number(num.slice(1)) :
+                        Number(num) - dim[axis]
+                    );
+                    if(Number.isInteger(num) && num && (dim[axis] + num) > 0) {
+                        newstate = true;
+                        if(!(side%2)) {
+                        // move select and grid
+                            if(_this.select) {
+                                _this.select["xy"[axis]] += num;
+                            };
+                            //_this.grid["xy"[axis]] += num;
+                        };
+                        _this.canvas[axis ? "height" : "width"] += num;
+                        let _dim = structuredClone(dim);
+                        dim[axis] += num;
+                        ctx.clearRect(0, 0, ...dim);
+                        let x = side === 0 ? num : 0;
+                        let y = side === 2 ? num : 0;
+                        if(num > 0) {
+                            ctx.fillStyle = _this.backcolor;
+                            ctx.fillRect(0, 0, ...dim);
+                            ctx.clearRect(x, y, ..._dim);
+                        };
+                        ctx.putImageData(image, x, y);
+                        image = ctx.getImageData(0, 0, ...dim);
+                        if(_this.select && !Rect.encloses(Rect.new(0, 0, ...dim), _this.select)) {
+                            _this.select = Rect.overlap(Rect.new(0, 0, ...dim), _this.select);
+                        };
+                    }
+                }
+            }
+            if(newstate) {
+                _this.update_frame_scroll();
+                _this.refresh();
+            };
+            // save
+        }
+        //
+        this.html.frame.onpointerdown = function(e) { _this.mousedown(e, _this) };
+        this.html.frame.onpointermove = function(e) { _this.mousemove(e, _this) };
+        this.html.frame.onpointerup = function(e) { _this.mouseup(e, _this) };
+        this.frame_ctx = this.html.frame.getContext("2d");
+        this.ctx = this.canvas.getContext("2d");
+        let w = this.canvas.width;
+        let h = this.canvas.height;
         this.ctx.fillStyle = "white";
         this.ctx.fillRect(0, 0, w, h);
+        /*
+        for(i1 = 0; i1 < w; i1++) {
+            for(i2 = 0; i2 < h; i2++) {
+                let dist = 2*Math.min(i1, w - i1, i2, h - i2)/Math.max(w, h);
+                this.ctx.fillStyle = "rgb(255, " + Math.round(255*dist) + ", 0)";
+                this.ctx.fillRect(i1, i2, 1, 1);
+            }
+        }
+        //*/
+        /*
         this.ctx.fillStyle = "black";
         let dither = dithers["x grid"];
         for(i1 = 0; i1 < w; i1++) {
@@ -14580,9 +15218,25 @@ class PixelArt {
                 }
             }
         }
-        this.tool = "pen";
-        this.select = null;
-        this.cell = Rect.new(0, 0, 16, 16);
+        //*/
+        this.tool = PixelArt.valid.tools[0];
+        this._select = null;
+        // the selected area. either null, or a rectangle.
+        // - this does NOT get absolute-valued.
+        // - this is part of a getter/setter thing, so DO NOT set individual
+        //   numbers.
+        // - rectangles with zero w or zero h are invalid. it'll save/return
+        //   null if you try that.
+        this.select_border = [];
+        // the border pixels, used when drawing it in refresh. updated in the
+        // select setter.
+        this.select_ticktock = false;
+        // boolean used to alternate between inverting one half of the border
+        // and the other when animating it
+        this._anim_frame = 0;
+        this._anim_playing = false;
+        this.anim_interval = null;
+        //
         this._forecolor = null;
         this._backcolor = null;
         this.forecolor = "black";
@@ -14591,9 +15245,19 @@ class PixelArt {
         // - i don't think i need to initialize the underscored versions but
         //   whatever.
         // - this runs the setters, which set the style and text of the buttons
+        this.filename = this.prefix + " " + filedate();
+        // used when saving. if the user ignores the filename prompt, it uses
+        // this. (loading a file makes this take its name.)
+        this._copydata = null;
+        // used in copy/paste. another getter/setter pair.
         this.palette = ["#000000", "#ffffff"].concat(Color.random(14, true, true));
         for(i1 = 2; i1 < this.palette.length; i1++) {
-            this.palette[i1] = colortohex(this.ctx, this.palette[i1]);
+            let compressed = colortohex(this.ctx, this.palette[i1], true);
+            //console.log(compressed);
+            this.palette[i1] = "#";
+            for(i2 = 1; i2 < compressed.length; i2++) {
+                this.palette[i1] += compressed[i2].repeat(2);
+            }
         }
         this.palette_index = 0;
         // palette, and which color is selected for button stuff. NOTE: palette
@@ -14603,11 +15267,14 @@ class PixelArt {
         this.refresh_palette();
         this.html.palette.onclick = function(e) {
             let click = clickxy(e);
-            let col = PixelArt.palette_col;
+            let col = _this.palette_col(_this);
             let cell_w = PixelArt.palette_cell_w;
             let cell_h = PixelArt.palette_cell_h;
             let index = col*Math.floor(click[0]/cell_w) + col - 1 - Math.floor(click[1]/cell_h);
-            if(index < _this.palette.length && index !== _this.palette_index) {
+            if(index === _this.palette_index) {
+                _this.forecolor = _this.palette[_this.palette_index];
+            }
+            else if(index < _this.palette.length) {
                 _this.palette_index = index;
                 _this.refresh_palette();
             }
@@ -14615,49 +15282,596 @@ class PixelArt {
         //
         this.stroke = null;
         // data stored during a stroke
-        let temp = document.getElementsByName("px_tool");
+        temp = document.getElementsByName(this.prefix + "_tool");
     	for(let i1 in temp) {
     		if(temp.hasOwnProperty(i1)) {
-                if(temp[i1].value === PixelArt.valid.tools[0]) {
+                if(temp[i1].value === this.tool) {
                     temp[i1].checked = true;
                 };
     			temp[i1].onchange = function(e) {
-                    if(PixelArt.valid.tools.includes(e.target.value)) {
+    				if(e.target.checked) {
                         _this.tool = e.target.value;
-                    }
-                    else {
-                        console.log("this shouldn't happen");
-                    }
+    				};
     			}
     		}
     	}
+        //
         this.states = new States(
             _this, 32,
             function(tool) {
                 return {
-                    image: tool.ctx.getImageData(0, 0, tool.html.canvas.width, tool.html.canvas.height),
+                    image: tool.ctx.getImageData(0, 0, tool.canvas.width, tool.canvas.height),
                     select: structuredClone(tool.select),
                 };
             },
             function(tool, state) {
-                tool.html.canvas.width = state.image.width;
-                tool.html.canvas.height = state.image.height;
+                tool.canvas.width = state.image.width;
+                tool.canvas.height = state.image.height;
                 tool.ctx.clearRect(0, 0, state.image.width, state.image.height);
                 tool.ctx.putImageData(state.image, 0, 0);
                 tool.select = structuredClone(state.select);
+                tool.refresh("states");
             }
         );
+        this.update_frame_scroll();
+        this.html.frame_size.value = this.html.frame_size.max;
+        this.update_frame_scroll();
+        // set the maximum of the frame x/y sliders.
+        this.refresh("states");
+        // initialize the frame image.
+        this.select = null;
+        // - run the setter, so selection actions get disabled.
+        //
+        this.html.anim_fps.onclick = function(e) {
+            if(_this.anim_playing) {
+            // reset the interval
+                _this.anim_playing = false;
+                _this.anim_playing = true;
+            };
+        };
+        this.html.anim_prev.onclick = function(e) {
+            _this.anim_frame--;
+        };
+        this.html.anim_next.onclick = function(e) {
+            _this.anim_frame++;
+        };
+        this.html.anim_duration.oninput = function(e) {
+            if(_this.anim_frame >= _this.frame_duration) {
+                _this.anim_frame = 0;
+            };
+        };
+        this.html.anim_wrap.oninput = function(e) { _this.refresh("states") };
+        this.html.anim_vertical.oninput = function(e) { _this.refresh("states") };
+        // all of the animation-related code relies on getters/setters a lot.
+        // for a lot of these, a refresh isn't necessary because it already
+        // happens in the setter.
+        // - wrap and vertical change where the frames are, so they're a
+        //   different story.
+        //
+        this.html.frame_x.oninput = function(e) { _this.refresh("states") };
+        this.html.frame_y.oninput = function(e) { _this.refresh("states") };
+        this.html.frame_size.oninput = function(e) {
+            _this.update_frame_scroll();
+            _this.refresh("states");
+        };
+        // show the changes frame x/y/size causes
+        this.html.frame_x.onchange = function(e) { document.documentElement.focus() };
+        this.html.frame_y.onchange = function(e) { document.documentElement.focus() };
+        this.html.frame_size.onchange = function(e) { document.documentElement.focus() };
+        // for some awful reason, when a slider is the activeElement, it's
+        // impossible to do anything with the keyboard except change the value
+        // of that slider with the arrow keys. so unless i focus on something
+        // else, using the sliders will disable undo/redo and other shortcuts
+        // until you click something else.
+        // - and there's keys that affect the sliders anyway, so it doesn't
+        //   sacrifice functionality. (wasd, and q and e.)
+        // - use onchange, not onfocus. unfocusing during the click makes it so
+        //   you can't drag the slider.
+        //this.html.frame_y.parentElement.style.width = this.html.frame_y.getBoundingClientRect().width + "px";
+        // even this doesn't work.
         this.html.undo.onclick = function(e) { _this.states.undo() };
         this.html.redo.onclick = function(e) { _this.states.redo() };
+        this.html.save.onclick = function(e) {
+            _this.filename = (prompt("enter a file name.") ?? "").trim() || _this.filename;
+            savecanvas(_this.canvas, _this.filename + ".png");
+        };
+        this.html.load.onclick = function(e) {
+            let input = document.createElement("input");
+            input.type = "file";
+            input.accept = ".png";
+            input.oninput = function() {
+                let reader = new FileReader();
+                reader.onload = function() {
+                    //console.log(reader.result);
+        			let image = document.createElement("img");
+        			let ctx = _this.ctx;
+        			let canvas = _this.canvas;
+        			image.src = reader.result;
+                    image.onload = function(e) {
+                        canvas.width = e.target.width;
+                        canvas.height = e.target.height;
+                        ctx.drawImage(e.target, 0, 0);
+                        _this.update_frame_scroll();
+                        _this.refresh();
+                    }
+                };
+                reader.readAsDataURL(input.files[0]);
+                _this.filename = filename_handler(input.files[0].name);
+            };
+            input.click();
+		};
+        //
+        this.html.deselect.onclick = function(e) {
+            _this.select = null;
+            _this.refresh("save");
+        };
+        /*
+        this.html.set_as_grid.onclick = function(e) {
+            if(_this.select) {
+                _this.grid = Rect.abs(_this.select);
+            };
+        };
+        //*/
+        function _copy(cut) {
+            if(!_this.select) {
+                return;
+            };
+            let ctx = _this.ctx;
+            let rect = Rect.abs(_this.select);
+            _this.copydata = copy(ctx, rect.x, rect.y, rect.w, rect.h, _this.backcolor);
+            if(cut) {
+                ctx.fillStyle = _this.backcolor;
+                ctx.clearRect(rect.x, rect.y, rect.w, rect.h);
+                ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+                _this.refresh();
+            };
+        }
+        this.html.cut.onclick = function(e) { _copy(true) };
+        this.html.copy.onclick = function(e) { _copy(false) };
+        function swap(dir) {
+            if(!_this.select) {
+                return;
+            };
+            let rect1 = Rect.abs(_this.select);
+            let rect2 = structuredClone(rect1);
+            rect2.x += rect2.w*(dir === "l" ? -1 : dir === "r" ? 1 : 0);
+            rect2.y += rect2.h*(dir === "u" ? -1 : dir === "d" ? 1 : 0);
+            let temp = Rect.new(0, 0, _this.canvas.width, _this.canvas.height);
+            if(!Rect.encloses(temp, rect1) || !Rect.encloses(temp, rect2)) {
+                return;
+            };
+            let ctx = _this.ctx;
+            let image1 = ctx.getImageData(rect1.x, rect1.y, rect1.w, rect1.h);
+            let image2 = ctx.getImageData(rect2.x, rect2.y, rect2.w, rect2.h);
+            ctx.putImageData(image1, rect2.x, rect2.y);
+            ctx.putImageData(image2, rect1.x, rect1.y);
+            let rect = structuredClone(_this.select);
+            rect.x += rect2.x - rect1.x;
+            rect.y += rect2.y - rect1.y;
+            _this.select = structuredClone(rect);
+            _this.refresh();
+        };
+        this.html.swap_l.onclick = function(e) { swap("l") };
+        this.html.swap_r.onclick = function(e) { swap("r") };
+        this.html.swap_u.onclick = function(e) { swap("u") };
+        this.html.swap_d.onclick = function(e) { swap("d") };
+        function shift(dir, grid) {
+            if(!_this.select) {
+                return;
+            };
+            let rect = structuredClone(_this.select);
+            rect.x += (grid ? _this.grid.w : Math.abs(rect.w))*(dir === "l" ? -1 : dir === "r" ? 1 : 0);
+            rect.y += (grid ? _this.grid.h : Math.abs(rect.h))*(dir === "u" ? -1 : dir === "d" ? 1 : 0);
+            if(Rect.encloses(Rect.new(0, 0, _this.canvas.width, _this.canvas.height), rect)) {
+                _this.select = structuredClone(rect);
+            };
+        }
+        this.html.shift_l.onclick = function(e) { shift("l") };
+        this.html.shift_r.onclick = function(e) { shift("r") };
+        this.html.shift_u.onclick = function(e) { shift("u") };
+        this.html.shift_d.onclick = function(e) { shift("d") };
+        this.html.grid_shift_l.onclick = function(e) { shift("l", true) };
+        this.html.grid_shift_r.onclick = function(e) { shift("r", true) };
+        this.html.grid_shift_u.onclick = function(e) { shift("u", true) };
+        this.html.grid_shift_d.onclick = function(e) { shift("d", true) };
+        function mirror_rotate(operation) {
+            let w = _this.canvas.width;
+            let h = _this.canvas.height;
+            let rect = Rect.new(0, 0, w, h);
+            rect = _this.select ? Rect.overlap(_this.select, rect) : rect;
+            // it's possible for select to be partially off the canvas.
+            let select_change = null;
+            // if the code changes select, that should be done AFTER refresh.
+            // since, thee state's .select represents what select was before the
+            // next change.
+            if(!rect || !rect.w || !rect.h) {
+                return;
+            };
+            if((operation === "rotate 90" || operation === "rotate 270") && _this.select) {
+                let copydata = copy(_this.ctx, rect.x, rect.y, rect.w, rect.h, _this.backcolor);
+                _this.ctx.fillStyle = _this.backcolor;
+                _this.ctx.clearRect(rect.x, rect.y, rect.w, rect.h);
+                _this.ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+                // cut
+                let _copydata = {w: rect.h, h: rect.w};
+                for(let i1 = 0; i1 < _copydata.w*_copydata.h; i1++) {
+                    let x = i1%_copydata.w;
+                    let y = Math.floor(i1/_copydata.w);
+                    _copydata[i1] = new Uint8ClampedArray(copydata[x*copydata.w + y]);
+                }
+                // restructure the data so x and y are switched
+                /*
+                if(rect.w < rect.h && operation === "rotate 90") {
+                    rect.x -= rect.h - rect.w;
+                }
+                else if(rect.w > rect.h && operation === "rotate 270") {
+                    rect.y -= rect.w - rect.h;
+                }
+                //*/
+                // these adjustments just make it look more like rotation.
+                paste(_this.ctx, _copydata, rect.x, rect.y);
+                // paste
+                rect = Rect.overlap(Rect.new(rect.x, rect.y, rect.h, rect.w), Rect.new(0, 0, w, h));
+                select_change = structuredClone(rect);
+                // switch the select dimensions (trim it if it goes out of
+                // bounds)
+                operation = operation === "rotate 90" ? "x mirror" : operation === "rotate 270" ? "y mirror" : operation;
+                // rotate 90 changes the coordinates so they're (-y, x). 270
+                // changes them so they're (y, -x). so, if you switch x and y,
+                // then do a mirror... that creates the effect you need.
+            }
+            let data = _this.ctx.getImageData(rect.x, rect.y, rect.w, rect.h).data;
+            let _data = new Uint8ClampedArray(4*rect.w*rect.h);
+            let _rect = rect;
+            if(operation === "rotate 90" || operation === "rotate 270") {
+                _rect = Rect.new(rect.x, rect.y, rect.h, rect.w);
+            };
+            for(let i1 = 0; i1 < _rect.w*_rect.h; i1++) {
+                let x = i1%_rect.w;
+                let y = Math.floor(i1/_rect.w);
+                if(operation === "x mirror" || operation === "rotate 180" || operation === "rotate 90") {
+                    x = _rect.w - 1 - x;
+                };
+                if(operation === "y mirror" || operation === "rotate 180" || operation === "rotate 270") {
+                    y = _rect.h - 1 - y;
+                };
+                if(operation === "rotate 90" || operation === "rotate 270") {
+                    let temp = x;
+                    x = y;
+                    y = temp;
+                };
+                // x mirror: -x, y
+                // y mirror: x, -y
+                // rotate 90: -y, x
+                // rotate 180: -x, -y
+                // rotate 270: y, -x
+                for(let i2 = 0; i2 < 4; i2++) {
+                    _data[4*i1 + i2] = data[4*(y*rect.w + x) + i2];
+                }
+            }
+            _data = new ImageData(_data, _rect.w, _rect.h);
+            if(operation === "rotate 90" || operation === "rotate 270") {
+                if(_this.select) {
+                    console.log("this shouldn't happen");
+                }
+                else {
+                    _this.canvas.width = _rect.w;
+                    _this.canvas.height = _rect.h;
+                    _this.ctx.clearRect(0, 0, _rect.w, _rect.h);
+                    _this.ctx.putImageData(_data, 0, 0);
+                    _this.update_frame_scroll();
+                }
+            }
+            else {
+                _this.ctx.clearRect(_rect.x, _rect.y, _rect.w, _rect.h);
+                _this.ctx.putImageData(_data, _rect.x, _rect.y);
+            }
+            _this.refresh();
+            if(select_change) {
+                _this.select = structuredClone(select_change);
+            };
+        }
+        this.html.x_mirror.onclick = function(e) { mirror_rotate("x mirror") };
+        this.html.y_mirror.onclick = function(e) { mirror_rotate("y mirror") };
+        this.html.rotate_90.onclick = function(e) { mirror_rotate("rotate 90") };
+        this.html.rotate_180.onclick = function(e) { mirror_rotate("rotate 180") };
+        this.html.rotate_270.onclick = function(e) { mirror_rotate("rotate 270") };
+        //this.html.rotate_90.hidden = true;
+        //this.html.rotate_270.hidden = true;
+        this.html.color_replace.onclick = function(e) {
+            let i1 = 0;
+            let color1 = prompt("enter the color you want to replace.\n\nif you enter nothing, it'll be the backcolor, " + _this.backcolor + ".\n\nnumbers can be used to refer to colors in the palette.");
+            if(color1 === null) {
+                return;
+            };
+            let color2 = prompt("enter the color you want to replace it with.\n\nif you enter nothing, it'll be the forecolor, " + _this.forecolor + ".\n\nnumbers can be used to refer to colors in the palette.");
+            if(color2 === null) {
+                return;
+            };
+            color1 = _this.color_input(color1, _this) || _this.backcolor;
+            color2 = _this.color_input(color2, _this) || _this.forecolor;
+            _this.ctx.fillStyle = color2;
+            let rect = _this.select ? Rect.abs(_this.select) : Rect.new(0, 0, _this.canvas.width, _this.canvas.height);
+            for(i1 = 0; i1 < rect.w*rect.h; i1++) {
+                let coor = Rect.getcoor(rect, i1);
+                if(!coor) {
+                    console.log("this shouldn't happen");
+                }
+                else if(getcolor(_this.ctx, ...coor) === color1) {
+                    _this.ctx.fillRect(...coor, 1, 1);
+                };
+            }
+            _this.refresh();
+        };
+        this.html.color_add.onclick = function(e) {
+            let rect = _this.select ? Rect.abs(_this.select) : Rect.new(0, 0, _this.canvas.width, _this.canvas.height);
+            for(let i1 = 0; i1 < rect.w*rect.h; i1++) {
+                let coor = Rect.getcoor(rect, i1);
+                if(!coor) {
+                    console.log("this shouldn't happen");
+                }
+                else {
+                    let color = getcolor(_this.ctx, ...coor);
+                    if(!_this.palette.includes(color)) {
+                        _this.palette.push(color);
+                    }
+                }
+            };
+            _this.refresh_palette();
+        };
+        //
+        this.select_interval = setInterval(function() {
+            if(_this.stroke || _this.tool === "anim") {
+                return;
+            }
+            _this.select_ticktock = !_this.select_ticktock;
+            _this.refresh("states");
+        }, 1000/2);
+    }
+    get frame_x() {
+        let x = Number(this.html.frame_x.value);
+        if(!Number.isInteger(x) || x < 0) {
+            x = 0;
+            this.html.frame_x.value = x;
+        };
+        return x;
+    }
+    get frame_y() {
+        let y = Number(this.html.frame_y.value);
+        if(!Number.isInteger(y) || y < 0) {
+            y = 0;
+            this.html.frame_y.value = y;
+        };
+        return y;
+    }
+    get frame_size() {
+        let size = Number(this.html.frame_size.value);
+        if(!Number.isInteger(size) || size <= 0) {
+            size = 1;
+            this.html.frame_size.value = size;
+        }
+        return size;
+    }
+    get frame_rect() {
+        let size = this.frame_size;
+        return Rect.new(
+            this.frame_x, this.frame_y,
+            Math.min(this.canvas.width, size*this.frame_w_inc),
+            Math.min(this.canvas.height, size*this.frame_h_inc),
+        );
+    }
+    refresh(skip) {
+    // refreshes things. there are three main actions.
+    // - "frame": refreshes the frame to show whatever it's supposed to right
+    //   now.
+    //   - this includes changes to frame x/y/size.
+    //   - it also clears graphics, if they were there.
+    // - "states": saves a new state.
+    // - "graphics": draws the select border.
+    //   - it ONLY draws it. it doesn't clear any previous select borders. only
+    //     "frame" does that.
+    // =
+    // - skip is an array of which of these actions to skip. (or a string of one
+    //   thing to skip.)
+        skip = Array.isArray(skip) ? skip : typeof skip === "string" ? [skip] : [];
+        let rect = null;
+        let anim = this.tool === "anim";
+        if(anim && !skip.includes("frame")) {
+            let ctx = this.frame_ctx;
+            let source = Rect.abs(this.select);
+            // rectangle for where on the canvas the frame it's drawing is.
+            let frame = this.anim_frame;
+            let wrap = this.anim_wrap;
+            let axis1 = Number(this.html.anim_vertical.checked);
+            let axis2 = posmod(axis1 + 1, 2);
+            //console.log([this.anim_playing, frame%wrap, Math.floor(frame/wrap)]);
+            source["xy"[axis1]] += (frame%wrap)*source["wh"[axis1]];
+            source["xy"[axis2]] += Math.floor(frame/wrap)*source["wh"[axis2]];
+            // wrap is how many frames there are before it goes to the next
+            // row. or, if it's vertical, the next column.
+            ctx.fillStyle = this.backcolor;
+            ctx.clearRect(0, 0, this.html.frame.width, this.html.frame.height);
+            ctx.fillRect(0, 0, this.html.frame.width, this.html.frame.height);
+            // if a frame doesn't render or only renders partially, (because
+            // it's partially or fully off the canvas) the emptiness should be
+            // filled by backcolor.
+            let place = [source.x, source.y];
+            source = Rect.overlap(source, Rect.new(0, 0, this.canvas.width, this.canvas.height));
+            if(source) {
+                place = [
+                    source.x - place[0],
+                    source.y - place[1]
+                ];
+                ctx.putImageData(this.ctx.getImageData(source.x, source.y, source.w, source.h), ...place);
+            };
+            // Rect.overlap and place account for it being fully or partially
+            // off the canvas.
+            // - if you use getImageData on a rectangle like that, the
+            //   pixels that are off the canvas are returned as transparent
+            //   pixels, rgba(0, 0, 0, 0).
+            // - i don't want that. it'd look weird. it should be backcolor
+            //   instead. so, Rect.overlap makes sure it only gets pixels that
+            //   are within bounds.
+        };
+        if(!anim && !skip.includes("frame")) {
+            rect ??= this.frame_rect;
+            this.html.frame.width = rect.w;
+            this.html.frame.height = rect.h;
+            this.frame_ctx.putImageData(this.ctx.getImageData(rect.x, rect.y, rect.w, rect.h), 0, 0);
+            let size = this.frame_size;
+            let size_mod = this.viewport_size/size;
+            let gap = [
+                (size*this.frame_w_inc - rect.w)*size_mod,
+                (size*this.frame_h_inc - rect.h)*size_mod
+            ];
+            //console.log(gap);
+            this.html.frame.style.width = rect.w*size_mod + "px";
+            this.html.frame.style.height = rect.h*size_mod + "px";
+            //gap = gap[1] + "px " + gap[0] + "px";
+            gap = gap[1]/2 + "px " + gap[0]/2 + "px " + gap[1]/2 + "px " + gap[0]/2 + "px";
+            //gap = gap[1]/2 + "px " + gap[0]/4 + "px " + gap[1]/4 + "px " + gap[0]/2 + "px";
+            /*
+            if(gap !== this.html.viewport.style.padding) {
+                this.html.viewport.style.padding = gap;
+            };
+            //*/
+            //*
+            if(gap !== this.html.frame.style.margin) {
+                this.html.frame.style.margin = gap;
+            };
+            //*/
+            // - no matter how big it is, the frame is sized to take up the
+            //   whole viewport.
+            // - that usually works out just fine, but not if it's zoomed out
+            //   enough to show discrepancies between the aspect ratio of the
+            //   canvas and the viewport. you have to add padding.
+            // - that's what gap is. the ratio of gap[0] + rect.w and gap[1] +
+            //   rect.h will always match the ratio of the viewport. so, if you
+            //   add this many pixels of empty space to the sides of the canvas,
+            //   it'll work out.
+            // - but css pixels aren't the same as canvas pixels. since the
+            //   canvas is scaled to fit. that's what size_mod is for. canvas
+            //   pixels * viewport_size / frame_size = css pixels.
+            let edges = Rect.edges(rect);
+            edges = [
+                edges[0] <= 0,
+                edges[1] >= this.canvas.width,
+                edges[2] <= 0,
+                edges[3] >= this.canvas.height
+            ];
+            let dir = "left right top bottom".split(" ");
+            for(let i1 = 0; i1 < 4; i1++) {
+                let property = "border-" + dir[i1];
+                let value = edges[i1] ? "2px dotted" : "initial";
+                if(value !== this.html.frame.style[property]) {
+                    this.html.frame.style[property] = value;
+                };
+            }
+            // show borders only if the frame shows the edge of the canvas.
+        };
+        if(!skip.includes("states")) {
+            this.states.save();
+        };
+        if(!anim && !skip.includes("graphics")) {
+            rect ??= this.frame_rect;
+            let ctx = this.frame_ctx;
+            let w = this.canvas.width;
+            let h = this.canvas.height;
+            if(this.select) {
+                let border = this.select_border;
+                for(let i1 = (this.select_ticktock ? 1 : 0); i1 < border.length; i1 += 2) {
+                    let x = border[i1][0];
+                    let y = border[i1][1];
+                    if(Rect.inside(rect, x, y)) {
+                        let temp = this.ctx.getImageData(x, y, 1, 1).data;
+                        ctx.fillStyle = "rgb(" + (255 - temp[0]) + ", " + (255 - temp[1]) + ", " + (255 - temp[2]) + ")";
+                        ctx.fillRect(x - rect.x, y - rect.y, 1, 1);
+                    }
+                }
+            };
+        };
+    }
+    update_frame_scroll() {
+    // updates the maximum values of this.html frame_x and frame_y. ALWAYS use
+    // this when changing the dimensions of the main canvas, or changing
+    // frame_size.
+        let w = this.canvas.width;
+        let h = this.canvas.height;
+        let size = this.frame_size;
+        let _w = size*this.frame_w_inc;
+        let _h = size*this.frame_h_inc;
+        let temp = [this.frame_x, this.frame_y];
+        this.html.frame_x.max = Math.max(0, w - _w);
+        this.html.frame_y.max = Math.max(0, h - _h);
+        this.html.frame_x.value = temp[0];
+        this.html.frame_y.value = temp[1];
+        temp = [
+            Math.max(
+                Math.ceil(w/this.frame_w_inc),
+                Math.ceil(h/this.frame_h_inc)
+            ),
+            Number(this.html.frame_size.max)
+        ];
+        if(temp[0] !== temp[1]) {
+            this.html.frame_size.max = temp[0];
+            this.html.frame_size.value = temp[0];
+        }
+        this.html.dimension_text.innerHTML = ["[", _w, "\u00D7", _h, "] / [", w, "\u00D7", h, "]"].join(" ");
+    }
+    anim_select_change() {
+    // runs when switching to the anim tool, and if the dimensions of the
+    // selection change while in the anim tool.
+        let w = Math.abs(this.select.w);
+        let h = Math.abs(this.select.h);
+        this.html.frame.width = w;
+        this.html.frame.height = h;
+        // change frame dimensions to match the animation frame
+        let size_mod = Math.min(
+            this.viewport_size*this.frame_w_inc/w,
+            this.viewport_size*this.frame_h_inc/h
+        );
+        let gap = [
+            this.viewport_size*this.frame_w_inc - size_mod*w,
+            this.viewport_size*this.frame_h_inc - size_mod*h
+        ];
+        // how much the dimensions can be multiplied before it hits the
+        // edges, and the gap that creates
+        this.html.frame.style.width = size_mod*w + "px";
+        this.html.frame.style.height = size_mod*h + "px";
+        this.html.frame.style.margin = gap[1]/2 + "px " + gap[0]/2 + "px " + gap[1]/2 + "px " + gap[0]/2 + "px";
+        this.html.frame.style.border = "2px dotted";
+        // css, go.
+    }
+    clickxy(e) {
+        let rect = this.frame_rect;
+        let _rect = e.target.getBoundingClientRect();
+        let x = (e.clientX - _rect.x)/_rect.width;
+        let y = (e.clientY - _rect.y)/_rect.height;
+        // make them 0 to 1 numbers relative to the edges of the frame
+        return [
+            Math.floor(rect.x + x*rect.w),
+            Math.floor(rect.y + y*rect.h)
+        ];
+        // make those frame coordinates coordinates on the canvas
     }
     static valid = {
         tools: [
             "pen",
             "eraser",
+            "dither",
             "colorpick",
+            "bucket",
+            "line",
+            "rectangle",
+            "ellipse",
+            "text",
+            "ramp",
             "select",
-            "select cells",
-            "bucket"
+            "grid select",
+            "select move",
+            "select scale",
+            "anim",
+            "paste"
             //  pen (radius)
             //  eraser (radius)
             //  color picker
@@ -14675,44 +15889,25 @@ class PixelArt {
             // paste
         ],
         colorpick_type: ["forecolor", "backcolor", "add to palette"],
+        refresh: ["frame", "states", "graphics"],
     }
-    static palette_col = 16
+    palette_col(_this) {
+        _this ??= this;
+        return Math.floor(_this.viewport_size*_this.frame_h_inc/PixelArt.palette_cell_h);
+    }
     // how many colors a column can have before a new column starts
     static palette_cell_w = 48
     static palette_cell_h = 16
     // how many pixels wide and tall one color of the palette is.
     refresh_palette(allcodes) {
     // refreshes the palette canvas to account for changes.
-        let canvas = this.html.palette;
-        let ctx = this.palette_ctx;
-        let col = PixelArt.palette_col;
-        let cell_w = PixelArt.palette_cell_w;
-        let cell_h = PixelArt.palette_cell_h;
-        let w = cell_w*Math.ceil(this.palette.length/col);
-        let h = cell_h*col;
-        canvas.width = w;
-        canvas.height = h;
-        ctx.clearRect(0, 0, w, h);
-        ctx.font = "6px 'thick 4x4'";
-        ctx.textBaseline = "middle";
-        for(let i1 = 0; i1 < this.palette.length; i1++) {
-            let x = Math.floor(i1/col);
-            let y = col - i1%col;
-            // the colors go from down to up, then left to right. like the
-            // normal order, but rotated 90 counterclockwise.
-            ctx.fillStyle = this.palette[i1];
-            ctx.fillRect(x*cell_w, y*cell_h, cell_w, -cell_h);
-            if(allcodes || i1 === this.palette_index) {
-            // indicate the selected color by writing the hexcode inside.
-                let temp = [];
-                for(let i2 = 0; i2 < 3; i2++) {
-                    temp[i2] = 255 - parseInt(this.palette[i1].slice(1 + 2*i2, 3 + 2*i2), 16);
-                }
-                ctx.fillStyle = "rgb(" + temp.join(", ") + ")";
-                // the opposite color, and fully opaque if it wasn't already.
-                ctx.fillText(this.palette[i1], x*cell_w + 2, (y - .5)*cell_h + 1);
-            }
-        }
+        Color.palette_canvas(
+            this.palette_ctx, this.palette,
+            this.palette_col(),
+            PixelArt.palette_cell_w, PixelArt.palette_cell_h,
+            true,
+            (allcodes ? null : this.palette_index)
+        );
     }
     remove_color(color) {
     // removes all instances of a color from the palette, and adjusts
@@ -14731,7 +15926,97 @@ class PixelArt {
             index = this.palette.indexOf(color);
         }
     }
+    color_input(color, _this) {
+    // used in the color replace button, and the color ramp tool.
+    // - empty strings stay empty, to be replaced with forecolor or something.
+    // - numbers are converted to palette colors.
+    // - anything else is colortohex-ed.
+        _this ??= this;
+        color = color.trim();
+        let num = Number(color);
+        if(color && Number.isInteger(num) && num >= 0 && num < _this.palette.length) {
+            color = _this.palette[num];
+        }
+        else if(color) {
+            color = colortohex(_this.ctx, color);
+        };
+        return color;
+    }
     //
+    get tool() {
+        return this._tool;
+    }
+    set tool(value) {
+        if(!PixelArt.valid.tools.includes(value)) {
+            console.log("this shouldn't happen");
+            return;
+        };
+        let prev = this.tool;
+        if(value === prev) {
+            return;
+        };
+        this._tool = value;
+        document.getElementsByName(this.prefix + "_tool").forEach(function(element) {
+            element.checked = element.value === value;
+        });
+        let settings = htmldescendants(this.html.tool_settings);
+        for(let i1 = 0; i1 < settings.length; i1++) {
+        // hide irrelevant settings, show relevant settings.
+            let ref = settings[i1];
+            let name = ref.name || ref.attributes?.class?.value || "";
+            if(name) {
+                if(ref.parentElement.tagName.toLowerCase() === "label") {
+                    ref = ref.parentElement;
+                }
+                let hide = !name.startsWith(value);
+                if(name === "shape fill") {
+                    hide = value !== "rectangle" && value !== "ellipse";
+                }
+                else if(value === "select" && !hide && name.includes(" ")) {
+                // pain in my ass.
+                    let temp = name.split(" ").slice(0, 2).join(" ");
+                    hide = PixelArt.valid.tools.includes(temp);
+                }
+                ref.hidden = hide;
+            }
+        }
+        if(this.anim_playing) {
+        // anim_playing should only be on if "anim" is selected and there's a
+        // frame selected.
+            this.anim_playing = false;
+        };
+        if(prev === "anim" || value === "anim") {
+            if(value === "anim") {
+            // while anim is selected, the viewport only shows the animation
+            // frame, as big as will fit.
+                this.html.frame_x.disabled = true;
+                this.html.frame_y.disabled = true;
+                this.html.frame_size.disabled = true;
+                // disable scroll bars
+                this.anim_select_change();
+                // adjusts frame dimensions, applies css edits (scaling it up,
+                // margin, border)
+            }
+            else if(prev === "anim") {
+                this._anim_frame = 0;
+                // switching should reset this
+                this.html.frame_x.disabled = false;
+                this.html.frame_y.disabled = false;
+                this.html.frame_size.disabled = false;
+                let rect = this.frame_rect;
+                let w = Math.abs(rect.w);
+                let h = Math.abs(rect.h);
+                this.html.frame.width = w;
+                this.html.frame.height = h;
+                // reverse everything switching to anim does. (the css stuff
+                // will be done in refresh.)
+            }
+            // update_frame_scroll is unnecessary because it only affects
+            // scrollbar maximums and the text under the size bar. as long as
+            // it's disabled, it should be fine.
+            this.refresh("states");
+        };
+    }
     get pen_r() {
         let num = Number(this.html.pen_r.value);
         if(!Number.isInteger(num) || num < 0) {
@@ -14747,6 +16032,85 @@ class PixelArt {
             this.html.eraser_r.value = num;
         }
         return num;
+    }
+    get dither_r() {
+        let num = Number(this.html.dither_r.value);
+        if(!Number.isInteger(num) || num < 0) {
+            num = 0;
+            this.html.dither_r.value = num;
+        }
+        return num;
+    }
+    get anim_duration() {
+        let num = Number(this.html.anim_duration.value);
+        if(!Number.isInteger(num) || num <= 0) {
+            num = 1;
+            this.html.anim_duration.value = num;
+        }
+        return num;
+    }
+    get anim_wrap() {
+        let num = Number(this.html.anim_wrap.value);
+        if(!Number.isInteger(num) || num <= 0) {
+            if(num === 0) {
+                return this.anim_duration;
+            }
+            else {
+                num = 1;
+                this.html.anim_wrap.value = num;
+            }
+        }
+        return num;
+    }
+    get anim_frame() {
+        return this._anim_frame;
+    }
+    set anim_frame(value) {
+        let duration = this.anim_duration;
+        if(!Number.isInteger(value)) {
+            console.log("this shouldn't happen");
+            value = 0;
+        }
+        else if(!duration) {
+            console.log("this shouldn't happen");
+            duration = 1;
+            this.html.anim_duration.value = duration;
+        }
+        this._anim_frame = posmod(value, duration);
+        this.refresh("states");
+    }
+    get anim_playing() {
+        return this._anim_playing;
+    }
+    set anim_playing(value) {
+        if(value && (this.tool !== "anim" || !this.select)) {
+            return;
+        }
+        else if(!!value === this.anim_playing) {
+        // this could cause the interval to be doubled or something. if it's set as true when it was already true.
+            return;
+        }
+        this._anim_playing = !!value;
+        this.html.anim_prev.disabled = !!value;
+        this.html.anim_next.disabled = !!value;
+        if(value) {
+            let fps = readnumber(this.html.anim_fps.value);
+            if(fps === null || fps <= 0) {
+                fps = 12;
+                this.html.anim_fps.value = fps;
+            };
+            let _this = this;
+            this.anim_interval = setInterval(function() {
+                _this.anim_frame++;
+                if(!_this.html.anim_loop.checked && _this.anim_frame === _this.anim_duration - 1) {
+                    _this.anim_playing = false;
+                };
+            }, 1000/fps);
+        }
+        else {
+            clearInterval(this.anim_interval);
+            this.anim_interval = null;
+        }
     }
     get forecolor() {
         return this._forecolor;
@@ -14764,86 +16128,184 @@ class PixelArt {
         colorbutton(this.html.backcolor, this.ctx, this._backcolor);
         this.html.backcolor.innerHTML = this._backcolor;
     }
-    clickxy(e) {
-        return [
-            Math.floor((e.clientX - e.target.getBoundingClientRect().left)/this.zoom),
-            Math.floor((e.clientY - e.target.getBoundingClientRect().top)/this.zoom)
-        ];
+    get select() {
+        if(this._select && (!this._select.w || !this._select.h)) {
+            this.select = null;
+        };
+        return this._select;
+    }
+    set select(value) {
+        let prev = structuredClone(this._select);
+        this._select = Rect.valid(value) ? value : null;
+        let select = this._select;
+        this.states.current.select = structuredClone(select);
+        let list = htmldescendants(this.html.selection_actions).filter((element) => (
+            element.tagName.toLowerCase() === "button"
+            &&
+            !element.name.endsWith("mirror")
+            &&
+            !element.name.startsWith("rotate")
+            &&
+            !element.name.startsWith("color")
+        ));
+        this.html.deselect.disabled = !select;
+        for(let i1 = 0; i1 < list.length; i1++) {
+            list[i1].disabled = !select;
+        };
+        document.getElementsByName(this.prefix + "_tool").forEach(function(element) {
+            if(element.value.startsWith("select ") || element.value === "anim") {
+                element.disabled = !select;
+            };
+        });
+        this.select_border = select ? Rect.border(select) : [];
+        if(!select && (this.tool.startsWith("select ") || this.tool === "anim")) {
+        // anim requires a selection.
+            this.tool = PixelArt.valid.tools[0];
+        };
+        if(this.tool === "anim" && prev && (!select || prev.w !== select.w || prev.h !== select.h)) {
+            this.anim_select_change();
+        };
+    }
+    get grid() {
+    // a rectangle, used in various tools and buttons.
+    // - this must always return a rectangle with positive dimensions. never
+    //   null, never negative or zero dimensions.
+        let inc = Number(this.html.grid_inc.value);
+        if(!Number.isInteger(inc) || inc <= 0) {
+            inc = 8;
+            this.html.grid_inc.value = inc;
+        }
+        return Rect.new(0, 0, inc, inc);
+    }
+    get copydata() {
+        return this._copydata;
+    }
+    set copydata(value) {
+        this._copydata = value;
+        document.getElementsByName(this.prefix + "_tool").forEach(function(element) {
+            if(element.value === "paste") {
+                element.disabled = !value;
+            };
+        });
     }
     mousedown(e, _this) {
         let i1 = 0;
         _this ??= this;
+        if(_this.select && !Rect.overlap(_this.select, _this.frame_rect) && !_this.tool.startsWith("select") && _this.tool !== "colorpick" && _this.tool !== "anim" && _this.tool !== "paste") {
+            alert("click the deselect button first. (you have a selection, but it's offscreen. you can't edit anything outside a selection until you deselect.)");
+            return;
+        };
+        if(_this.tool.startsWith("select ") && !_this.select) {
+        // select tools are disabled when there's nothing selected, but that
+        // doesn't prevent the user from using them anyway. (like if you
+        // deselect while a select tool is selected.)
+            return;
+        }
+        else if(_this.tool === "anim") {
+        // all this does is pause/play the animation. by exiting before .stroke
+        // is made, it guarantees mousemove/mouseup exit early too.
+            _this.anim_playing = !_this.anim_playing;
+        };
         let click = _this.clickxy(e);
         _this.stroke = {
-            before: _this.ctx.getImageData(0, 0, _this.html.canvas.width, _this.html.canvas.height),
             path: [structuredClone(click)],
+            // coordinates of each point in the mouse's movement
+            image: _this.states.current.image,
+            // image to use to reset the graphics. (usually, this is identical
+            // to _this.states.current.image.)
         };
+        if(_this.tool === "paste" || _this.tool === "colorpick" || _this.tool === "text" || _this.tool === "ramp") {
+        // for these tools, everything happens in mousemove/mouseup.
+            _this.mousemove(e, _this);
+            return;
+        };
+        let stroke = _this.stroke;
+        let ctx = _this.ctx;
         //
-        if(_this.tool === "pen" || _this.tool === "eraser") {
-            _this.stroke.prev = null;
-        }
-        else if(_this.tool === "colorpick") {
-            let type = _this.html.colorpick_type.innerText;
-            let color = getcolor(_this.ctx, ...click);
-            if(type === "forecolor" || type === "backcolor") {
-                _this[type] = color;
-                _this.tool = type === "backcolor" ? "eraser" : "pen";
-                let list = document.getElementsByName("px_tool");
-                let done = false;
-                for(i1 = 0; i1 < list.length && !done; i1++) {
-                    if(list[i1].value === _this.tool) {
-                        list[i1].checked = true;
-                        done = true;
-                    }
-                }
-                if(!done) {
-                    console.log("this shouldn't happen");
-                };
-            }
-            else if(type === "add to palette") {
-                this.remove_color(color);
-                _this.palette.push(color);
-                _this.palette_index = _this.palette.length - 1;
-                _this.refresh_palette();
-            }
-            else {
-                console.log("this shouldn't happen");
-            }
-            _this.stroke = null;
-            // this is pretty much only a problem if it switches tools, but...
-            // for this tool, things only happen at mousedown, so skip anything
-            // at mousemove or mouseup.
+        if(_this.tool === "pen" || _this.tool === "eraser" || _this.tool === "dither") {
+            stroke.prev = null;
         }
         else if(_this.tool === "bucket") {
-            let diagonal = _this.html.bucket_diagonal.checked;
-            let covered = [structuredClone(click)];
-            // all points included in the fill.
-            _this.stroke = null;
-            _this.states.save();
+            const select = _this.select ? Rect.abs(_this.select) : Rect.new(0, 0, _this.canvas.width, _this.canvas.height);
+            if(Rect.inside(select, ...click)) {
+                const image = ctx.getImageData(select.x, select.y, select.w, select.h).data;
+                let raster = [];
+                for(i1 = 0; i1 < image.length; i1 += 4) {
+                    let alpha = image[i1 + 3];
+                    raster.push(
+                        alpha
+                        ?
+                        (image[i1 + 0] + "," + image[i1 + 1] + "," + image[i1 + 2] + "," + alpha)
+                        :
+                        ""
+                    );
+                }
+                raster = Raster.bucket(
+                    raster, select.w,
+                    click[0] - select.x, click[1] - select.y,
+                    _this.html.bucket_diagonal.checked
+                );
+                ctx.fillStyle = _this.forecolor;
+                for(i1 = 0; i1 < raster.length; i1++) {
+                    if(raster[i1]) {
+                        if(_this.html.bucket_mask.checked) {
+                            ctx.clearRect(...Rect.getcoor(select, i1), 1, 1);
+                        }
+                        else {
+                            ctx.fillRect(...Rect.getcoor(select, i1), 1, 1);
+                        }
+                    }
+                }
+                _this.stroke = null;
+                // make sure mousemove events don't trigger
+                _this.refresh();
+            }
         }
-        //"pen",
-        //"eraser",
-        //"color picker",
-        //"select",
-        //"select cells",
-        //"bucket"
+        else if(_this.tool === "select move" || _this.tool === "select scale") {
+            if(_this.select) {
+                let rect = Rect.abs(_this.select);
+                stroke.copydata = copy(ctx, rect.x, rect.y, rect.w, rect.h, _this.backcolor);
+                if(_this.tool === "select scale") {
+                    stroke.x_sign = Number(click[0] >= Rect.r(rect)) - Number(click[0] < Rect.l(rect));
+                    stroke.y_sign = Number(click[1] >= Rect.d(rect)) - Number(click[1] < Rect.u(rect));
+                    if(!stroke.x_sign && !stroke.y_sign) {
+                        let dir = get2dangle(...Points.subtract(click, Rect.center(rect)), true) ?? 0;
+                        dir = posmod(dir/(2*Math.PI) - 1/8, 1);
+                        dir = Math.floor(4*dir);
+                        stroke.x_sign = dir === 0 ? 1 : dir === 2 ? -1 : 0;
+                        stroke.y_sign = dir === 1 ? 1 : dir === 3 ? -1 : 0;
+                    }
+                }
+                ctx.fillStyle = _this.backcolor;
+                ctx.clearRect(rect.x, rect.y, rect.w, rect.h);
+                ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+                stroke.image = ctx.getImageData(0, 0, _this.canvas.width, _this.canvas.height);
+            }
+        }
     }
     mousemove(e, _this, finish) {
         let i1 = 0;
+        let i2 = 0;
         _this ??= this;
         let click = _this.clickxy(e);
         let stroke = _this.stroke;
         if(!stroke) {
+        // exit if they're not in the middle of a stroke
             return;
         }
         stroke.path.push(structuredClone(click));
-        let w = _this.html.canvas.width;
-        let h = _this.html.canvas.height;
+        let start = stroke.path.length ? stroke.path[0] : null;
+        let end = stroke.path.length ? stroke.path[stroke.path.length - 1] : null;
+        let w = _this.canvas.width;
+        let h = _this.canvas.height;
+        let ctx = _this.ctx;
+        ctx.putImageData(stroke.image, 0, 0);
+        _this.refresh("states");
+        const select = _this.select ? Rect.abs(_this.select) : null;
         //
-        if(_this.tool === "pen" || _this.tool === "eraser") {
+        if(_this.tool === "pen" || _this.tool === "eraser" || _this.tool === "dither") {
             if(stroke.path.length) {
-                let start = stroke.path[stroke.path.length - (stroke.path.length >= 2 ? 2 : 1)];
-                let end = stroke.path[stroke.path.length - 1];
+                start = stroke.path[stroke.path.length - (stroke.path.length >= 2 ? 2 : 1)];
                 let r = _this[_this.tool + "_r"];
                 let coverage = null;
                 if(r) {
@@ -14868,7 +16330,7 @@ class PixelArt {
                         }
                     }
                 }
-                _this.ctx.fillStyle = _this[(_this.tool === "eraser" ? "back" : "fore") + "color"];
+                ctx.fillStyle = _this[(_this.tool === "eraser" ? "back" : "fore") + "color"];
                 for(i1 = 0; i1 < coverage.raster.length; i1++) {
                     if(coverage.raster[i1]) {
                         let coor = Rect.getcoor(coverage, i1);
@@ -14883,22 +16345,1442 @@ class PixelArt {
                                     coor = null;
                                 }
                             };
-                            if(coor && (!this.select || !_this.select.w || !_this.select.h || Rect.inside(_this.select, ...coor))) {
-                                _this.ctx.fillRect(...coor, 1, 1);
+                            if(coor && (!this.select || Rect.inside(_this.select, ...coor))) {
+                                if(_this.tool === "eraser" && _this.html.eraser_mask.checked) {
+                                    ctx.clearRect(...coor, 1, 1);
+                                }
+                                else if(_this.tool !== "dither" ? true : (
+                                    dither_interpreter(_this.html.dither_type.value, ...coor, _this.html.dither_invert.checked)
+                                    &&
+                                    (!_this.html.dither_back.checked || getcolor(ctx, ...coor) === _this.backcolor)
+                                )) {
+                                    ctx.fillRect(...coor, 1, 1);
+                                };
                             };
                         }
                     }
                 }
+                stroke.image = ctx.getImageData(0, 0, w, h);
                 stroke.prev = structuredClone(coverage);
             }
         }
+        else if(_this.tool === "colorpick") {
+            let type = _this.html.colorpick_type.innerText;
+            let color = getcolor(ctx, ...click);
+            if(type === "forecolor" || type === "backcolor") {
+                _this[type] = color;
+                if(finish) {
+                    _this.tool = type === "backcolor" ? "eraser" : "pen";
+                }
+            }
+            else if(type === "add to palette") {
+                if(_this.palette[_this.palette.length - 1] !== color) {
+                    _this.palette.push(color);
+                    let index = _this.palette_index;
+                    _this.palette_index = _this.palette.length - 1;
+                    _this.refresh_palette();
+                    if(!finish) {
+                        _this.palette_index = index;
+                        _this.palette.splice(_this.palette.length - 1, 1);
+                    }
+                }
+            }
+            else {
+                console.log("this shouldn't happen");
+            }
+        }
+        else if(_this.tool === "select" || _this.tool === "grid select") {
+            if(stroke.path.length) {
+                let _select = structuredClone(_this.select);
+                if(_this.tool === "grid select") {
+                    let grid = _this.grid;
+                    let temp = [
+                        Math.floor((start[0] - grid.x)/grid.w),
+                        Math.floor((start[1] - grid.y)/grid.h),
+                        Math.floor((end[0] - grid.x)/grid.w),
+                        Math.floor((end[1] - grid.y)/grid.h)
+                    ];
+                    temp = Rect.reach(Rect.new(temp[0], temp[1], 0, 0), temp[2], temp[3]);
+                    temp.w++;
+                    temp.h++;
+                    _this.select = Rect.overlap(Rect.new(0, 0, _this.canvas.width, _this.canvas.height), Rect.new(
+                        grid.w*temp.x + grid.x,
+                        grid.h*temp.y + grid.y,
+                        grid.w*temp.w,
+                        grid.h*temp.h,
+                    ));
+                }
+                else {
+                    let temp = {
+                        x: start[0],
+                        y: start[1],
+                        w: end[0] - start[0],
+                        h: end[1] - start[1],
+                    }
+                    if(temp.w || temp.h) {
+                    // - the way the selection is before this math, the start
+                    //   and end of the rect are the top-left corners of the
+                    //   pixels the start/end of the click were on.
+                    // - but, the corners at the bottom and right edge are
+                    //   unreachable if you do it like that. meaning, selections
+                    //   can NEVER have pixels on the bottom or right edge.
+                    // - so instead, you make it work like grid select, in that
+                    //   the start and end represent "pixels the selection has
+                    //   to contain". 1 x 1 blocks, not 0 x 0 corners.
+                    // - and the reason this doesn't happen if the start and end
+                    //   are on the same pixel is... if it doesn't, that means
+                    //   you can easily deselect by clicking without dragging.
+                    //   that's useful. it does is make 1 x 1 selections
+                    //   impossible, but who cares.
+                        temp.x += temp.w < 0;
+                        temp.y += temp.h < 0;
+                        temp.w += temp.w < 0 ? -1 : 1;
+                        temp.h += temp.h < 0 ? -1 : 1;
+                    };
+                    _this.select = structuredClone(temp);
+                };
+                _this.refresh("states");
+                if(!finish) {
+                    _this.select = structuredClone(_select);
+                }
+            };
+        }
+        else if(_this.tool === "line" || _this.tool === "rectangle" || _this.tool === "ellipse") {
+            if(stroke.path.length) {
+                const filled = _this.html.shape_fill.checked;
+                if(_this.tool === "line") {
+                    ctx.strokeStyle = _this.forecolor;
+                    linespecial(ctx, ...start, ...end);
+                }
+                else if(_this.tool === "rectangle") {
+                    let temp = [start[0], start[1], end[0] - start[0], end[1] - start[1]];
+                    if(filled) {
+                        ctx.fillStyle = _this.forecolor;
+                        ctx.fillRect(...temp);
+                    }
+                    else {
+                        ctx.strokeStyle = _this.forecolor;
+                        temp[0] += .5;
+                        temp[1] += .5;
+                        ctx.strokeRect(...temp);
+                    }
+                }
+                else if(_this.tool === "ellipse") {
+                    ctx.fillStyle = _this.forecolor;
+                    let rect = Rect.reach(Rect.new(...start, 0, 0), ...end);
+                    rect.w++;
+                    rect.h++;
+                    let raster = Raster.fullellipse(rect.w, rect.h);
+                    if(!filled) {
+                        raster = Raster.outline(raster, rect.w);
+                    }
+                    for(i1 = 0; i1 < raster.length; i1++) {
+                        if(raster[i1]) {
+                            ctx.fillRect(...Rect.getcoor(rect, i1), 1, 1);
+                        }
+                    }
+                };
+            }
+        }
+        else if(_this.tool === "text") {
+            ctx.textBaseline = "middle";
+            ctx.font = "6px 'thick 4x4'";
+            ctx.fillStyle = _this.forecolor;
+            ctx.fillText(_this.html.text_text.value.toLowerCase(), ...click);
+        }
+        else if(_this.tool === "ramp") {
+            let start = _this.color_input(_this.html.ramp_start.value) || _this.forecolor;
+            let end = _this.color_input(_this.html.ramp_end.value) || _this.backcolor;
+            let num = Number(_this.html.ramp_number.value);
+            let size = Number(_this.html.ramp_size.value);
+            let vertical = _this.html.ramp_vertical.checked;
+            ctx.fillStyle = start;
+            ctx.fillRect(click[0], click[1], size, size);
+            ctx.fillStyle = end;
+            ctx.fillRect(
+                click[0] + (vertical ? 0 : size*(1 + num)),
+                click[1] + (vertical ? size*(1 + num) : 0),
+                size, size
+            );
+            for(i1 = 0; i1 < 2; i1++) {
+                let color = i1 ? end : start;
+                let format = Color.format(color);
+                if(format === "hex6") {
+                    color += "ff";
+                }
+                else if(format !== "hex8") {
+                    console.log("this shouldn't happen");
+                };
+                let _color = [];
+                for(i2 = 0; i2 < 4; i2++) {
+                    _color.push(parseInt(color.slice(1 + 2*i2, 3 + 2*i2), 16));
+                }
+                if(i1) {
+                    end = structuredClone(_color);
+                }
+                else {
+                    start = structuredClone(_color);
+                };
+            }
+            for(i1 = 0; i1 < num; i1++) {
+                let color = "#";
+                for(i2 = 0; i2 < 4; i2++) {
+                    let value = (1 + i1)/(num + 1);
+                    value = (1 - value)*start[i2] + value*end[i2];
+                    color += numtohex(Math.round(value), 2);
+                }
+                ctx.fillStyle = color;
+                ctx.fillRect(
+                    click[0] + (vertical ? 0 : size*(1 + i1)),
+                    click[1] + (vertical ? size*(1 + i1) : 0),
+                    size, size
+                );
+            }
+        }
+        else if(_this.tool === "select move") {
+            if(_this.select && stroke.path.length) {
+                let rect = structuredClone(_this.select);
+                let shift = Points.subtract(end, start);
+                if(_this.html.select_move_snap.checked) {
+                    let grid = [_this.grid.w, _this.grid.h];
+                    shift = Points.multiply(Points.trunc(Points.divide(shift, grid)), grid);
+                };
+                rect.x += shift[0];
+                rect.y += shift[1];
+                paste(ctx, stroke.copydata, Rect.l(rect), Rect.u(rect));
+                if(finish) {
+                    _this.select = structuredClone(rect);
+                    // setting one property at a time wouldn't trigger the setter,
+                    // so avoid that.
+                }
+                _this.refresh(["graphics", "states"]);
+            }
+        }
+        else if(_this.tool === "select scale") {
+
+        }
+        else if(_this.tool === "paste") {
+            if(_this.html.paste_snap.checked) {
+                click = Rect.snap(_this.grid, ...click);
+            };
+            paste(ctx, _this.copydata, ...click);
+            _this.refresh(["graphics", "states"]);
+        };
+        //
+        if(_this.tool === "line" || _this.tool === "rectangle" || _this.tool === "ellipse" || _this.tool === "text" || _this.tool === "ramp") {
+            if(select) {
+            // get rid of everything outside the selection
+                let change = ctx.getImageData(select.x, select.y, select.w, select.h);
+                ctx.putImageData(stroke.image, 0, 0);
+                ctx.putImageData(change, select.x, select.y);
+            };
+            if(!finish) {
+            // show changes
+                _this.refresh("states");
+            };
+        };
         //
         if(finish) {
             _this.stroke = null;
-            _this.states.save();
+            if(_this.tool !== "select" && _this.tool !== "grid select") {
+                _this.refresh();
+            };
+        };
+        if("pen, eraser, dither, line, rectangle, ellipse".split(", ").includes(_this.tool)) {
+        // the select border should still be drawn during strokes, but don't
+        // allow frame resets that would wipe your stroke.
+            //_this.refresh(["frame", "states"]);
         };
     }
     mouseup(e, _this) {
         _this.mousemove(e, _this, true);
+    }
+    transfer(ctx, replace) {
+    // used when transferring images from other tools.
+    // - ctx: ctx to copy from
+    // - replace: if true, it will replace the current image with this image,
+    //   and save a new state. otherwise, it'll save it as copy/paste data.
+    // - border: if true, it'll draw a rectangle around it to mark its borders.
+    // - cell_w, cell_h: if these are valid, it'll mark the border at these
+    //   intervals.
+    //   - for example, armature artist sends animations, with multiple views
+    //     and frames. this divides the image into cells, each with a different
+    //     purpose.
+    //   - it'd be helpful to see where the boundaries of those cells are, so
+    //     there's two-pixel gaps in the borders where cells meet.
+    // - name: this will be written above the border.
+    // - the border and name are drawn in forecolor.
+        let i1 = 0;
+        let w = ctx.canvas.width;
+        let h = ctx.canvas.height;
+        if(replace) {
+            this.canvas.width = w;
+            this.canvas.height = h;
+            this.ctx.putImageData(ctx.getImageData(0, 0, w, h), 0, 0);
+            if(this.select && !Rect.encloses(Rect.new(0, 0, w, h), this.select)) {
+                this.select = Rect.overlap(Rect.new(0, 0, w, h), this.select);
+            };
+            this.update_frame_scroll();
+            this.refresh();
+        }
+        else {
+            this.copydata = copy(ctx, 0, 0, w, h);
+            this.tool = "paste";
+        };
+    }
+    keydown(e) {
+    // put this in the page's onkeydown, within an "actually using this tool
+    // right now" conditional.
+    // - e: the KeyboardEvent.
+        let key = keyinterpreter(e.key);
+        let ctrl = e.ctrlKey;
+        let shift = e.shiftKey;
+        if(ctrl && shift) {
+            if(key === "z") {
+                this.html.redo.click();
+                e.preventDefault();
+            };
+        }
+        else if(ctrl) {
+            if(key === "z") {
+                this.html.undo.click();
+                e.preventDefault();
+            }
+            else if(key === "s") {
+                this.html.save.click();
+                e.preventDefault();
+            }
+            else if(key === "o") {
+                this.html.load.click();
+                e.preventDefault();
+            }
+            else if(key === "c") {
+                if(this.select) {
+                    this.html.copy.click();
+                };
+                e.preventDefault();
+            }
+            else if(key === "x") {
+                if(this.select) {
+                    this.html.cut.click();
+                };
+                e.preventDefault();
+            }
+            else if(key === "v") {
+                if(this.copydata) {
+                    this.tool = "paste";
+                };
+                e.preventDefault();
+            };
+        }
+        else if(shift) {
+
+        }
+        else if(this.tool !== "anim") {
+            if(key === "a") {
+                this.html.frame_x.value = this.frame_x - 1;
+                this.html.frame_x.oninput();
+                e.preventDefault();
+            }
+            else if(key === "d") {
+                this.html.frame_x.value = this.frame_x + 1;
+                this.html.frame_x.oninput();
+                e.preventDefault();
+            }
+            else if(key === "w") {
+                this.html.frame_y.value = this.frame_y - 1;
+                this.html.frame_y.oninput();
+                e.preventDefault();
+            }
+            else if(key === "s") {
+                this.html.frame_y.value = this.frame_y + 1;
+                this.html.frame_y.oninput();
+                e.preventDefault();
+            }
+            else if(key === "q") {
+                this.html.frame_size.value = this.frame_size - 1;
+                this.html.frame_size.oninput();
+                e.preventDefault();
+            }
+            else if(key === "e") {
+                this.html.frame_size.value = this.frame_size + 1;
+                this.html.frame_size.oninput();
+                e.preventDefault();
+            };
+        }
+    }
+}
+function crosssection(points, quat, center) {
+// returns a _2dPoly cross section of the shape that would be made by convexing
+// the given 3d points.
+// - points should NOT be the kind of shape Raster.from3d is designed around. if
+//   you wanna use it on those, do it for each individual point group, and run
+//   addspheroids first.
+// - quat, center: combined, this represents the cutting plane.
+//   - the z axis of the quaternion is the direction it faces. the x and y axes
+//     are used for the _2dPoly. (ie, if a point of the cross section is [3, 7],
+//     that means you start at center, move 3 units if the quaternion x axis'
+//     direction, 7 units in the quaternion's y axis direction.)
+	let i1 = 0;
+	let i2 = 0;
+	let plane = new Line(...center, Angle.get(...Quat.basis(quat)[2])).plane();
+	let shape = [];
+	// what it returns in the end
+	let side1 = [];
+	let side2 = [];
+	// lists of point indexes.
+	// - side1 is the points on one side of the plane, side2 is the other.
+	for(i1 = 0; i1 < points.length; i1++) {
+		let sign = Math.sign(roundspecial(plane.pointtotal(points[i1])));
+		if(sign === -1) {
+			side1.push(i1);
+		}
+		else if(sign === 0) {
+			shape.push(structuredClone(points[i1]));
+		}
+		else if(sign === 1) {
+			side2.push(i1);
+		}
+		else {
+			console.log("this shouldn't happen");
+		};
+	}
+	for(i1 = 0; i1 < side1.length; i1++) {
+		for(i2 = 0; i2 < side2.length; i2++) {
+            let line = Line.frompoints(points[ side1[i1] ], points[ side2[i2] ]);
+            shape.push(line.planeintersect(plane));
+		}
+	}
+    // iterate between every combination of points that are on opposite sides of
+    // the plane, and find where the line between them intersects the plane.
+	let unquat = Quat.invert(quat);
+	for(i1 = 0; i1 < shape.length; i1++) {
+		let point = Points.subtract(shape[i1], center);
+        point = Quat.apply(unquat, point);
+        if(roundspecial(point[2])) {
+            console.log("this shouldn't happen");
+        }
+		shape[i1] = point.slice(0, 2);
+	}
+    // make it relative to the center, and reverse the orientation of the plane
+    // to convert it to quaternion x/y units.
+	return shape.length < 3 ? [] : _2dPoly.convexed(shape);
+}
+function shapeslices(points, quat, center, slice_count, slice_spacing, convert) {
+// returns cross sections of the shape that would be made by convexing the given
+// 3d points.
+// - returned object:
+//   - slice: array of arrays of 3d points. outlines of each slice.
+//   - pos, neg: points that are outside of all the slices. not on any slice,
+//     and not between any slices. useful when connecting slices to form 3d
+//     sectors.
+// - points should NOT be the kind of shape Raster.from3d is designed around. if
+//   you wanna use it on those, do it for each individual point group, and run
+//   addspheroids first.
+// - quat, center: combined, this represents the cutting plane. the z axis of
+//   the quaternion is the direction it faces.
+// - slice_count, slice_spacing: number of cuts, and how much the cutting plane
+//   should move in its z direction between cuts.
+//   - i don't feel like accounting for negative slice_spacing. don't do it.
+// - convert: if true, it'll convert all points to 2d.
+//   - the x and y axes of the quaternion are used for this. if a 2d point is
+//     [3, 7], that means you start at center, move three units in the x
+//     direction, 7 in the y direction, and slice_index*slice_spacing in the z
+//     direction. that gets you to the 3d position it used to have.
+	let i1 = 0;
+    let i2 = 0;
+	let i3 = 0;
+    let unquat = Quat.invert(quat);
+    let toplanespace = (point, center) => Quat.apply(unquat, Points.subtract(point, center));
+    let fromplanespace = (point, center) => Points.add(center, Quat.apply(quat, [point[0], point[1], point[2] ?? 0]));
+    //
+    let z_vect = Quat.basis(quat)[2];
+    let z_angle = Angle.get(...z_vect);
+    slice_count = typeof slice_count === "number" && slice_count > 0 ? slice_count : 1;
+    if(slice_spacing < 0) {
+        console.log("don't use negative slice_spacing numbers. i didn't account for that.");
+        // you probably just switch obj pos and neg and reverse the slice array,
+        // but i have no reason to bother with that.
+        return;
+    };
+    slice_spacing = typeof slice_spacing === "number" && slice_spacing > 0 ? slice_spacing : 1;
+    let _points = structuredClone(points);
+    // it's gonna edit this, so make a duplicate. that way, object reference
+    // won't screw the user
+    let obj = {pos: [], neg: [], slices: []};
+    for(i1 = 0; i1 < slice_count; i1++) {
+        let pos = [];
+        // points on the positive side of the cutting plane
+        let neg = [];
+        // points on the negative side
+        let slice = [];
+        let _center = Points.add(center, Points.multiply(z_vect, i1*slice_spacing));
+        for(i2 = 0; i2 < _points.length; i2++) {
+            let sign = Math.sign(roundspecial(toplanespace(_points[i2], _center)[2]));
+            // use this instead of plane.pointsign, because pos and neg have to
+            // represent being in the positive/negative direction of the plane's
+            // z axis.
+            let array = sign === -1 ? neg : sign === 0 ? slice : sign === 1 ? pos : null;
+    		if(array) {
+                array.push(structuredClone(_points[i2]));
+            }
+            else {
+    			console.log("this shouldn't happen");
+                //console.log(" " + _points[i2]);
+                //console.log(" " + plane.pointtotal(_points[i2]));
+    		};
+    	}
+        let plane = new Line(..._center, z_angle).plane();
+    	for(i2 = 0; i2 < pos.length; i2++) {
+    		for(i3 = 0; i3 < neg.length; i3++) {
+            // round robin through all combinations of points that are on
+            // opposite sides of the plane. find where the line between them
+            // intersects the plane, and add that to the slice.
+                slice.push(Line.frompoints(pos[i2], neg[i3]).planeintersect(plane));
+    		}
+    	}
+        //
+        for(i2 = 0; i2 < slice.length; i2++) {
+            slice[i2] = toplanespace(slice[i2], _center).slice(0, 2);
+        }
+        slice = slice.length < 3 ? [] : _2dPoly.convexed(slice);
+        for(i2 = 0; i2 < slice.length; i2++) {
+            slice[i2] = fromplanespace(slice[i2], _center);
+        }
+        // _2dPoly.convexed is necessary, to avoid redundant points. but, it has
+        // to be converted back to 3d points.
+        obj.slices.push(structuredClone(slice));
+        if(i1 === 0) {
+            obj.neg = structuredClone(neg);
+        };
+        if(i1 === slice_count - 1) {
+            obj.pos = structuredClone(pos);
+        };
+        _points = structuredClone(pos).concat(structuredClone(slice));
+        // get rid of all points on the negative side. that way, there's less
+        // points to round-robin through next iteration.
+    }
+    if(convert) {
+    // convert to 2d.
+        for(i1 = -2; i1 < slice_count; i1++) {
+            let array = i1 === -2 ? obj.pos : i1 === -1 ? obj.neg : obj.slices[i1];
+            for(i2 = 0; i2 < array.length; i2++) {
+                let point = toplanespace(array[i2], center);
+                if(i1 >= 0 && roundspecial(point[2] - i1*slice_spacing)) {
+                // and if it's a slice, z should be index * spacing. if it
+                // isn't, something went wrong.
+                    console.log("this shouldn't happen");
+                }
+                array[i2] = point.slice(0, 2);
+            }
+        }
+    }
+	return obj;
+}
+
+class Animator {
+// a class that creates an animation player.
+// - structure:
+//   - container: the <div> everything is put in.
+//   - canvas, ctx: the canvas the animation is displayed on, and the context
+//     for editing it.
+//   - w, h: linked to the dimensions of the canvas. NOTE: changing these will
+//     wipe the current animation.
+//   - frames: array of ImageDatas. it animates by using putImageData with
+//     this. NOTE this should never be empty.
+//   - frame: number for which frame is displayed.
+//   - playing: boolean for if it's playing. clicking the canvas turns this on
+//     or off.
+//   - interval: used for setInterval
+//   - html: object storing references to all relevant elements.
+//   - the property names are the element names after a .replaceAll(" ", "_").
+//   - animation settings
+//     - each animation setting is something like this:
+//       - _fps: fps number
+//       - get fps, set fps: getters/setters that avoid invalid values, and
+//         update input elements
+//       - html.fps: input element that lets the user change the fps
+//     =
+//     - fps (frames per second, number input)
+//     - loop (checkbox)
+//     - pingpong (checkbox, makes it go back and forth)
+//   - reverse: boolean. used in pingpong, to tell if it's in the second half.
+//   - other elements
+//     - play (button)
+//     - prev, next (buttons that tick the frame up/down while it's paused.)
+//     - sheet (canvas inside a <details>, showing all the frames. .updatesheet
+//       updates it.)
+//     - save frame (button that saves an image of the frame)
+//     - save sheet (button that saves an image of the sheet)
+//   - filename: used when saving images.
+//     - write "*frame", and it'll replace that with " frame" if it's saving a
+//       frame, or nothing if it's saving the sheet.
+//     - write "*sheet", and it'll replace that with " sheet" if it's saving the
+//       sheet, nothing if it's saving a frame.
+//     - write "*date", and it'll replace that with the date, in YYYY_MM_DD
+//       form.
+//     - it'll add ".png", so don't bother writing that.
+//   - sheet: another object of html references, for a <details> at the end,
+//     with a spritesheet inside.
+//     - details: the <details> it's all inside. hide this if you don't want any
+//       sheet-related stuff.
+//     - canvas
+//     - wrap: input for how many wide a row gets before it moves on to the next
+//       row.
+//     - vertical: checkbox for switching the axes of the spritesheet.
+//     - save: button that saves the image.
+//   - sheet_ctx: ctx of sheet.canvas.
+// - custom html system:
+//   - every html element except the canvas and the sheet <details>, including
+//     animation settings elements, is optional.
+//   - the html argument of the constructor should be a string array.
+//   - you pretty much just write your own html code. it's useful for adding
+//     extra settings or buttons related to updates to the animation.
+//   - but it'd be annoying to have to write all the standard stuff (fps, loop,
+//     etc) manually.
+//   - that's why it's an array. if you write something like "#fps" as an array
+//     item, it'll insert the premade code in Animator.template_elements.
+//   - NOTE: if you use a name that happens to be a template_elements property,
+//     it'll be expected to be the same kind of thing.
+//     - so, you can use "fps" as a name... but only if you're just changing how
+//       that input element is written. it'll be expected to be a number input,
+//       and it'll still be tied to .fps.
+    static template_elements = {
+        play: "<button name=\"play\" style=\"width: 4em\">play</button>",
+        prev: "<button name=\"prev\">&#160;&#60;&#160;</button>",
+        next: "<button name=\"next\">&#160;&#62;&#160;</button>",
+        fps: "<label><input type=\"number\" name=\"fps\" style=\"width: 3em\" value=12> fps</label>",
+        loop: "<label><input type=\"checkbox\" name=\"loop\"> loop</label>",
+        pingpong: "<label><input type=\"checkbox\" name=\"pingpong\"> pingpong</label>",
+        save_frame: "<button name=\"save frame\">save frame</button>",
+    }
+    static template_html = [
+        "#play", " ", "#prev", " ", "#next",
+        "\n<br>", "#fps",
+        "\n<br>", "#loop",
+        "\n<br>", "#pingpong",
+        "\n<br>", "#save_frame"
+    ]
+    constructor(container, html) {
+        let i1 = 0;
+        html = Array.isArray(html) ? html : typeof html === "string" ? [html] : Animator.template_html;
+        let _html = "";
+        let ref = Animator.template_elements;
+        for(i1 = 0; i1 < html.length; i1++) {
+        // do the # replacement
+            let temp = html[i1].startsWith("#") ? html[i1].slice(1) : "";
+            _html += (temp && temp in ref) ? ref[temp] : html[i1];
+        }
+        this.container = container;
+        _html = "<canvas></canvas>" + (_html ? "\n<br>" : "") + _html;
+        _html += "\n<details>\n\t" + [
+            "<summary>sheet</summary>",
+            "<ul>",
+            "\t<label><input type=\"number\" style=\"width: 3em\" value=4 min=0> wrap</label>",
+            "\t<br><label><input type=\"checkbox\"> vertical</label>",
+            "\t<br><canvas></canvas>",
+            "\t<br><button>save</button>",
+            "</ul>"
+        ].join("\n\t") + "\n</details>";
+        container.innerHTML = _html;
+        // write the html
+        this.canvas = container.querySelector("canvas");
+        this.ctx = this.canvas.getContext("2d");
+        this.canvas.width = 256;
+        this.canvas.height = 256;
+        this.frames = [];
+        this.ctx.clearRect(0, 0, this.w, this.h);
+        this.frames.push(this.ctx.getImageData(0, 0, this.w, this.h));
+        this._frame = 0;
+        this._playing = false;
+        this.interval = null;
+        this.html = {};
+        this._fps = Animator.default_fps;
+        this._loop = false;
+        this._pingpong = false;
+        this.reverse = false;
+        this.filename = "anim *date*sheet";
+        this.sheet = {};
+        this.sheet_ctx = null;
+        // create all the properties
+        // - avoid running the w/h setters or writeframe. those run functions it
+        //   isn't ready for
+        let temp = container.querySelectorAll("details");
+        this.sheet.details = temp[temp.length - 1];
+        let list = htmldescendants(container);
+        let sheet_list = htmldescendants(this.sheet.details);
+        for(i1 = 0; i1 < list.length; i1++) {
+            let ref = list[i1];
+            let name = (ref.name ?? "").replaceAll(" ", "_");
+            if(sheet_list.includes(ref)) {
+                name = "";
+                let type = ref.tagName.toLowerCase();
+                if(type === "canvas") {
+                    name = type;
+                }
+                else if(type === "label") {
+                    name = ref.innerText;
+                    ref = ref.children[0];
+                }
+                else if(type === "button") {
+                    name = ref.innerText;
+                };
+                name = name.trim().toLowerCase().replaceAll(" ", "_");
+                if(name) {
+                    this.sheet[name] = ref;
+                };
+            }
+            else if(name) {
+                this.html[name] = list[i1];
+            };
+        }
+        this.sheet_ctx = this.sheet.canvas.getContext("2d");
+        this.updatesheet();
+        // create references, set up the sheet
+        let _this = this;
+        this.canvas.onclick = function(e) {
+            _this.playing = !_this.playing;
+        }
+        if("play" in this.html) {
+            this.html.play.onclick = function(e) {
+                _this.playing = !_this.playing;
+            }
+        }
+        if("prev" in this.html) {
+            this.html.prev.onclick = function(e) {
+                if(!_this.loop && !_this.pingpong && _this.frame === 0) {
+                    return;
+                };
+                _this.advance(_this, true);
+            }
+        }
+        if("next" in this.html) {
+            this.html.next.onclick = function(e) {
+                if(!_this.loop && !_this.pingpong && _this.frame === _this.frames.length - 1) {
+                    return;
+                };
+                _this.advance(_this);
+            }
+        }
+        if("fps" in this.html) {
+            this.html.fps.oninput = function(e) {
+                let value = readnumber(e.target.value);
+                if(value === null || value <= 0 || value === Infinity) {
+                    value = Animator.default_fps;
+                    e.target.value = value;
+                };
+                _this.fps = value;
+            }
+        }
+        if("loop" in this.html) {
+            this.html.loop.oninput = function(e) {
+                _this._loop = e.target.checked;
+            }
+        }
+        if("pingpong" in this.html) {
+            this.html.pingpong.oninput = function(e) {
+                _this._pingpong = e.target.checked;
+                _this.reverse = false;
+            }
+        }
+        if("save_frame" in this.html) {
+            this.html.save_frame.onclick = function(e) {
+                savecanvas(_this.canvas, _this.filename.replaceAll("*frame", " frame").replaceAll("*sheet", "").replaceAll("*date", filedate()) + ".png");
+            }
+        }
+        this.sheet.wrap.oninput = function(e) {
+            _this.updatesheet(_this);
+        }
+        this.sheet.vertical.oninput = function(e) {
+            _this.updatesheet(_this);
+        }
+        this.sheet.save.onclick = function(e) {
+            savecanvas(_this.sheet.canvas, _this.filename.replaceAll("*frame", "").replaceAll("*sheet", " sheet").replaceAll("*date", filedate()) + ".png");
+        }
+        // event listeners
+    }
+    get w() {
+        return this.canvas.width;
+    }
+    set w(value) {
+        if(this.w !== value && Number.isInteger(value) && value > 0) {
+            this.canvas.width = value;
+            this.ctx.clearRect(0, 0, this.w, this.h);
+            this.frames = [];
+            this.writeframe(0);
+        }
+    }
+    get h() {
+        return this.canvas.height;
+    }
+    set h(value) {
+        if(this.h !== value && Number.isInteger(value) && value > 0) {
+            this.canvas.height = value;
+            this.ctx.clearRect(0, 0, this.w, this.h);
+            this.frames = [];
+            this.writeframe(0);
+        }
+    }
+    get frame() {
+        return this._frame;
+    }
+    set frame(value) {
+        let duration = this.frames.length;
+        if(!Number.isInteger(value)) {
+            console.log("this shouldn't happen");
+            value = 0;
+        }
+        else if(!duration) {
+            console.log("this shouldn't happen");
+            return;
+        }
+        this._frame = posmod(value, duration);
+        this.refresh();
+    }
+    get playing() {
+        return this._playing;
+    }
+    set playing(value) {
+        if(!!value === this.playing) {
+            return;
+        }
+        this._playing = !!value;
+        if(value) {
+            let _this = this;
+            this.interval = setInterval(function(e) {
+                _this.advance(_this);
+                if(!_this.loop && _this.frame === 0) {
+                // stop if it's at the end of a loop. (loops end at the first
+                // frame, not the last.)
+                    _this.playing = false;
+                };
+            }, 1000/this.fps);
+        }
+        else {
+            clearInterval(this.interval);
+            this.interval = null;
+        }
+        if("play" in this.html) {
+            this.html.play.innerHTML = value ? "pause" : "play";
+        }
+        if("prev" in this.html) {
+            this.html.prev.disabled = !!value;
+        }
+        if("next" in this.html) {
+            this.html.next.disabled = !!value;
+        }
+    }
+    static default_fps = 12;
+    get fps() {
+        return this._fps;
+    }
+    set fps(value) {
+        if(typeof value !== "number" && value !== null) {
+            return;
+        };
+        if(value === null || value <= 0 || value === Infinity) {
+            value = Animator.default_fps;
+        };
+        this._fps = value;
+        if("fps" in this.html) {
+            this.html.fps.value = value;
+        }
+        if(this.playing) {
+        // reset the interval
+            this.playing = false;
+            this.playing = true;
+        };
+    }
+    get loop() {
+        return this._loop;
+    }
+    set loop(value) {
+        this._loop = !!value;
+        if("loop" in this.html) {
+            this.html.loop.checked = !!value;
+        }
+    }
+    get pingpong() {
+        return this._pingpong;
+    }
+    set pingpong(value) {
+        this._pingpong = !!value;
+        if("pingpong" in this.html) {
+            this.html.pingpong.checked = !!value;
+        }
+    }
+    writeframe(frame, ctx, x, y) {
+    // saves a canvas image into the .frames array.
+    // - NOTE: this should only be used for one-frame updates. it runs
+    //   updatesheet at the end, that's wasteful if you're updating every frame
+    //   at once.
+    // - all this does besides edit the frames array is make sure there's no
+    //   empty slots, (fills them with transparent frames) and run updatesheet
+    //   to make sure it doesn't fall behind.
+    // - as long as both of those are covered, you can just edit the frames
+    //   array directly.
+    // =
+    // - frame: index
+    // - ctx: ctx to copy from
+    // - x, y: coordinates of the upper left corner of the frame
+        ctx ??= this.ctx;
+        x ??= 0;
+        y ??= 0;
+        let image = ctx.getImageData(x, y, this.w, this.h);
+        if(frame >= this.frames.length + 1) {
+            this.ctx.clearRect(0, 0, this.w, this.h);
+            for(let i1 = this.frames.length; i1 < frame; i1++) {
+                this.frames.push(ctx.getImageData(0, 0, this.w, this.h));
+            }
+            ctx.putImageData(image, 0, 0);
+        }
+        this.frames[frame] = image;
+        this.updatesheet();
+    }
+    advance(_this, backward) {
+    // ticks the animation forward one frame, and switches direction for
+    // pingpong.
+    // - the end-of-nonloop pausing happens in the interval function.
+    // - the way it avoids previous/next frame looping around when loop is off
+    //   happens in those buttons' event listeners.
+    // - backward: used for the previous frame button.
+        _this ??= this;
+        let duration = _this.frames.length;
+        if(_this.pingpong && duration > 2) {
+            _this.frame += (
+                _this.frame === 0 ? 1 :
+                _this.frame === duration - 1 ? -1 :
+                // when it's at the ends, backward and forward are the same
+                // direction.
+                // - just so you know, it IS possible for reverse to be off when
+                //   it's on the last frame. since turning pingpong on or off
+                ///  turns off reverse. so be careful about that if you reword
+                //   this.
+                invertboolean(_this.reverse, backward) ? -1 : 1
+            );
+            _this.reverse = _this.frame === 0 ? false : _this.frame === duration - 1 ? true : _this.reverse;
+            // switch directions.
+            //
+            // a proper pingpong is like:
+            // - 0 / forward
+            // - 1 / forward
+            // - 2 / forward
+            // - 3 / backward
+            // - 2 / backward
+            // - 1 / backward
+            // - 0 / forward (if it isn't looping, end it here.)
+        }
+        else {
+            _this.frame += backward ? -1 : 1;
+        }
+    }
+    refresh(_this) {
+    // displays the current frame.
+        _this ??= this;
+        let duration = _this.frames.length;
+        if(!duration) {
+            _this.playing = false;
+            return;
+        };
+        _this.ctx.putImageData(_this.frames[_this.frame], 0, 0);
+    }
+    updatesheet(_this, ctx, wrap, vertical) {
+    // updates the sheet.
+    // - ctx: use a different canvas instead, for whatever reason
+    // - wrap, vertical: overrides the values of this.sheet wrap and vertical.
+        _this ??= this;
+        let duration = _this.frames.length;
+        if(!duration) {
+            return;
+        };
+        ctx ??= _this.sheet_ctx;
+        wrap = typeof wrap === "number" ? wrap : Number(_this.sheet.wrap.value);
+        wrap = (Number.isInteger(wrap) && wrap > 0) ? wrap : duration;
+        vertical ??= _this.sheet.vertical.checked;
+        //
+        let temp = [wrap, Math.ceil(duration/wrap)];
+        if(vertical) {
+            temp = [temp[1], temp[0]];
+        };
+        ctx.canvas.width = temp[0]*_this.w;
+        ctx.canvas.height = temp[1]*_this.h;
+        ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+        for(let i1 = 0; i1 < duration; i1++) {
+            let coor = [i1%wrap, Math.floor(i1/wrap)];
+            if(vertical) {
+                coor = [coor[1], coor[0]];
+            };
+            ctx.putImageData(_this.frames[i1], coor[0]*_this.w, coor[1]*_this.h);
+        }
+    }
+}
+
+class RayViewer {
+// probably an improvement on the Viewer class.
+// - x, y, z: position of the viewer
+// - quat: orientation. -z is the direction it's looking in, x and y are
+//   what angles match the screen x and y
+// - vp_x, vp_y: vanishing point, relative to the center. i'm not
+//   entirely sure how this is implemented, but i have a vague sense of
+//   how it works.
+// - range: same meaning it has in Viewer. a point can be, at maximum, 180
+//   degrees away. this is how many pixels away that would be.
+// - scale: .convert returns are multiplied by this.
+// - disable: if true, it won't do any perspective conversion at all.
+    constructor() {
+        this.x = 0;
+        this.y = 0;
+        this.z = 0;
+        this.quat = Quat.new();
+        this.vp_x = 0;
+        this.vp_y = 0;
+        this.range = 180;
+        this.scale = 1;
+        this.disable = false;
+    }
+    convert(x, y, z) {
+    // tells you where a 3d point should be on the screen, after being
+    // perspective-converted.
+    // - relative to the center of the screen, to be clear.
+    // - it returns 3d coordinates, not 2d. the third coordinate is usually
+    //   needed for layering, after all.
+        let point = Quat.apply(Quat.invert(this.quat), [x - this.x, y - this.y, z - this.z]);
+        // subtract the viewer's position to make it relative to it, do the
+        // opposite of what .quat does so you cancel out orientation
+        if(!this.disable) {
+            point[0] -= this.vp_x;
+            point[1] -= this.vp_y;
+            // make it relative to the vanishing point
+            for(let i1 = 0; i1 < 2; i1++) {
+                let num = get2dangle(point[2], point[i1], true) ?? 0;
+                if(num >= Math.PI) {
+                // make it range from -pi to pi, not 2 to 2*pi
+                    num -= 2*Math.PI;
+                }
+                num *= this.range/Math.PI;
+        		// convert to degrees, use the range to convert to pixels
+                point[i1] = num;
+            }
+            point[0] += this.vp_x;
+            point[1] += this.vp_y;
+        }
+        return [this.scale*point[0], this.scale*point[1], point[2]];
+    }
+    ray(x, y) {
+    // each pixel on a screen represents a ray shooting into 3d space, right?
+    // this returns a Line of that ray's position and angle.
+    // - x and y should be how many pixels away from the center of the screen it
+    //   is.
+        let point = Points.add([this.x, this.y, this.z], Quat.apply(this.quat, [x/this.scale, y/this.scale, 0]));
+        if(this.disable) {
+            return new Line(...point, Angle.get(...Quat.apply(this.quat, [0, 0, -1])));
+        };
+        let xz = x/(this.scale*this.range/Math.PI);
+        let yz = y/(this.scale*this.range/Math.PI);
+        xz += xz < 0 ? 2*Math.PI : 0;
+        yz += yz < 0 ? 2*Math.PI : 0;
+        // - divide by scale to cancel it out
+        // - divide by range/pi to convert it from pixels back to angle
+        // - make sure it ranges between 0 and 2 pi instead of -pi and pi
+        let angle = rotate(rotate([0, 0, -1], "xz", xz), "yz", yz);
+        angle = Angle.get(...Quat.apply(this.quat, angle));
+        return new Line(...point, angle);
+    }
+}
+class Paper {
+// a class for creating/displaying backgrounds made of 2d vector shapes oriented
+// in 3d space.
+// - this class is the "scene", storing all of those shapes, view settings, etc.
+// =
+// - view settings
+//   - viewer: a RayViewer
+//     - camera angle
+//     - camera position
+//     - perspective
+//     - scale
+//   - dimensions
+//   - background color
+//   - circle fineness
+// - light: object representing a light source.
+//   - x, y, z
+//   - light_value
+//   - light_hue
+//   - dark_value
+//   - dark_hue
+//   =
+//   - light_value and dark_value affect how the values of the colors
+//     change. if it's negative, color values are divided by the absolute
+//     value of this number. if it's positive, their distance from maximum
+//     value is divided by this number.
+//   - light_hue and dark_hue cause hue shift.
+//   - to be clear, this is NOT a full lighting system. it's primarily here
+//     to make sure surfaces with the same base color look like slightly
+//     different colors depending on how they're oriented.
+// - sheets: array of objects representing 2d shapes oriented in 3d space.
+//   - color
+//   - x, y, z
+//   - center_x, center_y: used to calculate its angle to the light source. it
+//     uses the plane axes, like the shape points.
+//   - quat: orientation quaternion.
+//     - the z axis is which direction it faces, the x and y axes are used
+//       for plane coordinates. standard fare.
+//   - shapes: array of shapes defining what areas of the sheet do and
+//     don't exist.
+//     - type: what it does
+//       - "add": if a point is inside this shape, it isn't a gap. (unless
+//         it's inside a later "subtract".)
+//       - "subtract": if a point is inside this shape, it's in a gap.
+//     - points: points that define the shape.
+//       - this is a 2d version of the addspheroids/Raster.from3d system.
+//         groups of points and ellipses that get convexed.
+//       - a point is [x, y, w, h, angle]
+//         - angle being a number from 0 to 2 pi
+//         - just like the 3d version, there can be just [x, y, w, h], or [x, y,
+//           w], or [x, y]
+//   - neighbors: array of sheet indexes that should be directly adjacent
+//     to this.
+//     - this is technical minutia stuff. it's a way of avoiding crappy
+//       ugly edges that have crappy ugly gaps.
+    constructor() {
+        this.viewer = new RayViewer();
+        this.w = 128;
+        this.h = 128;
+        this.viewer.y -= this.h/2;
+        this.viewer.z -= this.w/2;
+        this.bg = "black";
+        this.fineness = 8;
+        this.light = {
+            x: 0,
+            y: -this.h/2,
+            z: 0,
+            light_value: 5/4,
+            dark_value: -3/4,
+        };
+        this.sheets = [];
+    }
+    static Sheet = class {
+        constructor(w, h, color) {
+            w = typeof w === "number" ? w : 0;
+            h = typeof h === "number" ? h : 0;
+            this.color = color ?? "silver";
+            this.x = 0;
+            this.y = 0;
+            this.z = 0;
+            this.center_x = w/2;
+            this.center_y = h/2;
+            this.quat = Quat.new();
+            this.shapes = [new Paper.Shape("add")];
+            this.shapes[0].points.push([
+                [0, 0],
+                [w, 0],
+                [0, h],
+                [w, h]
+            ]);
+            this.neighbors = [];
+        }
+    }
+    static Shape = class {
+        constructor(type) {
+            this.type = Paper.Shape.types.includes(type) ? type : Paper.Shape.types[0];
+            this.points = [];
+        }
+        static types = ["add", "subtract"]
+    }
+    render(ctx) {
+        let i1 = 0;
+        let i2 = 0;
+        let i3 = 0;
+        let i4 = 0;
+        ctx.canvas.width = this.w;
+        ctx.canvas.height = this.h;
+        ctx.clearRect(0, 0, this.w, this.h);
+        ctx.fillStyle = this.bg;
+        ctx.fillRect(0, 0, this.w, this.h);
+        let raster = {
+            sheet: [],
+            // - [sheet indexes]: _2dPoly.getdata for this whole sheet
+            shape: [],
+            // - [sheet indexes]
+            //   - [shape indexes]: _2dPoly.getdata for this whole shape
+            single: [],
+            // - [sheet indexes]
+            //   - [shape indexes]
+            //     - [group indexes]: _2dPoly.getdata for this group
+            scale: this.viewer.scale,
+        };
+        let shapes = [];
+        // - [sheet index]
+        //   - [shape index]
+        //     - [group indexes]: _2dPoly for this shape group, convexed.
+        for(i1 = 0; i1 < this.sheets.length; i1++) {
+        // for every sheet
+            let rect = null;
+            raster.sheet[i1] = null;
+            raster.shape[i1] = [];
+            raster.single[i1] = [];
+            shapes[i1] = [];
+            let ref = this.sheets[i1].shapes;
+            for(i2 = 0; i2 < ref.length; i2++) {
+            // for every shape
+                raster.shape[i1][i2] = null;
+                raster.single[i1][i2] = [];
+                shapes[i1][i2] = [];
+                for(i3 = 0; i3 < ref[i2].points.length; i3++) {
+                // for every group within a shape
+                    raster.single[i1][i2][i3] = null;
+                    shapes[i1][i2][i3] = null;
+                    let _ref = ref[i2].points[i3];
+                    let points = [];
+                    for(i4 = 0; i4 < _ref.length; i4++) {
+                    // convert the points to 3d, so addspheroids can use it
+                        let point = _ref[i4];
+                        if(point.length < 2) {
+                            console.log("this shouldn't happen");
+                        }
+                        else {
+                            points.push(
+                                point.length >= 5 ? [point[0], point[1], 0, point[2], point[3], 0, Quat.new("xy", point[4])] :
+                                // the Points.multiply will multiply the angle,
+                                // too. that makes no sense, so avoid that by
+                                // referencing the original value.
+                                point.length === 4 ? [point[0], point[1], 0, point[2], point[3], 0] :
+                                point.length === 3 ? [point[0], point[1], 0, point[2], point[2], 0] :
+                                [point[0], point[1], 0]
+                            );
+                        }
+                    }
+                    points = addspheroids(points, this.fineness);
+                    for(i4 = 0; i4 < points.length; i4++) {
+                        points[i4] = [raster.scale*points[i4][0], raster.scale*points[i4][1]];
+                    }
+                    shapes[i1][i2][i3] = _2dPoly.convexed(points);
+                    points = shapes[i1][i2][i3];
+                    raster.single[i1][i2][i3] = _2dPoly.getdata(points, true);
+                }
+                raster.shape[i1][i2] = _2dPoly.mergedata(raster.single[i1][i2]);
+                let data = raster.shape[i1][i2];
+                data.outline = Raster.outline(data.within, data.rect.w, true);
+                for(i3 = 0; i3 < raster.single[i1][i2].length; i3++) {
+                    data = raster.single[i1][i2][i3];
+                    data.outline = Raster.outline(data.within, data.rect.w, true);
+                }
+                rect = rect ? Rect.contain(rect, data.rect) : Rect.new(data.rect.x, data.rect.y, data.rect.w, data.rect.h);
+            }
+            let within = [];
+            let l = null;
+            let r = null;
+            let u = null;
+            let d = null;
+            for(i2 = 0; i2 < rect.w*rect.h; i2++) {
+            // for every pixel that could be inside the main sheet...
+                let coor = Rect.getcoor(rect, i2);
+                if(coor) {
+                    let bool = false;
+                    let array = raster.shape[i1];
+                    for(i3 = 0; i3 < array.length; i3++) {
+                    // iterate through every shape to see if this pixel should
+                    // be filled or not.
+                        let type = this.sheets[i1].shapes[i3].type;
+                        if(
+                            type === "add" ? !bool :
+                            type === "subtract" ? bool :
+                            false
+                        ) {
+                            let index = Rect.getindex(array[i3].rect, ...coor);
+                            if(index === -1) {
+                            // out of bounds, even though the sheet rect is
+                            // the sum of all shape rects.
+                                console.log("this shouldn't happen");
+                            }
+                            else if(array[i3].within[index]) {
+                                bool = !bool;
+                            };
+                        }
+                    }
+                    // Rect.getindex(rect, ...coor)
+                    within.push(bool);
+                    if(bool) {
+                        l = l === null ? coor[0] : Math.min(l, coor[0]);
+                        r = r === null ? coor[0] + 1 : Math.max(r, coor[0] + 1);
+                        u = u === null ? coor[1] : Math.min(u, coor[1]);
+                        d = d === null ? coor[1] + 1 : Math.max(d, coor[1] + 1);
+                    };
+                }
+                else {
+                    console.log("this shouldn't happen");
+                }
+            }
+            raster.sheet[i1] = {};
+            ref = raster.sheet[i1];
+            ref.rect = Rect.fromedges(l, r, u, d);
+            ref.within = [];
+            for(i2 = 0; i2 < ref.rect.w*ref.rect.h; i2++) {
+                let _i2 = Rect.convertindex(ref.rect, rect, i2);
+                if(_i2 === -1) {
+                    console.log("this shouldn't happen");
+                    ref.within[i2] = false;
+                }
+                else {
+                    ref.within[i2] = within[_i2];
+                };
+            };
+            ref.outline = Raster.outline(ref.within, ref.rect.w, true);
+        }
+        // all of these rasters are created to save time on the way it checks
+        // pixels.
+        // - for every single pixel of the screen, it does all of this.
+        //   - figure out the Line that represents what a plane has to intersect
+        //     to show up on that pixel
+        //   - sort the sheets by which sheets' planes the line would intersect
+        //     first
+        //   - then, for every one of those sheets, figure out if the line
+        //     actually intersects it.
+        //     - meaning, you iterate through every shape,
+        //       - every point group of those shapes,
+        //         - every line of those shapes.
+        // - granted, some of that is skipped.
+        //   - if it hits a fully opaque sheet and verifies that it passes
+        //     through it, it doesn't have to check any more sheets.
+        //   - it skips shapes if the type doesn't line up.
+        //     - it starts with the assumption that it doesn't pass through the
+        //       shape.
+        //     - then, if it passes through an "add" shape, it assumes it does
+        //     - then, if it passes through a "subtract" shape, it assumes it
+        //       doesn't.
+        //     - so if the assumption is that it doesn't, it skips subtract, and
+        //       if the assumption is that is does, it skips add.
+        // - but that's still crazy intensive for *every fucking pixel of the
+        //   screen.* so. you know.
+        // - it would be nice to just copy whatever the hell the _2dPoly says!
+        //   it'd save a lot of time.
+        // - but that doesn't quite work either. because of perspective, one
+        //   pixel of a plane can be way more than one pixel on the screen. if
+        //   the sheet is too close, it'll look blocky.
+        // - so instead, the way it works is, if it hits the OUTLINE of the
+        //   _2dPoly raster, it has to actually do the math. but otherwise, it
+        //   can just copy the _2dPoly data.
+        let planes = [];
+        let colors = [];
+        for(i1 = 0; i1 < this.sheets.length; i1++) {
+            let ref = this.sheets[i1];
+            let basis = Quat.basis(ref.quat);
+            let point = [ref.x, ref.y, ref.z];
+            planes.push(Plane.frompoints([
+                point,
+                Points.add(point, Points.add(point, basis[0])),
+                Points.add(point, Points.add(point, basis[1]))
+            ]));
+            //
+            let angle = Angle.get(...basis[2]);
+            let center = Points.add(Points.add(point, Points.multiply(ref.center_x, basis[0])), Points.multiply(ref.center_y, basis[1]))
+            let _angle = Angle.get(...Points.subtract(Points.convert(this.light), center));
+            let compare = Angle.compare(angle, _angle);
+            let alpha = colortohex(ctx, ref.color);
+            let color = [];
+            for(i2 = 0; i2 < 3; i2++) {
+                color.push(parseInt(alpha.slice(1 + 2*i2, 3 + 2*i2), 16)/255);
+            }
+            alpha = alpha.slice(7);
+            let value = this.light[compare < Math.PI/2 ? "light_value" : "dark_value"];
+            let effect = compare < Math.PI/2 ? Math.cos(compare) : 1;
+            if(value) {
+                let _color = (
+                    value < 0 ? Points.divide(color, -value) :
+                    value > 0 ? Points.subtract(
+                        [1, 1, 1],
+                        Points.multiply(
+                            Points.subtract([1, 1, 1], color),
+                            1 - 1/value
+                        )
+                    ) :
+                    color
+                );
+                for(i2 = 0; i2 < 3; i2++) {
+                    _color[i2] = Math.max(0, Math.min(_color[i2], 1));
+                    color[i2] = effect*_color[i2] + (1 - effect)*color[i2];
+                }
+            }
+            for(i2 = 0; i2 < 3; i2++) {
+                color[i2] = numtohex(Math.round(255*color[i2]), 2);
+            }
+            color = "#" + color.join("") + alpha;
+            colors.push(color);
+        }
+        let ctx_rect = Rect.new(0, 0, this.w, this.h);
+        for(i1 = 0; i1 < this.w*this.h; i1++) {
+            let coor = Rect.getcoor(ctx_rect, i1);
+            let ray = this.viewer.ray(
+                coor[0] - this.w/2 + .5,
+                coor[1] - this.h/2 + .5
+            );
+            let intersect = [];
+            // {point, index}
+            for(i2 = 0; i2 < planes.length; i2++) {
+                let point = ray.planeintersect(planes[i2]);
+                if(point !== null) {
+                    let place = roundspecial(ray.findplace(point));
+                    if(place > 0) {
+                        intersect.push({point, place, index: i2});
+                    }
+                };
+            }
+            if(intersect.length) {
+                intersect.reverse();
+                // reverse the order before you sort it.
+                // - why? for the sake of building onto sheets. for example, if
+                //   you make a dresser with them, you might want to make sheets
+                //   for the drawers, to add detail.
+                // - but the drawers aren't a 3d feature. while closed, their
+                //   plane lines up perfectly with the plane for the front face
+                //   of the dresser.
+                // - so, if it just looks for the first, closest sheet that
+                //   intersects the line... both are equal, so it'll choose
+                //   whichever was earlier in the array, when it should choose
+                //   whichever was later.
+                intersect.sort((a, b) => a.place - b.place);
+                let _colors = [];
+                for(i2 = 0; i2 < intersect.length; i2++) {
+                    let _i2 = intersect[i2].index;
+                    let point = intersect[i2].point;
+                    let sheet = this.sheets[_i2];
+                    point = Points.subtract(point, Points.convert(sheet));
+                    point = Quat.apply(Quat.invert(sheet.quat), point);
+                    let ref = {
+                        sheet: raster.sheet[_i2],
+                        shape: raster.shape[_i2],
+                        single: raster.single[_i2],
+                    };
+                    let _point = [Math.floor(point[0]/raster.scale), Math.floor(point[1]/raster.scale)];
+                    let index = Rect.getindex(ref.sheet.rect, ..._point);
+                    if(index !== -1) {
+                        let bool = ref.sheet.within[index];
+                        if(ref.sheet.outline[index]) {
+                            //
+                        };
+                        if(bool) {
+                            _colors.splice(0, 0, colors[_i2]);
+                            let format = Color.format(colors[_i2]);
+                            if(format === "hex6") {
+                                i2 += intersect.length;
+                                // fully opaque intersection; don't bother
+                                // checking the rest of the intersections.
+                            }
+                            else if(format === "hex8") {
+                                if(colors[_i2].endsWith("ff")) {
+                                    i2 += intersect.length;
+                                }
+                            }
+                            else {
+                                console.log("this shouldn't happen");
+                            };
+                        };
+                    };
+                }
+                for(i2 = 0; i2 < _colors.length; i2++) {
+                    ctx.fillStyle = _colors[i2];
+                    ctx.fillRect(...coor, 1, 1);
+                }
+            }
+        }
     }
 }

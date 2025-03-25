@@ -436,6 +436,9 @@ function breakbyline(input, code, code2, retainbeginning) {
 class Bullets extends Array {
 // a class for converting the syntax i use in my personal notes into usable
 // data.
+// - the technical term is a "lightweight markup language". except this has a
+//   heavy emphasis on bullets, branches, and dates. for applying
+//   object-oriented programming tricks.
 // - structure:
 //   - numbered indexes (represent bullets, in the order they appear
 //     in text)
@@ -521,9 +524,14 @@ class Bullets extends Array {
             let i1 = 0;
             let i2 = 0;
             let i3 = 0;
+            input = input.trimEnd();
+            while(input && !input[0].trim() && input[0] !== " ") {
+                input = input.slice(1);
+            }
+            // get rid of non-space whitespace at the beginning
             input = breakbyline(
-                input.trim(),
-                (line) => !line.startsWith(" ") || isbullet(line),
+                input,
+                (line) => !Bullets.spacenum((line.length - line.trimStart().length), false, true, myformatting) || isbullet(line),
                 false,
                 // cutoff function
                 true
@@ -578,28 +586,32 @@ class Bullets extends Array {
                 };
             };
             for(i1 = 0; i1 < input.length; i1++) {
-                let text = input[i1].trim().split(LB);
+                let indent = indents[i1];
+                let text = input[i1].split(LB);
                 for(i2 = 0; i2 < text.length; i2++) {
-                    text[i2] = text[i2].trim();
+                    text[i2] = (i2 || indent) ? text[i2].trim() : text[i2].trimEnd();
+                    // trim all the space at the beginnings of lines
+                    // - if it's a zero-indent, preserve any extra spaces at the
+                    //   beginning. (the bullets idea sorting tool uses
+                    //   beginning spaces to denote that an idea has already
+                    //   been sorted. the way later code works, beginning spaces
+                    //   are preserved for bullets, but not zero-indents.)
                 }
                 text = text.join(retainbreaks ? LB : " ");
-                // get rid of indent
-                let indent = indents[i1];
+                let character = allowthese[0];
+                if(indent) {
+                    character = text.charAt(0);
+                    text = text.slice(2);
+                }
+                else if(text.trim() && allowthese.indexOf(text.trim()[0]) >= 1) {
+                    character = text.trim()[0];
+                    text = text.replace(character, "");
+                };
                 input[i1] = structuredClone(Bullets.template);
                 input[i1].text = text;
                 input[i1].indent = indent;
+                input[i1].character = character;
                 input[i1].dividers = structuredClone(dividers[i1]);
-                if(indent) {
-                    input[i1].character = input[i1].text.charAt(0);
-                    input[i1].text = input[i1].text.slice(2);
-                }
-                else if(input[i1].text && allowthese.indexOf(input[i1].text[0]) >= 1) {
-                    input[i1].character = input[i1].text[0];
-                    input[i1].text = input[i1].text.slice(1);
-                }
-                else {
-                    input[i1].character = allowthese[0];
-                };
             }
             return input;
         }
@@ -777,6 +789,17 @@ class Bullets extends Array {
             -1
         );
     }
+    static word_wrap(string, width, html) {
+    // a variant of word_wrap that preserves spaces at the beginning.
+        let spaces = 0;
+        while(string.startsWith(" ".repeat(spaces))) {
+            spaces++;
+        }
+        spaces--;
+        string = word_wrap("X".repeat(spaces) + string.slice(spaces), width);
+        string = (html ? "&#160;" : " ").repeat(spaces) + string.slice(spaces);
+        return string;
+    }
     string(width, myformatting) {
     // creates a string variable from a Bullets object
     // - width: number of characters per line
@@ -836,7 +859,7 @@ class Bullets extends Array {
         // spaces to the bullet or dividers
         let text = this[index].text;
         if(this[index].indent) {
-            text = _spaces + this[index].character + " " + word_wrap(text, width - spaces.length).replaceAll("\n", "\n" + spaces);
+            text = _spaces + this[index].character + " " + Bullets.word_wrap(text, width - spaces.length).replaceAll("\n", "\n" + spaces);
         }
         else {
         // zero indent doesn't need word wrap
@@ -1113,11 +1136,11 @@ class Bullets extends Array {
         if(newpara) {
             for(i1 = 1; i1 < length; i1++) {
                 if(this[i1].newpara) {
-                    split[split.length] = this.slice(slice, i1);
+                    split.push( this.slice(slice, i1) );
                     slice = i1;
                 }
             }
-            split[split.length] = this.slice(slice);
+            split.push( this.slice(slice) );
             return split;
         }
         let lowestindent = Infinity;
@@ -1129,11 +1152,11 @@ class Bullets extends Array {
         for (i1 = 1; i1 < length; i1++) {
         // run through every bullet after the first
             if(this[i1].indent === lowestindent) {
-                split[split.length] = this.slice(slice, i1);
+                split.push( this.slice(slice, i1) );
                 slice = i1;
             }
         }
-        split[split.length] = this.slice(slice);
+        split.push( this.slice(slice) );
         return split;
     }
     concat(bullets2) {
@@ -1269,10 +1292,8 @@ class Bullets extends Array {
         }
         return date;
     }
-    html(width, tabwidth, indent_space, edits) {
+    html(width, tabwidth, edits) {
     // - tabwidth: this is only important for word wrapping it for your ide.
-    // - indent_space: the number of spaces to add before dividers. preferably
-    //   something that puts them about where the bullet symbols are.
     // - edits: an array of objects representing edits to apply after entity
     //   replacement.
     //   - it replaces html characters like <, >, etc with codes that display
@@ -1290,7 +1311,6 @@ class Bullets extends Array {
         let i2 = 0;
         let i3 = 0;
         tabwidth ??= 4;
-        indent_space ??= 0;
         if(!Array.isArray(edits)) {
             edits = typeof edits === "object" ? [edits] : [];
         }
@@ -1298,12 +1318,12 @@ class Bullets extends Array {
         let length = this.length;
         let last_indent = 0;
         function addline(text, _indent) {
-            html[html.length] = "\t".repeat(_indent) + text;
+            html.push("\t".repeat(_indent) + text);
         }
         for(i1 = 0; i1 <= length; i1++) {
             let indent = i1 === length ? 0 : this[i1].indent;
             for(i2 = last_indent; i2 < indent; i2++) {
-                addline(`<ul>`, i2);
+                addline(i2 ? `<ul>` : `<ul style="list-style-position: inside">`, i2);
             }
             for(i2 = last_indent; i2 > indent; i2--) {
                 addline(`</ul>`, i2 - 1);
@@ -1325,22 +1345,19 @@ class Bullets extends Array {
                 if(this[i1].dividers.length) {
                     for(i2 = 0; i2 < this[i1].dividers.length; i2++) {
                         let text = this[i1].dividers[i2];
-                        text = (
-                            text === "-" ? `<li style="list-style-type: disc"></li>` :
-                            text === "=" ? `<li style="list-style-type: circle"></li>` :
-                            text
-                        );
+                        if(text === "-" || text === "=") {
                         // make - look like an empty bullet, make = look like an
                         // empty bullet that's hollow
-                        if(indent) {
-                            text = `&#160;`.repeat(indent_space) + text;
-                            if(i2 === 0) {
-                                text = `</ul>` + text;
-                            };
-                            if(i2 === this[i1].dividers.length - 1) {
-                                text += `<ul>`;
-                            };
-                        };
+                            text = (
+                                `<li style="list-style-type: `
+                                +
+                                (text === "-" ? `disc` : `circle`)
+                                +
+                                (this[i1].indent ? `` : `; list-style-position: inside`)
+                                +
+                                `"></li>`
+                            );
+                        }
                         addline(text, indent);
                     }
                 };
@@ -1348,7 +1365,7 @@ class Bullets extends Array {
                 let style = (
                     indent
                     ?
-                    "list-style-type: " + ((this[i1].character === "-" || this[index].character === String.fromCharCode(183)) ? "disc" : "circle")
+                    "list-style-type: " + ((this[i1].character === "-" || this[i1].character === String.fromCharCode(183)) ? "disc" : "circle")
                     :
                     ""
                 );
@@ -1365,7 +1382,7 @@ class Bullets extends Array {
                     }
                 }
                 // create the style text
-                addline(`<` + (indent ? `li` : `p`) + (style ? ` style=` + JSON.stringify(style) : ``) + `>`, indent);
+                //addline(`<` + (indent ? `li` : `p`) + (style ? ` style=` + JSON.stringify(style) : ``) + `>`, indent);
                 // open <li> element, or add line breaks
                 let text = entityreplacement(this[i1].text).replaceAll("\n", "<br>");
                 for(i2 = 0; i2 < edits.length; i2++) {
@@ -1386,23 +1403,15 @@ class Bullets extends Array {
                         }
                     }
                 }
-                text = word_wrap(text, width - tabwidth*indent);
+                text = `<` + (indent ? `li` : `p`) + (style ? ` style=` + JSON.stringify(style) : ``) + `>` + text;
+                // open <li> element, or add line breaks
+                text += indent ? `</li>` : (i1 < length - 1 && this[i1 + 1].indent === 0) ? `</p>` : ``;
+                text = Bullets.word_wrap(text, width - tabwidth*indent, true);
+                // word wrap
                 if(Number.isInteger(width) && width >= 0) {
-                    addline(text.replaceAll(
-                        String.fromCharCode(10),
-                        String.fromCharCode(10) + String.fromCharCode(9).repeat(indent)
-                    ), indent);
-                    // word wrap, add indent
-                }
-                else {
-                    addline(text, indent);
+                    text = text.replaceAll("\n", "\n" + "\t".repeat(indent));
                 };
-                if(indent) {
-                    addline(`</li>`, indent);
-                }
-                else if(i1 < length - 1 && this[i1 + 1].indent === 0) {
-                    addline(`</p>`, indent);
-                };
+                addline(text, indent);
             };
             last_indent = indent;
         }
@@ -3047,6 +3056,64 @@ let texttoobj = (text) => JSON.parse(
 //     - replace \\" with "
 //     - JSON.stringify
 //   - JSON.parse
+function basicobjtotext(obj) {
+// like objtotext, except it's designed for more compact objects.
+// - this was made for the facial proportions tool. an object of nothing but
+//   objects and numbers. objtotext isn't so good for that. all the braces and
+//   stuff are clutter.
+// - this uses space indentation to show parentage, and JSON.stringify to show
+//   values. it looks much better.
+    let text = [];
+    for(let i1 in obj) {
+        if(obj.hasOwnProperty(i1)) {
+            if(i1.includes(":") || i1 !== trimunspecial(i1)) {
+                console.log("indentobjtotext does not allow property names that have colons, non-space whitespace, consecutive spaces, or spaces at the beginning or end.");
+                return null;
+            }
+            else if(obj[i1] && typeof obj[i1] === "object" && !Array.isArray(obj[i1])) {
+            // non-array, non-null object. recurse.
+                let _text = basicobjtotext(obj[i1]);
+                if(!_text) {
+                    return _text;
+                };
+                text.push(i1 + "\n " + _text.replaceAll("\n", "\n "));
+            }
+            else {
+                text.push(i1 + ": " + JSON.stringify(obj[i1]));
+            };
+        }
+    }
+    return text.join("\n");
+}
+function basictexttoobj(text) {
+// reverses basicobjtotext.
+    let obj = {};
+    text = text.split("\n");
+    for(let i1 = 0; i1 < text.length; i1++) {
+        let line = text[i1];
+        let colon = line.indexOf(":");
+        if(!line.trim()) {
+        }
+        else if(line.startsWith(" ")) {
+            console.log("this shouldn't happen");
+        }
+        else if(colon !== -1) {
+            obj[line.slice(0, colon)] = JSON.parse(line.slice(colon + 1).trim());
+        }
+        else {
+            let _text = [];
+            i1++;
+            while(i1 < text.length && text[i1].startsWith(" ")) {
+                _text.push(text[i1].slice(1));
+                i1++;
+            }
+            i1--;
+            obj[line] = basictexttoobj(_text.join("\n"));
+        };
+    }
+    return obj;
+}
+//
 function objtocode(value) {
 // might replace this later
     let i1 = 0;
@@ -3515,12 +3582,15 @@ let string_block = (string, block_ranges, block) => (
     (block >= 0 && block <= block_ranges.length)
     ?
     string.slice(
-        block ? block_ranges[block - 1] : 0,
-        block < block_ranges.length ? block_ranges[block] : string.length
+        block_start(string, block_ranges, block),
+        block_end(string, block_ranges, block)
     )
     :
     null
 );
+let block_start = (string, block_ranges, block) => (block ? block_ranges[block - 1] : 0);
+let block_end = (string, block_ranges, block) => (block < block_ranges.length ? block_ranges[block] : string.length);
+
 function trimunspecial(string) {
 // used in things like Bullets. trimspecial, except quoted text isn't an
 // exception.
@@ -3699,4 +3769,49 @@ function italicize(string) {
         }
     }
     return _string;
+}
+function wordfrequency(string, ignore, ignore_dates) {
+// returns an array of {word, count} objects for all the words used in the
+// string and how many times. sorted by most frequent first.
+// - for the purposes of this function, a "word" is an interrupted sequence of
+//   letters, numbers, and/or apostrophes.
+//   - case does not matter.
+//   - it must have one letter in it, so words that are just numbers are
+//     ignored.
+    let i1 = 0;
+    let _ignore = Array.isArray(ignore) && ignore.length ? ignore : null;
+    let obj = {};
+    let word = "";
+    let hasletter = false;
+    string = string.toLowerCase();
+    for(i1 = 0; i1 <= string.length; i1++) {
+        if(
+            i1 < string.length
+            &&
+            (
+                string[i1].toLowerCase() !== string[i1].toUpperCase()
+                ||
+                "0123456789'".includes(string[i1])
+            )
+        ) {
+            word += string[i1];
+            hasletter = hasletter || string[i1].toLowerCase() !== string[i1].toUpperCase();
+        }
+        else if(word) {
+            if(hasletter && (!_ignore || !_ignore.includes(word)) && (!ignore_dates || !datechecker(word))) {
+                obj[word] ??= 0;
+                obj[word]++;
+            };
+            word = "";
+            hasletter = false;
+        };
+    }
+    let array = [];
+    for(i1 in obj) {
+        if(obj.hasOwnProperty(i1)) {
+            array.push({word: i1, count: obj[i1]});
+        };
+    }
+    array.sort((a, b) => b.count - a.count);
+    return array;
 }

@@ -30,7 +30,6 @@
 body {
 	background: #df3737;
 	color: white;
-	width: 640px;
 }
 h1 {
 	font-size: 40px;
@@ -60,4 +59,20 @@ main {
 }
 footer {
 	text-align: center;
+}
+
+td {
+	border: solid 1px black;
+}
+label {
+	user-select: none;
+}
+/*
+ * part of the point of a label is to make radio buttons and things easier to
+ * click. they're always too short to really need to select them anyway.
+ * - thankfully, this doesn't affect <input>/<textarea> children, either. i
+ *   checked.
+ */
+details.text {
+	width: 40em;
 }

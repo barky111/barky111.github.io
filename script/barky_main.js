@@ -1016,18 +1016,35 @@ class States extends Array {
             this.load(this.index);
         };
     }
+    get current() {
+        return this[this.index];
+    }
 };
 
-function tabhandler(e) {
+function textarea_tab(e) {
 // set a textarea's onkeydown to this, and you'll avoid that problem where
 // pressing tab exits the textarea and goes to the next button or whatever.
     if(e.key.toLowerCase() === "tab") {
         e.preventDefault();
-        let start = this.selectionStart;
-        this.value = this.value.slice(0, start) + "\t" + this.value.slice(this.selectionEnd);
-        this.selectionStart = start + 1;
-        this.selectionEnd = start + 1;
+        let _this = e.target;
+        let start = _this.selectionStart;
+        _this.value = _this.value.slice(0, start) + "\t" + _this.value.slice(_this.selectionEnd);
+        _this.selectionStart = start + 1;
+        _this.selectionEnd = start + 1;
     }
+}
+function textarea_autosize(textarea) {
+// used to automatically resize a textarea to fit the text content.
+// - you can use it with the textarea as an argument, or you can set the
+//   textarea's onkeydown to it.
+    if(textarea instanceof Event) {
+        textarea = textarea.target;
+    };
+    //let start = this.selectionStart;
+    //let end = this.selectionEnd;
+    textarea.rows = textarea.value.split("\n").length + 1;
+    //this.selectionStart = start;
+    //this.selectionEnd = end;
 }
 
 function filedate() {
@@ -1038,6 +1055,29 @@ function filedate() {
         temp[i1] = "0".repeat(2 - temp[i1].length) + temp[i1];
     }
     return temp.join("_");
+};
+function filename_handler(name) {
+// returns a filename with the extension and parenthesed numbers removed.
+// - tools like PixelArt and armature artist, when it loads a file, it saves the
+//   name, to later use it when the file is saved.
+// - but, you know. you're downloading, not overwriting. if your file is named
+//   "project.txt", after you load, edit, and save it again, it'll be
+//   "project(1).txt"... and after you load, edit, and save it again, it'll be
+//   "project(1)(1).txt"... see the problem?
+// - if you use this, instead, it'll be "project(2).txt". which isn't ideal
+//   either but hey! fuck off.
+    let index = name.lastIndexOf(".");
+    name = index === -1 ? name : name.slice(0, index);
+    // slice off the file extension
+    index = name.lastIndexOf("(");
+    if(name.endsWith(")") && index !== -1) {
+        let num = Number(name.slice(index + 1, -1));
+        if(Number.isInteger(num) && num > 0) {
+            name = name.slice(0, index).trimEnd();
+        };
+        // slice off the number
+    }
+    return name;
 };
 
 //
@@ -1558,6 +1598,19 @@ function keyinterpreter(key) {
     };
     return key;
 };
+let screen_w = window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth;
+let screen_h = window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight;
+let verticalscreen = screen_h > screen_w;
+function htmldescendants(element) {
+    let desc = [];
+    let list = element.children;
+    for(let i1 = 0; i1 < list.length; i1++) {
+        desc.push(list[i1]);
+        desc = desc.concat(htmldescendants(list[i1]));
+    }
+    return desc;
+}
+
 
 
 
