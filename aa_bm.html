@@ -130,11 +130,210 @@
 			if(prevent) {
 				e.preventDefault();
 			};
+		}
+		else if(userfocus === "px") {
+			px.keydown(e);
 		};
 	};
 	//
 	document.write(`<label><input type="radio" name="userfocus" value="aa">armature artist</label>`);
 	document.write(`\n<br><label><input type="radio" name="userfocus" value="bm">body maker</label>`);
+	document.write(`\n<br><label><input type="radio" name="userfocus" value="px">pixel art</label>`);
+	document.write(`\n<br hidden><label hidden><input type="radio" name="userfocus" value="se">shape examiner</label>`);
+	document.write(`\n<br hidden><label hidden><input type="radio" name="userfocus" value="bg">paper background maker</label>`);
+	document.write("<details class=\"text\">\n\t<summary>changelog</summary>\n\t" + arraytoul([
+		/*
+		"???: v1.4",
+		[
+			"initial release of the shape examiner",
+			"the default bodytext now has 3d shapes for the hands, not 2d images.",
+		],
+		//*/
+		"25mar25: v1.4",
+		[
+			"initial release of the pixel art tool, which armature artist and body maker can send images to. it also has an animation tester.",
+			"on the armature artist page, tools do not initialize until they're opened, which makes the page load faster",
+			"it's much easier to select parts, especially on mobile.",
+			[
+				"the clickable radius is a little bigger, to account for the inaccuracy of touch clicks,",
+				"but more importantly, there's enough visual feedback to be as precise as with a mouse. tools that can select parts can now select them by ending a click on them, not just starting a click on them, and when you're close enough for this to happen, it'll highlight the node to show you."
+			],
+			"rotate/tilt pose tools",
+			[
+				"they no longer save a new state if the magnitude is zero.",
+				"xz now always uses the same radius, which is pretty much as big as it can be while still having access to the full range of rotation.",
+				"cosmetic changes to the displayed angle. now it ranges from -180 to 180 degrees, not 0 to 360 degrees"
+			],
+			"added changelog.",
+			"edited the manual to warn about cases where tweening sucks.",
+			"renamed invert buttons to \"mirror\". they also depress properly now. (before, they'd be colored to show the signs of the part's relative coordinates. that made sense for what it did before, but not what it does now.)",
+			"after creating inbetweens, it now switches to the end key frame, not the first tween frame. (better for making tweens between every frame, and other actions like that.)",
+			"rewrote the class i use for animation, adding new features.",
+			[
+				"previous frame and next frame buttons",
+				"being able to switch the axes of the animation (which axis is time, and which is direction)",
+				"number input for editing how many rows/columns are in the spritesheet (takes effect instantly, without you having to update the animation again)"
+			],
+			"one view animation updates are much faster than before",
+			"added curl to the rotate settings.",
+			"BODYTEXT FORMAT CHANGE: silhouettes work much differently now.",
+			[
+				"the commands used to be like:",
+				[
+					"silhouette(): sets the group/subgroup",
+					"generation(), capsule(): the two kinds of connection. (must be one or the other.)",
+					[
+						"generation: tangents the part's image to some of its ancestors and/or descendants",
+						"capsule: just adds a capsule shape from the part to its parent, and avoids the convexing"
+					]
+				],
+				"now:",
+				[
+					"group(): sets the group/subgroup",
+					"it's possible to use multiple types of connection at once.",
+					[
+						"generation()",
+						"core(): new type of connection, makes a sphere, for convexing",
+						"bone(): new name for capsule"
+					],
+					"concave(): avoids convexing for the part's main image, and bone() connections if applicable"
+				],
+				"the object structure has changed, too.",
+				[
+					"then:",
+					[
+						".silhouette: array of the group and subgroup",
+						".connection: {type, value} object"
+					],
+					"now:",
+					[
+						".silhouette: object of all silhouette-related data",
+						[
+							"group",
+							"subgroup",
+							"anc",
+							"desc",
+							"core",
+							"bone",
+							"concave"
+						]
+					]
+				]
+			],
+			"\"STANDARD\" BODYTEXT CHANGES:",
+			[
+				"got rid of the split between wrist and hand, because that was stupid. (the point was to show orientation, like a vague idea of where the fingers are. but orientation is visualized, and the shape is subject to orientation too.)",
+				"changed the silhouettes, to match the changes to the silhouette system. the hands are the only parts whose silhouettes are actually changed.",
+				"minor changes to the elbow and wrist coordinates.",
+				"changes the hand's images to look less vague and more like the pose a hand takes in a typical standing pose."
+			],
+			"body maker: you can enter fractions in the scale button now. (ex: instead of doing *5 then /4, you can do *5/4. makes it easier to use. it's visualized as a fraction too, to avoid long decimals that are hard to read.)",
+			"you can automatically insert the current date in the project name, by typing an asterisk.",
+			"bug fixes",
+			[
+				"buttons like undo/redo didn't depress properly.",
+				"filenames sucked.",
+				[
+					"this is a browser tool, so it can't overwrite your files, just save new files.",
+					"when you load a new file, it takes note of the name, to use it if you save it again later",
+					"since it matches the name of the file you loaded, your file system probably names it something like \"animation(1).txt\"",
+					"which is only okay the first time, because the second time you load and save it, it becomes \"animation(1)(1).txt\", and the third time it becomes \"animation(1)(1)(1).txt\", you get the idea, it's fucking awful",
+					"after the changes i made, it should be \"animation(2).txt\", \"animation(3).txt\", etc. changing the number, not adding new numbers",
+					"if that's not how your file system handles duplicate names, or it otherwise sucks for you, let me know! i can probably fix it once i understand the rename scheme."
+				],
+				"loading a project with less animations than the index of the selected animation would cause an error.",
+				"duplicating an animation while it had redo states would cause an error.",
+				"the tab key didn't work in bodytext."
+			]
+		],
+		"07feb25: v1.3",
+		[
+			"body maker changes",
+			[
+				"making the child/sibling tools copy the parent's image text",
+				"family selection keys, just like armature artist",
+				"adding more options to the scale button",
+				[
+					"only scaling certain axes",
+					"only scaling position, or only scaling dimensions",
+					"making it scale a branch rather than all parts",
+					"letting it scale only one part"
+				]
+			],
+			"quaternion flipping (allows parts and shapes to be mirrored properly. before, the mirroring of symmetry parts and the invert buttons would not affect the orientation of shape spheroids.)",
+			"ui adjustments",
+			"rotate settings",
+			[
+				"rounding",
+				"rotating on local axes",
+				"rotating on custom axes",
+				"tools for setting and modifying custom axes"
+			],
+			"adding oddness switching to rotation",
+			[
+				"originally, parts always kept the same oddness before and after rotation.",
+				"but that isn't necessarily what the user expects. like if you rotated [-2, 6.5] by 90, it should be [-6.5, -2]. meaning, the oddness should switch.",
+				"the rule is, if the magnitude is closer to 90 or 270 than 0 or 360, and the axis is closer to one axis than the others, the oddness of the other two axes are switched.",
+				"an axis angle can be understood as a 3d point that's 1 away from zero, right.",
+				"the switch axis is whichever of those three coordinates has the highest absolute value.",
+				"if there's a tie, there's no switching at all."
+			],
+			"migrating armature artist and body maker to a separate page",
+			"capsule silhouettes are no longer convexed. (ie if the head has horns, the silhouette will look fine if it's capsule. whereas generations would make it look like there's skin stretched over the horns.)",
+			"invert buttons work differently",
+			[
+				"before, they would invert the coordinates of a part and all its descendants. now, they invert the shape of the part and its descendants, and the coordinates of descendants but not the part.",
+				"basically, it works more like the rotate pose tool."
+			]
+		],
+		"22dec24: v1.2",
+		[
+			"initial release of body maker",
+			"reset part and reset branch buttons",
+			"pose to shape button",
+			"rework of how symmetrical parts work in bodytext",
+			"new stem-based color system:",
+			[
+				"the part fill color and silhouette fill color have been combined into one",
+				"you can specify multiple colors, which it'll use to differentiate parts that belong to different bodies. (that is, they don't share any common ancestor)"
+			],
+			"when changing cell dimensions, the standpoint now moves to match it.",
+			"scaled up the template bodytexts by 1.5x, tweaked them a bit.",
+			"parts with no shape or image, when being incorporated into a silhouette, will act as if they have one point, at the center.",
+			"capsule connections look better",
+			"more efficient spheroid system. fineness now measures the number of sides of a quarter-circle, not a full circle.",
+			"fixes",
+			[
+				"problems with changing interface/buttons colors",
+				"problem with multi-stem bodies",
+				"problem where, the first time the page loads and before any ui refreshes, the ui is drawn in Default Who Gives A Shit Font",
+				"issue in bodytext where unsquarish image dimensions would cause errors"
+			]
+		],
+		"22nov24: v1.1.1",
+		[
+			"writing the manual",
+			"html changes",
+			"fixing issues with bodytext changes"
+		],
+		"28oct24: v1.1",
+		[
+			"reordering pose tools",
+			"fixing issue where inbetweening would make shapes like the head shrink",
+			"better ui layout",
+			"invert is applied to the whole branch",
+			"changed draw settings ratio to range"
+		],
+		"10oct24: v1.0.1",
+		[
+			"minor fixes",
+			"adding a description",
+			"making it so entering an empty string for a color change resets the color to default"
+		],
+		"07oct24: v1.0"
+	]).replaceAll("\n", "\n\t") + "\n</details>");
+	//document.write("\n<br>");
+	document.write("<ul id=\"desc\" style=\"width: 40em\"></ul>");
 	//
 	document.write(`\n<div id="aa_div"></div>`);
 	//document.write(`<div id="aa_preface"></div>\n<div id="aapa"></div><div id="aa"></div>`);
@@ -882,13 +1081,16 @@
 			editmodefalse: null,
 			coor: null,
 		},
-		version_history: "v1.0 v1.0.1 v1.1 v1.1.1 v1.2".split(" "),
+		version_history: "v1.0 v1.0.1 v1.1 v1.1.1 v1.2 v1.3".split(" "),
 		get version() {
 			return aa.version_history[aa.version_history.length - 1];
 		},
 		partinfo_is_default: function(part, view, suffix) {
 			let _default = false;
-			if(["connection", "silhouette", "shape"].includes(suffix)) {
+			if(suffix in AAX.part_properties && ["body_exclusive", "pose_exclusive"].includes(AAX.part_properties[suffix].type)) {
+				_default = true;
+			}
+			else if(suffix === "shape") {
 				//_default = part["_" + suffix] === "default";
 				_default = part.getwithoutredirects(suffix) === "default";
 			}
@@ -940,13 +1142,13 @@
 				array = [partname];
 			}
 			else if(suffix === "group") {
-				let num = aa.currpose[partname].silhouette[0];
+				let num = aa.currpose[partname].silhouette.group;
 				let bodylist = aa.hidelist(partname, "body");
 				// group basically means "same set of limbs", so it should
 				// omit parts that aren't in the same body.
 				for(i1 = 0; i1 < bodylist.length; i1++) {
 					let _i1 = bodylist[i1];
-					if(aa.currpose[_i1].silhouette[0] === num) {
+					if(aa.currpose[_i1].silhouette.group === num) {
 						array.push(_i1);
 					}
 				}
@@ -1033,6 +1235,9 @@
 				let i1 = 0;
 				let i2 = 0;
 				let loop = new Loop("aa.ui.create");
+				let temp = structuredClone(AAX.ui.color_area);
+				temp.direction = "r";
+	            temp.adjust = 2;
 				let areas = [
 					{
 						prefix: "states",
@@ -1111,7 +1316,7 @@
 						},
 					},
 					{
-						prefix: "invert",
+						prefix: "mirror",
 						gap: 0,
 						first: {
 							suffix: "x y z".split(" "),
@@ -1128,6 +1333,15 @@
 						heading: 2,
 					},
 					{
+						prefix: "px",
+						actions: [
+							["column", "paste replace".split(" "), "d", 6, 2],
+							["column", AAX.valid.px_export, "d", 6, 1],
+							["column", "one_view vertical".split(" "), "d", 6, 1]
+						],
+						heading: 2,
+					},
+					{
 						prefix: "posetool",
 						previous: 0,
 						direction: "d",
@@ -1139,11 +1353,9 @@
 					{
 						prefix: "rotate",
 						actions: [
-							["column", "round type".split(" "), "d", 6.5, 1],
-							["expand", "heading", "u", 2],
+							["column", "round type curl".split(" "), "d", 6.5, 1],
 							["expand", "display", "r", 4],
 						],
-						heading: false,
 					},
 					{
 						prefix: "rotate",
@@ -1180,7 +1392,7 @@
 							["expand", "fineness", "d", 1]
 						],
 					},
-					AAX.ui.color_area,
+					temp,
 					{
 						prefix: "partinfo",
 						//previous: -2,
@@ -1242,7 +1454,7 @@
 					}
 				}
 				// add heading
-				let temp = "zxcvbnm";
+				temp = "zxcvbnm";
 				for(i1 = 0; i1 < AAX.valid.posetools.length; i1++) {
 					this.keymap[ temp[i1] ] ??= [];
 					this.keymap[ temp[i1] ][0] = "posetool_" + AAX.valid.posetools[i1];
@@ -1289,14 +1501,14 @@
 					"perspective_image",
 					"shape_settings",
 					"hide",
-					"connection",
 					"silhouette"
 				];
 				temp = areas.find((element) => element.prefix === "partinfo");
 				for(i1 = 0; i1 < array.length; i1++) {
 					let h = (
 						array[i1] === "coor" ? 6 :
-						array[i1] === "connection" || array[i1] === "shape_settings" ? 2 :
+						array[i1] === "shape_settings" ? 2 :
+						array[i1] === "silhouette" ? 3 :
 						1
 					);
 					temp.actions.push(["expand", array[i1], "d", h]);
@@ -1441,10 +1653,11 @@
 								prefix === "posetool" ? "pose tools" :
 								prefix === "hide" ? "hide/show" :
 								prefix === "switch" ? "part artist".split(" ") :
+								prefix === "px" ? ["pixel art", "transfer"] :
 								prefix === "frame" ? "frames" :
 								prefix === "partinfo" ? "part information" :
 								prefix === "drawsettings" ? "draw settings" :
-								prefix === "rotate" ? "rotate settings".split(" ") :
+								prefix === "rotate" ? "rotate settings" :
 								prefix
 							) :
 							prefix === "misc" ? (
@@ -1542,6 +1755,22 @@
 							text += "";
 						};
 						// make sure it isn't a number, so it can use .length
+						let checkbox = (
+							prefix === "px" ? (suffix === "one_view" || suffix === "vertical") :
+							prefix === "rotate" ? suffix === "curl" :
+							false
+						);
+						let radio = (
+							prefix === "px" ? AAX.valid.px_export.includes(suffix) :
+							false
+						);
+						let heading = (
+							suffix === "heading"
+							||
+							(prefix === "rotate" && (suffix === "invert" || suffix === "switch"))
+							||
+							checkbox || radio
+						);
 						let selected = Number(
 							(prefix === "posetool" && suffix === aa.control.posetool)
 							||
@@ -1553,8 +1782,6 @@
 									["x", "y", "z"].includes(suffix) && oddness["xyz".indexOf(suffix)]
 								)
 							)
-							||
-							(prefix === "invert" && ["x", "y", "z"].includes(suffix) && relcoor["xyz".indexOf(suffix)] < 0)
 							||
 							(prefix === "view" && aa.control.view === Number(suffix))
 							||
@@ -1578,19 +1805,25 @@
 								aa.control.inbetween[suffix]
 							)
 							||
-							(prefix === "rotate" && suffix.startsWith("select_") && suffix.slice("select_".length) === "xyz"[aa.control.rotate.select])
+							(prefix === "rotate" && (
+								suffix === "curl" ? aa.control.rotate.curl :
+								suffix.startsWith("select_") && suffix.slice("select_".length) === "xyz"[aa.control.rotate.select]
+							))
+							||
+							(prefix === "px" && (
+								checkbox ? aa.animator.html[suffix].checked :
+								radio ? suffix === aa.control.px_export :
+								false
+							))
 							//||
 							//i1 === "projectname"
 						);
-						let heading = suffix === "heading" || (prefix === "rotate" && (suffix === "invert" || suffix === "switch"));
 						if(prefix === "drawsettings" && AAX.valid.hasOwnProperty(suffix)) {
 							selected = AAX.valid[suffix].indexOf(aa.drawsettings[suffix]);
 						}
 						else if(heading) {
 						}
 						else if(
-							(prefix === "invert" && ["x", "y", "z"].includes(suffix) && relcoor["xyz".indexOf(suffix)] === 0)
-							||
 							(prefix === "posetool" && selected && aa.control.posetool_inversion)
 							||
 							(aa.control.perspectived && prefix === "oddify" && suffix === "z")
@@ -1611,6 +1844,8 @@
 								&&
 								suffix !== "round"
 								&&
+								suffix !== "curl"
+								&&
 								suffix !== "display"
 							)
 							||
@@ -1630,13 +1865,13 @@
 						if(depress && i1 === depress) {
 							selected = posmod(selected + 1, 3);
 						};
-						let ref = buttons[i1];
-						let center = [Math.floor(ref.x + ref.w/2) + .5, Math.floor(ref.y + ref.h/2)];
+						let rect = structuredClone(buttons[i1]);
+						let center = [Math.floor(rect.x + rect.w/2) + .5, Math.floor(rect.y + rect.h/2)];
 						ctx.strokeStyle = color[ posmod(- selected, color.length) ];
 						ctx.fillStyle = color[ posmod(1 - selected, color.length) ];
 						if(prefix !== "color" && !heading && i1 !== "anim_menu") {
-							ctx.fillRect(ref.x, ref.y, ref.w, ref.h);
-							Rect.fauxstroke(ref, ctx);
+							ctx.fillRect(rect.x, rect.y, rect.w, rect.h);
+							Rect.fauxstroke(rect, ctx);
 						};
 						//console.log([prefix, suffix]);
 						let align = (
@@ -1651,6 +1886,8 @@
 							(prefix === "inbetween" && (suffix === "add" || suffix === "subtract" || suffix === "number"))
 							||
 							(prefix === "rotate" && (suffix.startsWith("select") || suffix.startsWith("invert") || suffix.startsWith("switch") || suffix === "type"))
+							||
+							prefix === "px"
 						);
 						align = align ? "center" : "left";
 						if(prefix === "partinfo" && !heading) {
@@ -1702,8 +1939,8 @@
 								for(i2 = 0; i2 < text.length; i2++) {
 									loop.tick(2);
 									ctx.textAlign = ([1, 3].includes(i2) ? "center" : "left");
-									const x = (ctx.textAlign === "center" ? center[0] : ref.x + margin[0]);
-									const y = Math.floor(ref.y + ref.h*(i2 + .5)/text.length + margin[1]);
+									const x = (ctx.textAlign === "center" ? center[0] : rect.x + margin[0]);
+									const y = Math.floor(rect.y + rect.h*(i2 + .5)/text.length + margin[1]);
 									ctx.fillText(text[i2], x, y);
 									if([4, 5].includes(i2)) {
 										ctx.textAlign = "right";
@@ -1726,7 +1963,7 @@
 										}
 										ctx.fillText(
 											string,
-											ref.x + ref.w - margin[0],
+											rect.x + rect.w - margin[0],
 											y
 										);
 									};
@@ -1734,81 +1971,65 @@
 								loop.end();
 								ctx.textAlign = "left";
 							}
-							else if(suffix === "connection" || suffix === "shape_settings") {
-								if(suffix === "connection") {
-									let num = part[suffix].value;
-									let type = part[suffix].type;
-									if(type === "generation") {
-										let array = structuredClone(num);
-										if(num[0] === 0) {
-											num = num[1];
-										}
-										else if(num[1] === 0) {
-											num = -num[0];
-										}
-										else {
-											num = null;
-										}
-										// [1, 0] = -1, [0, 1] = 1
-										text = [
-											(_default ? " " : nondefault) + array + " " + type + " connection" + (num !== null ? ":" : ""),
-											" " + (
-												num === -2 ? "connect back to grandparent" :
-												num === -1 ? "connect to parent" :
-												num === 0 ? "no connection" :
-												num === 1 ? "connect to children" :
-												num === 2 ? "connect up to grandchildren" :
-												num > 0 ? "connect to next " + num + " generations" :
-												num < 0 ? "connect " + num + " generations back" :
-												""
-											)
-										];
-									}
-									else {
-										text = [
-											(_default ? " " : nondefault) + part[suffix].type + " connection:",
-											" " + num,
-										];
+							else if(suffix === "silhouette") {
+								let sil = part[suffix];
+								for(i2 = 0; i2 < 3; i2++) {
+									let _text = (
+										i2 === 0 ? ["silhouette: group " + sil.group + sil.subgroup] :
+										i2 === 1 ? ["ancestors: " + sil.anc, "descendants: " + sil.desc] :
+										i2 === 2 ? [(sil.core ? ("core: " + sil.core) : ""), (sil.bone ? ("bone: " + sil.bone) : ""), (sil.concave ? "concave" : "")] :
+										[]
+									);
+									let y = Math.floor(rect.y + rect.h*(i2 + .5)/3 + margin[1]);
+									for(i3 = 0; i3 < _text.length; i3++) {
+										let x = margin[0] + charwidth + 1;
+										x += Math.floor((rect.w - x)*i3/_text.length);
+										let line = _text[i3];
+										if(!i2 && !i3) {
+											line = (_default ? " " : nondefault) + line;
+											x -= charwidth + 1;
+										};
+										ctx.fillText(line, x, y);
 									}
 								}
-								else if(suffix === "shape_settings") {
-								// two lines, and a circle on the right showing the
-								// orient.
-									text = [
-										(_default ? " " : nondefault) + "stretch:",
-										" widen:"
-									];
-									let r = Math.floor((Math.min(ref.w, ref.h) - margin[0])/2);
-									let x = ref.x + ref.w - (r + margin[0]);
-									let y = Math.floor(ref.y + ref.h/2);
-						            if(part.orient.flip) {
-						            // draw a tiny x under the axes if it's
-						            // flipped.
-						                ctx.strokeStyle = aa.color.buttons[2];
-						                linespecial(ctx, x - 2, y - 2, x + 2, y + 2);
-						                linespecial(ctx, x + 2, y - 2, x - 2, y + 2);
-						            };
-									AAX.ui.basis(ctx, x, y, r, Quat.basis(part.orient));
-									// draw orient sphere
-									ctx.textAlign = "right";
-									for(i2 = 0; i2 < 2; i2++) {
-										loop.tick(2);
-										ctx.fillText(
-											convertnumber(part[i2 ? "widen" : "stretch"]),
-											ref.x + ref.w - 2*(r + margin[0]),
-											// make room for the orient sphere
-											Math.floor(ref.y + ref.h*(i2 + .5)/2 + margin[1])
-										);
-									}
-									loop.end();
-									ctx.textAlign = "left";
+							}
+							else if(suffix === "shape_settings") {
+							// two lines, and a circle on the right showing the
+							// orient.
+								text = [
+									(_default ? " " : nondefault) + "stretch:",
+									" widen:"
+								];
+								let r = Math.floor((Math.min(rect.w, rect.h) - margin[0])/2);
+								let x = rect.x + rect.w - (r + margin[0]);
+								let y = Math.floor(rect.y + rect.h/2);
+					            if(part.orient.flip) {
+					            // draw a tiny x under the axes if it's
+					            // flipped.
+					                ctx.strokeStyle = aa.color.buttons[2];
+					                linespecial(ctx, x - 2, y - 2, x + 2, y + 2);
+					                linespecial(ctx, x + 2, y - 2, x - 2, y + 2);
+					            };
+								AAX.ui.basis(ctx, x, y, r, Quat.basis(part.orient));
+								// draw orient sphere
+								ctx.textAlign = "right";
+								for(i2 = 0; i2 < 2; i2++) {
+									loop.tick(2);
+									ctx.fillText(
+										convertnumber(part[i2 ? "widen" : "stretch"]),
+										rect.x + rect.w - 2*(r + margin[0]),
+										// make room for the orient sphere
+										Math.floor(rect.y + rect.h*(i2 + .5)/2 + margin[1])
+									);
 								}
+								loop.end();
+								ctx.textAlign = "left";
 								for(i2 = 0; i2 < text.length; i2++) {
 									loop.tick(2);
 									ctx.fillText(
 										text[i2],
-										ref.x + margin[0],
-										Math.floor(ref.y + ref.h*(i2 + .5)/text.length + margin[1])
+										rect.x + margin[0],
+										Math.floor(rect.y + rect.h*(i2 + .5)/text.length + margin[1])
 									);
 								};
 								loop.end();
@@ -1817,11 +2038,7 @@
 							// properties that aren't too complex for a simple
 							// text + ":" + value structure...
 								let value = null;
-								if(suffix === "silhouette") {
-									text += " group";
-									value = part[suffix].join("");
-								}
-								else if(suffix === "name") {
+								if(suffix === "name") {
 									text = part[suffix];
 									value = "";
 								}
@@ -1887,15 +2104,15 @@
 								// perspective image
 								// - no value unless it's null
 								// - no colon unless it's null
-								ctx.fillText((_default ? " " : nondefault) + text, ref.x + margin[0], center[1] + margin[1]);
+								ctx.fillText((_default ? " " : nondefault) + text, rect.x + margin[0], center[1] + margin[1]);
 								ctx.textAlign = "right";
-								ctx.fillText(value, ref.x + ref.w - margin[0], center[1] + margin[1]);
+								ctx.fillText(value, rect.x + rect.w - margin[0], center[1] + margin[1]);
 								ctx.textAlign = "left";
 							};
 						}
 						else if(prefix === "frame" && ["previous", "next"].includes(suffix)) {
-							const w = (suffix === "previous" ? -1 : 1)*ref.w/2;
-							const h = ref.h*1/2;
+							const w = (suffix === "previous" ? -1 : 1)*rect.w/2;
+							const h = rect.h*1/2;
 							const points = [
 								[
 									center[0] - w/2,
@@ -1914,35 +2131,35 @@
 						}
 						else if(prefix === "frame" && suffix === "display") {
 							linespecial(ctx,
-								center[0] - ref.w*3/8,
+								center[0] - rect.w*3/8,
 								center[1],
-								center[0] + ref.w*3/8,
+								center[0] + rect.w*3/8,
 								center[1],
 							center);
 							ctx.fillStyle = ctx.strokeStyle;
 							const coor = [
 								center[0] - 1,
-								Math.floor(ref.y + ref.h/4 + margin[1])
+								Math.floor(rect.y + rect.h/4 + margin[1])
 							];
 							ctx.fillText(aa.currframe + 1, ...coor);
-							coor[1] = Math.floor(coor[1] + ref.h/2);
+							coor[1] = Math.floor(coor[1] + rect.h/2);
 							ctx.fillText(aa.frames.length, ...coor);
 						}
 						else if(prefix === "drawsettings" && !heading) {
-							AAX.ui.draw.drawsettings(ctx, ref, aa.drawsettings, suffix);
+							AAX.ui.draw.drawsettings(ctx, rect, aa.drawsettings, suffix);
 						}
 						else if(prefix === "color" && !heading) {
-							AAX.ui.draw.color(ctx, ref, aa.color, suffix);
+							AAX.ui.draw.color(ctx, rect, aa.color, suffix);
 						}
-						else if(!heading && ["oddify", "invert", "image"].includes(prefix)) {
+						else if(!heading && ["oddify", "mirror", "image"].includes(prefix)) {
 							ctx.fillStyle = ctx.strokeStyle;
 							ctx.textAlign = "center";
 							ctx.fillText(suffix, center[0], center[1] + margin[1]);
 							ctx.textAlign = "left";
 						}
 						else if(prefix === "inbetween" && suffix === "visual") {
-							let start = ref.x + ref.h/2;
-							let end = ref.x + ref.w - ref.h/2;
+							let start = rect.x + rect.h/2;
+							let end = rect.x + rect.w - rect.h/2;
 							ctx.strokeStyle = color[2];
 							linespecial(ctx, start, center[1], end, center[1], center);
 							for(i2 = 0; i2 <= 1; i2 += 1/4) {
@@ -1951,11 +2168,11 @@
 								linespecial(ctx, x, center[1] - tick, x, center[1] + tick, center);
 							}
 							ctx.fillStyle = color[0];
-							let ref2 = aa.control.inbetween;
-							ref2.values = aa.inbetweenvalues(ref2.number, ref2.curve, ref2.easeA, ref2.easeB);
+							let ref = aa.control.inbetween;
+							ref.values = aa.inbetweenvalues(ref.number, ref.curve, ref.easeA, ref.easeB);
 							circledraw(ctx, start + .5, center[1] + .5, 2.5, true);
-							for(i2 = -1; i2 <= ref2.values.length; i2++) {
-								circledraw(ctx, start + ref2.values[i2]*(end - start) + .5, center[1] + .5, 2.5, true);
+							for(i2 = -1; i2 <= ref.values.length; i2++) {
+								circledraw(ctx, start + ref.values[i2]*(end - start) + .5, center[1] + .5, 2.5, true);
 							}
 							circledraw(ctx, end + .5, center[1] + .5, 2.5, true);
 						}
@@ -1963,16 +2180,16 @@
 							ctx.fillStyle = color[0];
 							for(i2 = -1; i2 <= 1; i2++) {
 								for(i3 = -1; i3 <= 1; i3++) {
-									ctx.fillText(text, ref.x + margin[0] + i2, center[1] + margin[1] + i3);
+									ctx.fillText(text, rect.x + margin[0] + i2, center[1] + margin[1] + i3);
 								}
 							}
 							ctx.fillStyle = color[1];
-							ctx.fillText(text, ref.x + margin[0], center[1] + margin[1]);
+							ctx.fillText(text, rect.x + margin[0], center[1] + margin[1]);
 						}
 						else if(prefix === "anim" && suffix === "menu") {
 							ctx.fillStyle = color[2];
-							ctx.fillRect(ref.x, ref.y + Math.floor(ref.h/2), ref.w, 1);
-							let tabwidth = Math.min(aa.ui.animtabwidth*AAX.ui.block, ref.w/aa.anims.length);
+							ctx.fillRect(rect.x, rect.y + Math.floor(rect.h/2), rect.w, 1);
+							let tabwidth = Math.min(aa.ui.animtabwidth*AAX.ui.block, rect.w/aa.anims.length);
 							let divides = [];
 							for(i2 = 0; i2 <= aa.anims.length; i2++) {
 								divides[i2] = Math.floor(i2*tabwidth);
@@ -1981,7 +2198,7 @@
 								if(i2 !== aa.anim_index) {
 									let index = i2 === aa.anims.length ? aa.anim_index : i2;
 									// make sure the selected tab is drawn last
-									let rect = [ref.x + divides[index], ref.y, divides[index + 1] - divides[index], ref.h];
+									let _rect = [rect.x + divides[index], rect.y, divides[index + 1] - divides[index], rect.h];
 									let style = i2 === aa.anims.length ? 2 : 0;
 									style = [
 										color[posmod(style + 0, 3)],
@@ -1989,8 +2206,8 @@
 									];
 									ctx.fillStyle = style[0];
 									ctx.strokeStyle = style[1];
-									ctx.fillRect(...rect);
-									Rect.fauxstroke(Rect.new(...rect), ctx);
+									ctx.fillRect(..._rect);
+									Rect.fauxstroke(Rect.new(..._rect), ctx);
 									let name = aa.getanimname(index);
 									let width = margin[0] + (charwidth + 1)*name.length;
 									// how wide the tab has to be to fit the
@@ -2011,10 +2228,10 @@
 										}
 									}
 									ctx.fillStyle = style[1];
-									ctx.fillText(name, ref.x + divides[index] + margin[0], center[1] + margin[1]);
+									ctx.fillText(name, rect.x + divides[index] + margin[0], center[1] + margin[1]);
 									if(ellipses) {
 										for(i3 = 0; i3 < 3; i3++) {
-											ctx.fillRect(ref.x + divides[index] + width + 2*i3, center[1] + 0*margin[1], 1, 1);
+											ctx.fillRect(rect.x + divides[index] + width + 2*i3, center[1] + 0*margin[1], 1, 1);
 											// adding margin would put it right
 											// at the level of a normal period
 											// but i like it better in the
@@ -2035,19 +2252,26 @@
 							);
 							AAX.ui.basis(
 								ctx,
-								Math.floor(ref.x + ref.w/2), Math.floor(ref.y + ref.h/2),
-								Math.min(ref.w, ref.h)/2 - 2,
+								Math.floor(rect.x + rect.w/2), Math.floor(rect.y + rect.h/2),
+								Math.min(rect.w, rect.h)/2 - 2,
 								basis
 							);
 						}
 						else {
+							if(checkbox || radio) {
+								AAX.ui.checkbox(ctx, color, rect.x, rect.y, checkbox ? !!selected : selected ? "radio on" : "radio off");
+								ctx.strokeStyle = color[0];
+								rect.x += AAX.ui.block;
+								rect.w -= AAX.ui.block;
+								align = "left";
+							}
 							ctx.fillStyle = ctx.strokeStyle;
 							ctx.textAlign = align;
 							if(Array.isArray(text)) {
 								const start_y = Math.floor(center[1] - lineheight*(text.length - 1)/2 + margin[1]);
 								for(i2 = 0; i2 < text.length; i2++) {
-									const start_x = text_x(ref, align, text[i2]);
-									const right_edge = text_x(ref, "right", right_text[i2]);
+									const start_x = text_x(rect, align, text[i2]);
+									const right_edge = text_x(rect, "right", right_text[i2]);
 									loop.tick(2);
 									const coor = [
 										start_x,
@@ -2070,12 +2294,12 @@
 								loop.end();
 							}
 							else {
-								ctx.fillText(text, text_x(ref, align, text), center[1] + margin[1]);
+								ctx.fillText(text, text_x(rect, align, text), center[1] + margin[1]);
 								if(right_text || right_text === 0) {
 									ctx.textAlign = "right";
 									ctx.fillText(
 										right_text,
-										text_x(ref, "right", right_text),
+										text_x(rect, "right", right_text),
 										center[1] + margin[1]
 									);
 								};
@@ -2127,7 +2351,7 @@
 				// - view buttons, family selection keys, partinfo_name: skip draw
 				// - pose tool switches (including up/down): skip draw (unless if the new
 				//   tool or old tool is perspective.)
-				// - oddify, invert, other partinfo, automate perspective coordinates:
+				// - oddify, mirror, other partinfo, automate perspective coordinates:
 				//   don't skip states
 				let no_refresh = (
 					(prefix === "states" && (suffix === "undo" || suffix === "redo"))
@@ -2333,7 +2557,7 @@
 						refresh.states = true;
 					}
 				}
-				else if(prefix === "invert") {
+				else if(prefix === "mirror") {
 					let desc = aa.control.part.descendants;
 					refresh.states = true;
 					for(i1 = -1; i1 < desc.length; i1++) {
@@ -2451,7 +2675,7 @@
 						};
 					}
 					else if(suffix === "editshape") {
-						let temp = AAX.shapetostring(part.shape);
+						let temp = AAX.Shape.string(part.shape);
 						document.getElementById("aa_editshape_input").rows = temp.split("\n").length;
 						document.getElementById("aa_editshape_input").value = temp;
 						document.getElementById("aa_editshape_dialog").showModal();
@@ -2516,7 +2740,7 @@
 						no_refresh = true;
 						// all this does is open a <dialog> showing you shape
 						// text.
-						let scale = prompt("enter a scale factor for the shape.");
+						let scale = prompt("enter a scale factor for the shape. (it can be a fraction.)");
 						if(typeof scale === "string") {
 							scale = readnumber(scale) ?? 1;
 							let shape = AAX.posetoshape(aa.currpose);
@@ -2530,7 +2754,7 @@
 									}
 								}
 							}
-							document.getElementById("aa_posetoshape_text").value = AAX.shapetostring(shape);
+							document.getElementById("aa_posetoshape_text").value = AAX.Shape.string(shape);
 							document.getElementById("aa_posetoshape_dialog").showModal();
 						}
 					};
@@ -2562,7 +2786,7 @@
 					};
 					if(!aa.partinfo_is_default(part, view, suffix) && confirm("reset " + temp + " to default?")) {
 					// reset to default
-						if(["hide", "connection", "silhouette", "shape"].includes(suffix)) {
+						if(["hide", "shape"].includes(suffix)) {
 							part[suffix] = "default";
 						}
 						else if(suffix === "coor") {
@@ -2585,7 +2809,7 @@
 							part.stretch = 1;
 							part.widen = 1;
 						}
-						else if(!["name", "colors"].includes(suffix)) {
+						else if(!["name", "colors", "silhouette"].includes(suffix)) {
 							console.log("this button is unaccounted for in the ui.action partinfo logic.")
 						};
 						refresh.states = true;
@@ -2616,7 +2840,7 @@
 									if(ref[i1].hasOwnProperty(i2)) {
 									// for every body part.
 										AAX.clearcache(ref[i1], i2, type);
-										// this isn't an AAX., so we
+										// this isn't an AAX.Part, so we
 										// can't use the method.
 									}
 								}
@@ -2743,8 +2967,10 @@
 						}
 						else {
 							AAX.inbetweening(aa, aa.body, aa.frames, aa.currframe, values, apply);
-							aa.currframe++;
+							//aa.currframe++;
 							// switch to the first inbetween.
+							aa.currframe = posmod(aa.currframe + values.length + 1, aa.frames.length);
+							// switch to the end pose.
 						}
 					}
 					else {
@@ -2752,9 +2978,9 @@
 					}
 				}
 				else if(button === "projectname") {
-					let name = prompt(`enter a name for the project.`);
+					let name = prompt(`enter a name for the project.\n\nif you type an asterisk anywhere, it'll be replaced by the current date.`);
 					if(name) {
-						aa.control.projectname = name;
+						aa.control.projectname = name.replaceAll("*", filedate());
 					}
 					else {
 						no_refresh = true;
@@ -2792,7 +3018,8 @@
 						aa.anim_index++;
 						aa.curranim.name = prevanim.name ? prevanim.name + " - copy" : "";
 						// it's fine if names are shared.
-						aa.curranim.states = [structuredClone(prevanim.states[prevanim.state_index])]
+						aa.curranim.states = [structuredClone(prevanim.states[prevanim.state_index])];
+						aa.curranim.state_index = 0;
 						// keep only the current state
 					}
 					else if(suffix === "delete") {
@@ -2832,6 +3059,9 @@
 					else if(suffix === "type") {
 						let array = AAX.valid[button];
 						aa.control[prefix][suffix] = array[(array.indexOf(aa.control[prefix][suffix]) + 1)%array.length];
+					}
+					else if(suffix === "curl") {
+						aa.control[prefix][suffix] = !aa.control[prefix][suffix];
 					}
 					else if(aa.control[prefix].type === "custom") {
 						let basis = aa.control.rotate.basis;
@@ -2880,7 +3110,7 @@
 								point = Quat.apply(part.orient, point);
 							}
 							else if(suffix === "written") {
-								point = prompt("enter a new axis. three coordinates, separated by commas or spaces.\n\ncurrent:\n\t" + basis[axis].join(",\n\t")) ?? "";
+								point = prompt("enter a new axis. three coordinates, separated by commas or spaces. it'll use the angle that has, relative to (0, 0, 0).\n\ncurrent:\n\t" + basis[axis].join(",\n\t")) ?? "";
 								point = trimunspecial(point.replaceAll(",", " ")).split(" ");
 								if(point.length >= 3) {
 									for(i1 = 0; i1 < 3; i1++) {
@@ -2914,29 +3144,183 @@
 					else {
 						no_refresh = true;
 					}
+				}
+				else if(prefix === "px") {
+					if(AAX.valid.px_export.includes(suffix)) {
+						aa.control.px_export = suffix;
+					}
+					else if(suffix === "one_view" || suffix === "vertical") {
+					// duplicates of the animator checkboxes.
+						aa.animator.html[suffix].click();
+					}
+					else {
+						changefocus("px");
+						// switch first, to make sure it's initialized
+						let type = aa.control.px_export;
+						let replace = suffix === "replace";
+						let ds = aa.drawsettings;
+						let cell = ds.cell;
+						let sheet = aa.animator.sheet_ctx;
+						let images = [];
+						// each item is an ImageData, representing an animation.
+						let canvas = document.createElement("canvas");
+						let ctx = canvas.getContext("2d");
+						if(type === "frame") {
+						// export the canvas
+							let one = aa.animator.html.one_view.checked;
+							if(one || aa.animator.html.vertical.checked) {
+								images.push(aa.ctx.main.getImageData((one ? aa.control.view : 0)*cell.w, 0, (one ? 1 : 4)*cell.w, cell.h));
+							}
+							else {
+							// line up the views vertically
+								canvas.width = cell.w;
+								canvas.height = 4*cell.h;
+								for(i2 = 0; i2 < 4; i2++) {
+									ctx.putImageData(
+										aa.ctx.main.getImageData(i2*cell.w, 0, cell.w, cell.h),
+										0, i2*cell.h
+									);
+								}
+								images.push(ctx.getImageData(0, 0, cell.w, 4*cell.h));
+							}
+						}
+						else if(type === "anim") {
+						// update the animation sheet, and export that
+							aa.updateanimation(true);
+							images.push(sheet.getImageData(0, 0, sheet.canvas.width, sheet.canvas.height));
+						}
+						else if(type === "all_x" || type === "all_y") {
+						// export every animation, with borders and names.
+						// - the borders and names are drawn in whatever px'
+						//   current forecolor is.
+						// - the borders and names stay outside the frames
+						// - the margins and the gaps between animations match
+						//   whatever px.grid currently is. that way, there's
+						//   clear separation between them, and if the user uses
+						//   grid snap with the paste tool, the top left corners
+						//   of the canvases will be placed right on the grid.
+						//   - unless if the cell dimensions aren't divisible by
+						//     the grid dimensions, but that's weird anyway.
+						// - there's little gaps in the border that show the
+						//   boundaries between views or frames.
+							for(i1 = 0; i1 < aa.anims.length; i1++) {
+								images.push(null);
+							}
+							let truncator = aa.states_truncator;
+							aa.states_truncator = Infinity;
+							// this should avoid truncating the current
+							// animation's states.
+							let anim_index = aa.anim_index;
+							let posetool = aa.control._posetool;
+				            for(i1 = 0; i1 < aa.anims.length; i1++) {
+								let _i1 = posmod(anim_index + 1 + i1, aa.anims.length);
+								// end with the animation it was at before. that
+								// way there's no wasteful updateanimation
+								// runnings.
+								aa.anim_index = _i1;
+								aa.control._posetool = posetool;
+								// the anim_index setter loads the animation's
+								// current state, which includes what pose tool
+								// was selected. that sounds completely
+								// unrelated, except, perspective.
+								aa.updateanimation(true);
+								images[_i1] = sheet.getImageData(0, 0, sheet.canvas.width, sheet.canvas.height);
+							}
+							aa.states_truncator = truncator;
+						};
+						// gather up the images
+						const grid = 8;
+						let dim = [0, 0];
+						let axis1 = Number(type === "all_y");
+						let axis2 = posmod(axis1 + 1, 2);
+						for(i1 = 0; i1 < images.length; i1++) {
+							let _dim = [images[i1].width, images[i1].height];
+							_dim = [
+								Math.ceil(_dim[0]/grid)*grid,
+								Math.ceil(_dim[1]/grid)*grid
+							];
+							dim[axis1] += _dim[axis1];
+							dim[axis2] = Math.max(dim[axis2], _dim[axis2]);
+						};
+						dim[axis1] += (1 + images.length)*grid;
+						dim[axis2] += 2*grid;
+						canvas.width = dim[0];
+						canvas.height = dim[1];
+						ctx.clearRect(0, 0, ...dim);
+						if(replace) {
+							ctx.fillStyle = px.backcolor;
+							ctx.fillRect(0, 0, ...dim);
+						}
+						ctx.fillStyle = px.forecolor;
+						ctx.textBaseline = "alphabetic";
+						ctx.font = "6px 'thick 4x4'";
+						let pos = [grid, grid];
+						let standpoint = aa.control.perspectived ? ds.perspectived_standpoint : ds.standpoint;
+						for(i1 = 0; i1 < images.length; i1++) {
+							let _dim = [images[i1].width, images[i1].height];
+							let rect = Rect.new(...pos, ..._dim);
+							_dim = [
+								Math.ceil(_dim[0]/grid)*grid,
+								Math.ceil(_dim[1]/grid)*grid
+							];
+							ctx.putImageData(images[i1], ...pos);
+							for(i2 = rect.x; i2 + cell.w <= rect.x + rect.w; i2 += cell.w) {
+								ctx.fillRect(i2 + 1, rect.y - 1, cell.w - 2, 1);
+								ctx.fillRect(i2 + 1, rect.y + rect.h, cell.w - 2, 1);
+								// draw top and bottom borders
+								ctx.fillRect(i2 + standpoint.x, rect.y - 1 - 1, 1, 1);
+								ctx.fillRect(i2 + standpoint.x, rect.y + rect.h + 1, 1, 1);
+								// mark standpoint x
+							}
+							for(i2 = rect.y; i2 + cell.h <= rect.y + rect.h; i2 += cell.h) {
+								ctx.fillRect(rect.x - 1, i2 + 1, 1, cell.h - 2);
+								ctx.fillRect(rect.x + rect.w, i2 + 1, 1, cell.h - 2);
+								// draw left and right borders
+								ctx.fillRect(rect.x - 1 - 1, i2 + standpoint.y, 1, 1);
+								ctx.fillRect(rect.x + rect.w + 1, i2 + standpoint.y, 1, 1);
+								// mark standpoint y
+							}
+							if(type.startsWith("all") && aa.anims[i1].name) {
+							// write the name
+								ctx.fillText(aa.anims[i1].name, rect.x, rect.y - 2);
+							}
+							pos[axis1] += _dim[axis1] + grid;
+						};
+						// form it into a spritesheet
+						px.transfer(ctx, replace);
+						if(replace) {
+							px.select = Rect.new(grid, grid, cell.w, cell.h);
+						};
+						px.html.anim_fps.value = aa.animator.fps;
+						px.html.anim_duration.value = aa.animator.frames.length;
+						px.html.anim_loop.checked = aa.animator.loop;
+						px.html.anim_wrap.value = aa.animator.sheet.wrap.value;
+						px.html.anim_vertical.checked = aa.animator.html.vertical.checked;
+						no_refresh = true;
+						// send it, edit px' select and animation settings to
+						// match it
+					}
 				};
-				let depress = suffix !== "heading" && !no_refresh && (
-					prefix === "switch"
-					||
-					(prefix === "frame" && suffix !== "display")
-					||
-					(prefix === "inbetween" && (suffix === "add" || suffix === "subtract" || suffix === "create" || suffix === "apply"))
-					||
-					(prefix === "states" && (suffix === "undo" || suffix === "redo"))
-					||
-					button === "save" || button === "load"
-					||
-					(prefix === "misc" && suffix !== "autoperspective" && suffix !== "stretch_widen" && suffix !== "posetoshape")
-					||
-					(prefix === "anim" && (suffix === "blank" || suffix === "duplicate" || suffix === "delete"))
-					||
-					(prefix === "rotate" && (
+				let depress = (
+					suffix === "heading" ? false :
+					prefix === "states" ? (suffix === "undo" || suffix === "redo") :
+					prefix === "px" ? !AAX.valid.px_export.includes(suffix) :
+					no_refresh ? false :
+					prefix === "switch" ? true :
+					prefix === "frame" ? suffix !== "display" :
+					prefix === "inbetween" ? (suffix === "add" || suffix === "subtract" || suffix === "create" || suffix === "apply") :
+					(button === "save" || button === "load") ? true :
+					prefix === "misc" ? (suffix !== "autoperspective" && suffix !== "stretch_widen" && suffix !== "posetoshape") :
+					prefix === "anim" ? (suffix === "blank" || suffix === "duplicate" || suffix === "delete") :
+					prefix === "rotate" ? (
 						(AAX.valid.rotate_axis_setters.includes(suffix) && suffix !== "written")
 						||
 						suffix.startsWith("invert_")
 						||
 						suffix.startsWith("switch_")
-					))
+					) :
+					prefix === "mirror" ? true :
+					false
 				);
 				// boolean for whether to animate it being depressed.
 				// - there aren't actually a lot of buttons worth depressing.
@@ -3090,9 +3474,11 @@
 			rotate: {
 				round: 72,
 				type: "true",
+				curl: false,
 				select: 0,
 				basis: Basis.new(),
 			},
+			px_export: AAX.valid.px_export[0],
 		},
 		get oddify_deform() {
 			return aa.control.posetool === "deform";
@@ -3152,7 +3538,7 @@
 			return null;
 		},
 		getnode: (view, name) => AAX.getnode(aa.nodes, view, name),
-		xz_radius: () => Math.floor(aa.drawsettings.cell.w/4),
+		xz_radius: () => Math.floor((aa.drawsettings.cell.w - 2*AAX.noderadius)/4),
 		// returns the radius used to calculate angle in inverted rotate mode.
 		// (ie xz rotation)
 		xz_angle: function(click, view) {
@@ -3282,10 +3668,28 @@
 			let i1 = 0;
 			let i2 = 0;
 			let click = clickxy(e);
+			let no_refresh = false;
 			const ctx = aa.ctx.main;
 			const cell = aa.drawsettings.cell;
 			const view = (aa.control.clicktype === "main" ? aa.control.view : Math.floor(click[0]/cell.w));
+			if(![0, 1, 2, 3].includes(view)) {
+				return;
+			};
 			const coor = aa.coorfromcanvas(click[0], click[1], view);
+			let part_select = (
+				(
+					aa.control.posetool === "tilt"
+					||
+					aa.control.posetool === "rotate"
+					||
+					(aa.control.posetool === "perspective" && aa.control.posetool_inversion)
+				)
+				?
+				aa.nodecheck(click, view)
+				:
+				null
+			);
+			part_select = part_select && part_select.name !== aa.control.partname ? part_select.name : null;
 			if([0, 1, 2, 3].includes(view)) {
 			// draw coordinates
 			// - unless it's perspectived, ie coorfromcanvas doesn't really make
@@ -3305,7 +3709,7 @@
 				};
 				// coorfromcanvas doesn't work for perspective mode, and that
 				// wouldn't make sense anyway.
-				if(aa.control.clicktype !== "main") {
+				if(aa.control.clicktype !== "main" || part_select) {
 					let node = aa.nodecheck(click, view);
 					aa.pasteimages(false);
 					aa.pasteimages(true);
@@ -3331,6 +3735,22 @@
 				aa.writecoordinates(text);
 			};
 			if(aa.control.clicktype !== "main") {
+				return;
+			};
+			//
+			if(part_select) {
+			// tilt/rotate should allow node selection on mouseup, and visualize
+			// it. that gives much more visual feedback, and therefore
+			// precision.
+				if(finish) {
+					aa.control.partname = part_select;
+					//
+					aa.control.strokecache = null;
+					aa.control.clicktype = null;
+					aa.control.strokedata = null;
+					aa.refresh(["draw", "states"]);
+					aa.writecoordinates(null);
+				};
 				return;
 			};
 			//
@@ -3529,7 +3949,14 @@
 					angle = Math.round(angle*round)/round;
 					angle *= 2*Math.PI;
 				}
-				aa.writecoordinates(roundspecial(Angle.convert(angle)) + " " + ["yz", "xz", "xy"][axis]);
+				let _angle = roundspecial(Angle.convert(angle));
+				_angle -= _angle > 180 ? 360 : 0;
+				_angle = {
+					sign: _angle < 0 ? "-" : _angle > 0 ? "+" : "&#160;",
+					num: Math.abs(_angle),
+				};
+				_angle = _angle.sign + "&#160;".repeat(3 - (_angle.num + "").length) + _angle.num;
+				aa.writecoordinates(_angle + " " + ["yz", "xz", "xy"][axis]);
 				if(inversion) {
 				// i equate xy rotation to the z axis and yz to the x axis, but
 				// xz is different. since the coordinate order is reversed, the
@@ -3568,19 +3995,22 @@
 					console.log(check);
 					console.log(basis);
 				};
+				no_refresh = !angle;
 				if(finish) {
 				// apply the new relative coordinates in rotatecoor
-					//console.log("before:" + String.fromCharCode(10) + Quat.string(part.orient));
-					part.orient = structuredClone(quat);
-					//console.log(Quat.string(part.orient));
-					if(mode !== "tilt") {
-						for(i1 in rotatecoor) {
-							if(rotatecoor.hasOwnProperty(i1)) {
-								let _part = aa.currpose[i1];
-								_part.x = rotatecoor[i1][0];
-								_part.y = rotatecoor[i1][1];
-								_part.z = rotatecoor[i1][2];
-								_part.orient = structuredClone(Quat.rotate(_part.orient, axis, (_part.orient.flip ? -1 : 1)*angle));
+					if(!no_refresh) {
+						//console.log("before:" + String.fromCharCode(10) + Quat.string(part.orient));
+						part.orient = structuredClone(quat);
+						//console.log(Quat.string(part.orient));
+						if(mode !== "tilt") {
+							for(i1 in rotatecoor) {
+								if(rotatecoor.hasOwnProperty(i1)) {
+									let _part = aa.currpose[i1];
+									_part.x = rotatecoor[i1][0];
+									_part.y = rotatecoor[i1][1];
+									_part.z = rotatecoor[i1][2];
+									_part.orient = structuredClone(Quat.rotate(_part.orient, axis, (_part.orient.flip ? -1 : 1)*angle));
+								}
 							}
 						}
 					}
@@ -3590,7 +4020,7 @@
 				// are drawn, then the rotated parts are drawn as nodes/skeleton
 				// in the colors of the interface.)
 					aa.draw_background();
-					aa.draw(rotatecoor, {[partname]: basis});
+					aa.draw(null, rotatecoor, {[partname]: basis});
 				}
 			};
 			if((mode !== "tilt" && mode !== "rotate") || aa.control.partclicked) {
@@ -3601,13 +4031,15 @@
 				aa.control.strokecache = null;
 				aa.control.clicktype = null;
 				aa.control.strokedata = null;
-				aa.refresh( (
-					mode === "select"
-					||
-					((mode === "tilt" || mode === "rotate") && aa.control.partclicked)
-					||
-					(mode === "perspective" && inversion)
-				) ? "states" : null );
+				if(!no_refresh) {
+					aa.refresh( (
+						mode === "select"
+						||
+						((mode === "tilt" || mode === "rotate") && aa.control.partclicked)
+						||
+						(mode === "perspective" && inversion)
+					) ? "states" : null );
+				}
 				// don't edit datatext or states if all you did was select
 				// something.
 				aa.writecoordinates(null);
@@ -3763,12 +4195,29 @@
 		get currframe() {
 			return aa.currstate.currframe;
 		},
+		/*
+		set currframe(value) {
+			if(!Number.isInteger(value)) {
+				console.log("this shouldn't happen (" + value + ")");
+			}
+			//else if(value >= 0 && value < aa.frames.length) {
+			//	aa.currstate.currframe = value;
+			//}
+			else {
+				aa.currstate.currframe = Math.max(0, Math.min(value, aa.currstate.poseobjs.length - 1));
+			}
+		},
+		//*/
 		set currframe(value) {
 			if(Number.isInteger(value) && value >= 0 && value < aa.frames.length) {
 				aa.currstate.currframe = value;
 			}
 			else {
-				console.log("this shouldn't happen (" + value + ")");
+				//console.log("this shouldn't happen (" + value + ")");
+				// this runs when it shouldn't. specifically, if undo/redoing
+				// takes you to a state where there's less frames than makes
+				// sense for what currframe is. it's fine because loadstate runs
+				// clampframe, so i don't want this error showing up.
 			}
 		},
 		get poseobjs() {
@@ -3867,50 +4316,76 @@
 			};
 		},
 		anim: null,
-		updateanimation: function(view) {
+		updateanimation: function(no_shortcut) {
 		// updates the animation.
 		// - this is to be used sparingly, with a button. to avoid drawsettings
 		//   inconsistency, it needs to draw every frame again to save it.
-		// - view: specify a view number, and it'll only save one view.
-			let i1 = 0;
-			let loop = new Loop("aa.updateanimation");
-			view = [0, 1, 2, 3].includes(view) ? view : null;
-			let ctx = aa.ctx.main;
+		// - no_shortcut
+		//   - to save time, it skips the drawing for whatever the current frame
+		//     is. it just copies aa.ctx, instead.
+		//   - this is usually fine, because between switching animations and
+		//     clicking the updateanimation button, there's guaranteed to be a
+		//     refresh.
+		//   - but in the case of the pixel art multianimation export, that
+		//     isn't true.
 			let ref = aa.animator;
-			ref.w = (view === null ? 4 : 1)*aa.drawsettings.cell.w;
-			ref.h = aa.drawsettings.cell.h;
+			let view = ref.html.one_view.checked ? aa.control.view : -1;
+			let viewtype = view === -1 ? "multi4" : view;
+			let ctx = aa.ctx.main;
+			let vertical = ref.html.vertical.checked;
+			let cell = aa.drawsettings.cell;
+			ref.w = (view === -1 && vertical ? 4 : 1)*cell.w;
+			ref.h = (view === -1 && !vertical ? 4 : 1)*cell.h;
+			// if it's a multiview and the time direction is vertical, the four
+			// views should be lined up horizontally. if it's a multiview and
+			// time is horizontal, they should be lined up vertically.
 			ref.frames = [];
-			ref.duration = aa.frames.length;
 			let currframe = aa.currframe;
 			// this is going to change, so save what it is right now
-			ref.saveframe(
-				currframe,
-				ctx,
-				(view === null ? 0 : view*ref.w)
-			);
-			for(i1 = 0; i1 < aa.frames.length; i1++) {
-				loop.tick(1);
-				if(i1 !== currframe) {
-					aa.currframe = i1;
-					aa.draw_background();
-					aa.draw();
-					ref.saveframe(
-						i1,
-						ctx,
-						(view === null ? 0 : view*ref.w)
-					);
+			for(let i1 = 0; i1 < aa.frames.length; i1++) {
+				let _i1 = posmod(currframe + i1, aa.frames.length);
+				aa.currframe = _i1;
+				if(!(i1 && view !== -1 && !no_shortcut)) {
+				// if it's the first drawing and it isn't a one-view update, you
+				// can skip one drawing by taking whatever's already on the
+				// canvas. (unless no_shortcut is on to prevent it.)
+					aa.draw_background(viewtype);
+					// (viewtype, side_tint_invert)
+					// - _i1%2 would make the side tint have like a checker
+					//   pattern, to differentiate cells in both axes, not just
+					//   one..
+					// - but, well. it's kind of stupid to make the whole
+					//   background change color every other frame.
+					aa.draw(viewtype);
+					// (viewtype, rotatecoor, basis)
+				};
+				if(view === -1 && !vertical) {
+				// if it's a horizontal multiview, the views should be lined up
+				// vertically.
+					let canvas = document.createElement("canvas");
+					let _ctx = canvas.getContext("2d");
+					canvas.width = cell.w;
+					canvas.height = 4*cell.h;
+					for(i2 = 0; i2 < 4; i2++) {
+						_ctx.putImageData(ctx.getImageData(i2*cell.w, 0, cell.w, cell.h), 0, i2*cell.h);
+					}
+					ref.frames[_i1] = _ctx.getImageData(0, 0, cell.w, 4*cell.h);
+				}
+				else {
+					ref.frames[_i1] = ctx.getImageData(0, 0, ref.w, ref.h);
 				}
 			}
-			loop.end();
 			aa.currframe = currframe;
-			ctx.putImageData(ref.frames[currframe], 0, 0);
-			if(ref.duration >= 1) {
-				ref.frame = 0;
-				ref.ctx.putImageData(ref.frames[0], 0, 0);
-			};
-			ref.sheet_cols = view === null ? 1 : 0;
-			// display them horizontally if it's one view, vertically if it's
-			// all views.
+			if(view === -1) {
+				ctx.putImageData(ref.frames[currframe], 0, 0);
+			}
+			else {
+				aa.draw_background();
+				aa.draw();
+			}
+			// put the canvas back how it was
+			ref.frame = 0;
+			ref.sheet.vertical.checked = ref.html.vertical.checked;
 			ref.updatesheet();
 		},
 		initialize: function() {//yyyaai
@@ -3933,8 +4408,7 @@
 			//console.log(aa.body);
 			// make sure a body exists
 			//
-			let string = `<ul>a character animation system that's featured out the ass. works best with a mouse/touchpad. read the manual.</ul>`;
-			string += `\n<details>`;
+			let string = `<details class="text">`;
 			string += `\n\t<summary>manual</summary><ul>`;
 			let manual = {
 				"pose tools": [
@@ -3942,7 +4416,8 @@
 					`the move pose tool lets you move parts, but keeps it as far away from the parent as it is in the default pose. (the third axis will be whatever positivity/negativity brings it closer to the camera for that view. if you're on the front view, it will move forward, if it's the back view it will move backward.)`,
 					`if you click a part in the rotate pose tool, it will select that part. if you click anywhere else, you can rotate the selected part and its descendants.`,
 					[
-						`tilt is similar, but doesn't affect descendants.`
+						`tilt is similar, but doesn't affect descendants.`,
+						`you can select parts by starting OR ending your click on them.`
 					],
 					`the perspective pose tool lets you create an offset for each view, letting you position things around a vanishing point.`,
 					`certain graphical changes only apply in perspective mode, namely the perspective offsets, and camera angle. perspective mode is for visualizing what the pose/animation will look like at the end, while the other modes are meant to be easier to understand and edit, like an engineering multiview.`,
@@ -3981,26 +4456,31 @@
 								`you can enter multiple numbers, separated by commas. this will make colors alternate between generations. (ex: "color1(1, 2)" will make the part's color1 the first color in the part colors list, and make all its children use the second color in that list. then the grandchildren use the first color, great-grandchildren use the second, etc.)`,
 								`if you use "color1*()" or "color2*()" instead, descendants won't be affected.`
 							],
-							`generation(), capsule(), silhouette(): these affect the silhouette/connection system.`,
+							`group(), generation(), core(), bone(), concave(): these affect the silhouette/connection system.`,
 							[
 								`when the silhouettes toggle in draw settings is on, it draws an approximation of the armature's silhouette, using these properties.`,
-								`generation(): enter two numbers in the parentheses. this type of connection forms silhouette shapes by convexing multiple images. the part, and some of its ancestors and/or descendants. for example, "generation(1, 2)" makes it combine the part's image, its parent's image, all of its childrens' images, and all of its grandchildrens' images.`,
-								`capsule(): enter one number in the parentheses. this type of connection forms a silhouette shape with the part's image, and a capsule shape from the center of the part to the center of the part's parent. the number represents the capsule diameter.`,
-								[
-									`the "i have to make it look at least kind of like a neck" type.`,
-									`capsule silhouettes are concave.`
-								],
-								`silhouette(): enter a number, and maybe follow it with letters. this defines the "silhouette group", which helps differentiate different limbs.`,
+								`generally, silhouette images are combinations of the part's image and other parts' images, turned into a convex shape.`,
+								`group(): enter a number, and maybe follow it with letters. this defines the "silhouette group", which helps differentiate different limbs.`,
 								[
 									`if parts have the same number <i>and</i> letters, they're drawn together, with no outlines between their silhouette shapes.`,
 									`if parts have the same number but different letters, they're drawn like separate shapes, but in the same color.`,
 									`the number is used to select one of the silhouette colors. there's a color button that lets you edit those. the dark blue/green/red one.`,
-									`if an l_ or r_ part has no letters in their silhouette group, when it gets a symmetrical counterpart, the left one will get "l" and the right one will get "r".`,
+									`if a mirrored part has no letters in their silhouette group, when it gets a symmetrical counterpart, the left one will get "l" and the right one will get "r".`,
 									[
 										`this doesn't happen if the silhouette group was 0. (the assumption is that if it's 0, you didn't want these limbs differentiated from the rest of the body anyway.)`
 									],
-									`just like color1 and color2, silhouette has a "silhouette*()" counterpart that doesn't affect descendants.`
+									`just like color1 and color2, group has a "group*()" counterpart that doesn't affect descendants.`
 								],
+								`generation(): enter two numbers in the parentheses to add the images of the part's ancestors and/or descendants. for example, "generation(1, 2)" makes it combine the part's image, its parent's image, all of its childrens' images, and all of its grandchildrens' images.`,
+								[
+									`<b>by default, it adds the parent's image. if you don't want that, you have to override it with an empty generation() command.</b>`
+								],
+								`core(): enter a number. using that as the diameter, it will add a circle centered on the part. this is used for the hands.`,
+								`bone(): enter a number. using that as the diameter, it will add a capsule shape, that begins at the part's parent and ends at the part. used for the neck.`,
+								`concave(): if you enter this, the silhouette image will be turned into a convex shape <i>before</i> the part's main image is added. use this for concave shapes, like if the head has horns, or you just don't want it convexed to its parent.`,
+								[
+									`this affects bone(), too, if you have one.`,
+								]
 							],
 							`hide(): the part is hidden by default.`,
 							`perspective(): lets you predefine perspective offset? this isn't very useful, but it's there.`,
@@ -4029,24 +4509,22 @@
 					`if you type axis letters and a point index, you can make copies of other points. (the first point is 0. negative indexes will start from the most recent points, so -1 means "the point before this one".)`,
 					`the "orient" part property rotates the shape. the rotate and tilt pose tools can edit this. the part information window visualizes it by showing the directions of the x/y/z axes of the shape.`,
 					`"stretch" and "widen" scale the shape. stretch scales it along the line from the part to its parent, and widen scales it in other directions.`,
-					`quaternion flipping`,
+					`orient flipping`,
 					[
 						`this is a technical detail that, 90% of the time, is not important. skip this if you don't care.`,
-						`for symmetry parts and tools like the invert buttons, parts get mirrored across some axis, right?`,
+						`for symmetry parts and tools like the mirror buttons, parts get mirrored across some axis, right? including even the orientation of the shape.`,
 						`that's impossible with traditional quaternions. you can invert two axes by rotating it 180 degrees, but inverting one or all axes is impossible.`,
-						`my quaternions get around that by having a "flip" property. that makes it so, whenever the quaternion is used to orient a point or set of axes, every coordinate of those points will be inverted.`,
+						`my orient quaternions get around that by having a "flip" property. that makes it so, whenever the quaternion is used to orient a point or set of axes, every coordinate of those points will be inverted.`,
 						`combined with 180 rotations, this makes it possible to mirror quaternions.`,
 						`when the part information orientation visual has a little X at the center, that means the quaternion is currently flipped.`,
 						`you cannot specify whether flip is on in the point quaternions. since those quaternions are only applied to spheroids, and spheroids are symmetrical in all three axes, inverting the directions of all of those axes does nothing. i guess if you really wanted to, you could write "x mirror, y mirror, z mirror".`,
 						[
-							`things only change if a spheroid axis points in a different direction that isn't exactly the opposite direction of what it was. one or two x/y/z/ mirrors can cause that, but three mirrors won't.`
-						],
-						`inbetweening does not look very smooth if a part has an unflipped quaternion in the start pose and a flipped quaternion in the end pose. ...there isn't really much i can do about that. this isn't a very tweenable property.`
+							`things only change if a spheroid axis points in a different direction that isn't exactly the opposite direction of what it was. one or two x/y/z mirrors can cause that, but three mirrors won't.`
+						]
 					],
 					`extra notes`,
 					[
-						`// comments are especially useful in shapes, to remember how the shape is structured.`,
-						`symmetrical counterparts x-mirror the shape as well, but at the moment, they can't invert spheroid rotations.`
+						`// comments are especially useful in shapes, to remember how the shape is structured.`
 					]
 				],
 				"image system": [
@@ -4157,7 +4635,55 @@
 						`the two buttons beneath that control if it's ease in, ease out, ease in/out, or ease out/in.`,
 						`the area under that visualizes what the inbetweens will be like. the closer a circle is to the left end, the more it'll be like the start pose, and the closer it is to the right, the more it'll be like the end pose.`
 					],
-					`<i>when using apply inbetweening, it won't tween parts that are hidden in the starting frame.</i> this lets you control what inbetweening is applied to, like only tweening certain characters or limbs.`
+					`<i>when using apply inbetweening, it won't tween parts that are hidden in the starting frame.</i> this lets you control what inbetweening is applied to, like only tweening certain characters or limbs.`,
+					`<b>there are two cases where tweening looks weird.</b> if your tweening looks weird, it's probably one of these cases.`,
+					[
+						`one is when the angles a part points in in the start and end pose are perfect opposites.`,
+						[
+							`it figures out how to get from here to there by finding the shortest rotation that would do that, but... if the angles are perfectly opposite, there's an infinite number of angles it could be.`,
+							`instead it just tweens position rather than angle. which doesn't really make sense.`
+						],
+						`two is when in the start or end pose, the part's orient quaternion is "flipped", but not in both.`,
+						[
+							`read the "orient flipping" part of the shape system section. generally, orientation only flips or unflips when you use the mirror buttons.`,
+							`this just isn't a very tweenable property, and it's impactful enough for the lack of smooth change to look super weird.`,
+							`as i said earlier, check the orientation visual in the part information area to tell if it's flipped. it should have an X at the center if it is.`,
+							`one common example is walk cycles.`,
+							[
+								`the standard, beautifully half-assed walk cycle is as follows:`,
+								[
+									`default pose`,
+									`stepping pose`,
+									`default pose`,
+									`stepping pose, but x mirrored`,
+								],
+								`if you try to tween that, it'll look creepy. x mirroring all parts in the last frame creates a skew between that frame and the other 3.`,
+								`instead, it should be like:`,
+								[
+									`default pose`,
+									`stepping pose`,
+									`default pose, but x mirrored`,
+									`stepping pose, but x mirrored`,
+								],
+								`basically, avoid tweening between mirrored and unmirrored frames.`,
+								[
+									`create and duplicate key frames`,
+									[
+										`1: default pose`,
+										`2: stepping pose`,
+										`3: default pose`,
+										`4: stepping pose`
+									],
+									`create tweens between key 1 and 2 (ease out)`,
+									`create tweens between key 2 and 3 (ease in)`,
+									`x mirror keys 3, 4, and 1`,
+									`create tweens between key 3 and 4 (ease out)`,
+									`create tweens between key 4 and 1 (ease in)`,
+									`x mirror key 1 to put it back how it was`
+								]
+							]
+						]
+					]
 				],
 				"rotate settings": [
 					`various settings related to the rotate and tilt pose tools.`,
@@ -4166,17 +4692,24 @@
 						`it sounds unnecessary, but having it off is pretty annoying.`,
 						`changing it to 0 will disable it.`
 					],
+					`curl: when this is on, rotations will be multiplied along a branch of parts.`,
+					[
+						`like if you rotate a finger 10 degrees, the first segment will rotate 10 degrees, the second will rotate 20 degrees, the third will rotate 30 degrees. it has a sort of curving effect.`,
+						`useful for curling fingers, and...`,
+						`uhh... doing a bicep flex? just curling fingers, pretty much.`,
+						`indispensable for hand posing.`
+					],
 					`true/local/custom: refers to what kind of axes it rotates around.`,
 					[
 						`true: the axes you'd expect. xy, xz, yz.`,
 						`local: the axes of the part's current orientation.`,
 						[
-							`you can think of orientation as what direction right is, what direction down is, what direction forward is... rotations move those directions, right?`,
+							`you can think of orientation as what direction right is for the part, what direction down is, what direction forward is... rotations move those directions, right?`,
 							`local makes it so it rotates around those directions.`,
 							`another way to think of it is that it's like the part is completely unoriented, like how it is in the default pose.`,
 							`this is useful for things like jaws, or elbows. jaw movement is just a yz rotation. but <i>only</i> a yz rotation. and that's impossible to do if you already did xy rotation or something on the head.`,
 							`but if you switch to local, yz rotation still matches the jaw's proper rotation axis.`,
-							`unimportant technical detail: for mirrored symmetry parts, (ex: r_shoulder, but not l_shoulder) the x axis is inverted to point in the opposite direction. technically that's sorta inconsistent, but it's more intuitive.`
+							`unimportant technical detail: for mirrored symmetry parts, (ex: r_shoulder, but not l_shoulder) the x axis is inverted to point in the opposite direction, cancelling out how their orientations start out x-mirrored. technically that's sorta inconsistent, but it's more intuitive.`
 						],
 						`custom: custom rotation axes, set with the bottom two columns of buttons.`
 					],
@@ -4193,13 +4726,42 @@
 					`invert: makes the selected axis point in the opposite direction.`,
 					`switch: switches two of the axes.`,
 					`invert, switch, and the axis setting buttons only apply to the custom axes.`,
-					`using an axis setting buttons make it select the next axis. this way, you can quickly set all three axes by just clicking three times.`,
+					`using an axis setting button makes it select the next axis. this way, you can quickly set all three axes by just clicking three times.`,
 					`parent, child, and cross are especially useful for increasing or decreasing angles between parts. like for an elbow, or a knuckle.`,
 					[
 						`local axes can do this too, but that's dependent on orientation matching their position. (maybe you don't bother always using rotate/tilt if the part is just a sphere or whatever.)`,
 						`select the part, choose custom, select the x axis, then...`,
 						`click parent, child, and cross.`,
 						`the z axis will be made into something that opens or closes the elbow/knuckle.`
+					]
+				],
+				"animation and exporting": [
+					`below the ui buttons is the animation system.`,
+					[
+						`this lets you convert animations into spritesheets, play them, and save the spritesheet or individual frames.`,
+						`click the "update" button to update the animation images.`,
+						`the "one view\" checkbox lets you send just the currently selected view, instead of the full multiview.`,
+						`if the "vertical" checkbox is checked, the spritesheet is set up so y is the time axis and x is the direction axis. if it's unchecked, it's the opposite.`,
+						`generally, multiview spritesheets look better with vertical on, and one-view spritesheets look better with it off. so, checking/unchecking one view will check/uncheck vertical as well. (checking/unchecking vertical will not check/uncheck one view.)`
+					],
+					`closely related to this is the "pixel art transfer" area of the ui. this lets you send images to the pixel art tool.`,
+					[
+						`you can send a frame, an animation, or all animations.`,
+						[
+							`"all x" lines up the animations in a row. "all y" lines them up in a column.`
+						],
+						`the "one view" and "vertical" checkboxes are linked to the checkboxes in the animation system. checking or unchecking them is the same as checking/unchecking the checkboxes down there.`,
+						`the animations are updated before they're sent.`,
+						`they can be sent through "paste" or "replace".`,
+						[
+							`"paste" saves it to the pixel art tool's paste tool, meaning you can place the image anywhere you want.`,
+							`"replace" replaces the pixel art image entirely.`,
+						],
+						`all exports have borders drawn around them, marking the borders between frames, and where standpoint is.`,
+						[
+							`it uses whatever the "forecolor" and "backcolor" currently are in the pixel art tool.`
+						],
+						`for "all x" and "all y", the names of the animations are written as well.`
 					]
 				],
 				"etc": [
@@ -4214,7 +4776,7 @@
 					[
 						`lower the state limit and truncator. (every state stores every frame's pose, and depending on how many animations you have, it can store a lot of states. the maximum amount it could be storing is limit + (number of animations - 1) * (2*truncator + 1).)`,
 						`turn off silhouettes`,
-						`create perspectived/unperspectived images so it doesn't have to convert shapes. (i went through a lot of caching hell to avoid this process slowing things down, but still.)`,
+						`create perspectived/unperspectived images so it doesn't have to convert shapes. (i went through a lot of caching hell to avoid this process slowing things down, but it still runs every time orientation or anything like that changes.)`,
 						`lower fineness`
 					]
 					/*
@@ -4411,11 +4973,16 @@
 			aa.writecoordinates(null);
 			let temp = document.getElementById("aa_bodytext");
 			temp.value = aa.bodytext;
-			temp.rows = temp.value.split(String.fromCharCode(10)).length;
+			textarea_autosize(temp);
+			temp.onkeydown = function(e) {
+				textarea_tab(e);
+				textarea_autosize(e);
+			};
+			temp.rows = temp.value.split("\n").length;
 			temp.style["-moz-tab-size"] = 4;
 			temp.style["vertical-align"] = "top";
 			temp = document.getElementById("aa_posetext");
-			temp.rows = temp.value.split(String.fromCharCode(10)).length;
+			temp.rows = temp.value.split("\n").length;
 			temp.style["-moz-tab-size"] = 4;
 			temp.style["vertical-align"] = "top";
 			string = [];
@@ -4438,9 +5005,11 @@
 				let ref = document.getElementById("aa_bodytext");
 				if(name === "current") {
 					ref.value = aa.bodytext;
+					textarea_autosize(ref);
 				}
 				else if(AAX.Body.templates.hasOwnProperty(name)) {
 					ref.value = AAX.Body.templates[name];
+					textarea_autosize(ref);
 				}
 				else if(name !== "custom") {
 					console.log("this shouldn't happen");
@@ -4479,7 +5048,7 @@
 				else if(confirm([
 					`if you change the body text, the poses will be edited to fit the new body.`,
 					`- ALL UNDO/REDO HISTORY will be cleared.`,
-					`- all poses will be converted to a blank pose, carrying over whatever it can from the old version. (properties, where the coordinates are relative to where they were in the old and new default pose)`,
+					`- all poses will be converted to a blank pose, carrying over whatever it can from the old version of itself. (properties, what the coordinates' length and angle are relative to how they are in the default pose)`,
 					`continue?`
 				].join(`\n\n`))) {
 					let i1 = 0;
@@ -4609,7 +5178,7 @@
 			});
 			// div creation, non-canvas buttons
 			document.getElementById("aa_editshape_enter").onpointerdown = function(e) {
-				let shape = AAX.strings.shape(document.getElementById("aa_editshape_input").value, aa.currpose, aa.control.partname);
+				let shape = AAX.Shape.new(document.getElementById("aa_editshape_input").value, aa.currpose, aa.control.partname);
 				if(shape) {
 					aa.control.part.shape = structuredClone(shape);
 					aa.refresh();
@@ -4629,9 +5198,6 @@
 				document.getElementById("aa_posetoshape_text").value = "";
 				document.getElementById("aa_posetoshape_dialog").close();
 			};
-			aa.drawsettings.standpoint.x = Math.floor(aa.drawsettings.cell.w/2 + aa.drawsettings.standpoint.x);
-			aa.drawsettings.standpoint.y = Math.floor(aa.drawsettings.cell.h/2 + aa.drawsettings.standpoint.y);
-			// they start out relative to the center
 			let body = aa.body;
 			if(typeof body !== "object") {
 				alert(body);
@@ -4666,45 +5232,61 @@
 			aa.control.projectname = "aa " + filedate() + " " + aa.control.projectname;
 			aa.anim_index = 0;
 			// it was already 0, but the setter will fill aa.frames.
-			aa.refresh("states");
-			aa.animator = new Animator(
-				"aa_animator",
-				{
-					fps: {
-						br: true,
-					},
-					play: {
-						space: true,
-					},
-					loop: {
-						br: true,
-					},
-					pingpong: {
-						br: true,
-					},
-					button_update: {
-						br: true,
-						onclick: aa.updateanimation,
-					},
-					button_update_alt: {
-						space: true,
-						onclick: function() { aa.updateanimation(aa.control.view) },
-						text: "update (one view)",
-					},
-					save: {
-						br: true,
-						prefix: "armature artist ",
-					},
-					sheet: {
-						br: true,
-						cols: 0,
-					},
-				},
-				document.getElementById("aa_animator_div")
-			);
+			temp = {
+				html: structuredClone(Animator.template_html),
+			};
+			temp.index = temp.html.indexOf("#save_frame");
+			temp.index = temp.html.findLastIndex((element, index) => element.trim() === "<br>" && index < temp.index);
+			temp.index = temp.index === -1 ? temp.html.length : temp.index;
+			temp.html.splice(temp.index, 0, [
+				"\n<br><button name=\"update\">update</button>",
+				"<label><input type=\"checkbox\" name=\"one view\"> one view</label>",
+				"<label><input type=\"checkbox\" name=\"vertical\"> vertical</label>",
+			].join("\n"));
+			aa.animator = new Animator(document.getElementById("aa_animator_div"), temp.html);
+			ref = aa.animator;
+			ref.html.update.onclick = function(e) {
+				aa.updateanimation();
+				if(ref.sheet.vertical.checked !== ref.html.vertical.checked) {
+					ref.sheet.vertical.click();
+				};
+			};
+			ref.html.one_view.oninput = function(e) {
+				ref.html.vertical.click();
+			};
+			ref.html.vertical.oninput = function(e) {
+				let skip = structuredClone(AAX.valid.refresh);
+				skip.splice(skip.indexOf("ui"), 1);
+				aa.refresh(skip);
+			};
+			// - changing one view almost always means changing the axis
+			// - both of these have counterpart buttons in the px export area of
+			//   the ui canvas, so trigger a ui refresh.
+			ref.sheet.vertical.parentElement.hidden = true;
+			ref.html.vertical.checked = true;
+			ref.sheet.vertical.checked = true;
+			// why am i making such a weird and stupid split, you ask?
+			// - well, the vertical checkbox that comes preloaded with Animator
+			//   automatically rearranges the sheet. wow, so nifty. EXCEPT.
+			// - if the user updates the animation with one view and vertical
+			//   off... that's an animation where multiviews are lined up
+			//   horizontally.
+			// - so that means a stupidly long and confusingly organized
+			//   spritesheet. fuck that! to fix that, the views should be lined
+			//   up vertically in that case.
+			// - updateanimation does this. but updateanimation does not run for
+			//   every time sheet.vertical is clicked. so, if your last update
+			//   was a multiview, clicking sheet.vertical after that is
+			//   guaranteed to make a stupidly long or tall spritesheet, making
+			//   all of that foresight pointless.
+			// - so the relationship these two boxes have is that html.vertical
+			//   is a less dynamic substitute for sheet.vertical. this way, the
+			//   user has to update the animation to change the axes of the
+			//   spritesheet.
+			ref.loop = true;
+			ref.sheet.wrap.value = 0;
 			for(i1 = 0; i1 < 2; i1++) {
-				loop.tick(1);
-				let canvas = aa.animator[i1 ? "sheet" : "ctx"].canvas;
+				let canvas = i1 ? ref.sheet.canvas : ref.canvas;
 				canvas.style["image-rendering"] = "crisp-edges";
 				canvas.ondragover = function(e) {
 					e.preventDefault();
@@ -4718,10 +5300,8 @@
 				// be the same as refreshing the page and wiping everything you
 				// did.
 			}
-			loop.end();
-			//string = aa.animator.name + `_update`;
-			//aa.animator.div.innerHTML += `<br><button id="` + string + `">update</button>`;
-			//document.getElementById(string).onclick = aa.updateanimation;
+			//
+			aa.refresh("states");
 			aa.updateanimation();
 		},
 		editmodetoggle: function() {
@@ -4969,6 +5549,7 @@
 		// - axis, magnitude: 3d angle to revolve them around, and how much to
 		//   revolve it by.
 			let i1 = 0;
+			const curl = aa.control.rotate.curl;
 			let basis = Quat.basis(Quat.new(axis, magnitude));
 			let temp = Angle.numbers(axis);
 			let zeroaxis = -1;
@@ -5075,6 +5656,13 @@
 						float[(switchaxis + 2)%3] = temp;
 					};
 					let point = Basis.apply(basis, body[part]);
+					if(curl) {
+						let _part = aa.currpose[part].parent;
+						while(_part && _part !== fulcrum && _part !== "standpoint") {
+							point = Basis.apply(basis, point);
+							_part = aa.currpose[_part].parent;
+						}
+					}
 					let array = AAX.fixfloats(point, float, hypot, true);
 					point = null;
 					if(zeroaxis !== -1) {
@@ -5195,13 +5783,14 @@
 			loop.end();
 			return aa.posefromobj(obj);
 		},
-		draw_background: function() {
-			AAX.draw_background(aa.ctx.main, aa.drawsettings, aa.color, aa.control.perspectived, 4);
+		draw_background: function(viewtype, side_tint_invert) {
+			AAX.draw_background(aa.ctx.main, aa.drawsettings, aa.color, aa.control.perspectived, viewtype ?? "multi4", side_tint_invert);
 		},
-		draw: function(rotatecoor, basis) {
+		draw: function(viewtype, rotatecoor, basis) {
+			viewtype ??= "multi4";
 			AAX.draw(
-				aa.ctx.main, aa.drawsettings, aa.color, aa.control.perspectived, 4,
-				aa.currpose, aa.nodes, aa.control.strokecache, rotatecoor, basis
+				aa.ctx.main, aa.drawsettings, aa.color, aa.control.perspectived, viewtype,
+				aa.currpose, viewtype === "multi4" ? aa.nodes : null, aa.control.strokecache, rotatecoor, basis
 			);
 		},
 		save: function() {
@@ -5258,8 +5847,7 @@
 				console.log("this shouldn't happen");
 				return;
 			};
-			let temp = file.name.lastIndexOf(".");
-			aa.control.projectname = temp === -1 ? file.name : file.name.slice(0, temp);
+			aa.control.projectname = filename_handler(file.name);
 			let reader = new FileReader();
 			reader.onload = function() {
 				file = texttoobj(reader.result);
@@ -5294,7 +5882,13 @@
 						}
 						// restore cache
 					}
-					aa.anim_index = file.anim_index;
+					aa._anim_index = file.anim_index;
+					aa.loadstate(aa.state_index, true);
+					// the anim_index setter can cause errors in rare cases.
+					// specifically, if the anim_index was higher than the
+					// number of animations the newly loaded project has. it'll
+					// try to truncate the states of an animation that doesn't
+					// exist.
 					for(i1 in aa.drawsettings) {
 						if(file.drawsettings.hasOwnProperty(i1)) {
 							aa.drawsettings[i1] = structuredClone(file.drawsettings[i1]);
@@ -5367,7 +5961,7 @@
 			return parts;
 		},
 	};
-	aa.initialize();
+	//aa.initialize();
 	//
 	document.write(`<div id="bm_div"></div>`);
 	let bm = {
@@ -5576,7 +6170,7 @@
 			y: 0,
 			z: 0,
 			symmetry: false,
-			image_text: AAX.shape_templates.sphere,
+			image_text: AAX.Shape.templates.sphere,
 			// text used in the second field. (shapes and images.)
 			extra_text: "",
 			// text used in the third field.
@@ -5633,8 +6227,7 @@
 					tool.refresh("states");
 				}
 			);
-			let string = `<ul>a tool for creating bodytexts you can use in armature artist. make sure to read the manual of that to get how bodytext works. or what a bodytext is.</ul>`;
-			string += `\n<details>`;
+			let string = `<details class="text">`;
 			string += `\n\t<summary>manual</summary><ul>`;
 			let manual = {
 				"edit tools": [
@@ -5699,8 +6292,8 @@
 					string += `shape.`;
 					string += `\n<br>templates:`;
 					string += `\n<ul>`;
-					for(i2 in AAX.shape_templates) {
-						if(AAX.shape_templates.hasOwnProperty(i2)) {
+					for(i2 in AAX.Shape.templates) {
+						if(AAX.Shape.templates.hasOwnProperty(i2)) {
 							string += `\n<button id=` + id + `_template_` + i2 + `>` + i2 + `</button>`;
 						}
 					}
@@ -5747,9 +6340,9 @@
 					*/
 				}
 			}
-			for(i1 in AAX.shape_templates) {
-				if(AAX.shape_templates.hasOwnProperty(i1)) {
-					let text = "\n" + AAX.shape_templates[i1];
+			for(i1 in AAX.Shape.templates) {
+				if(AAX.Shape.templates.hasOwnProperty(i1)) {
+					let text = "\n" + AAX.Shape.templates[i1];
 					document.getElementById("bm_image_text_template_" + i1).onclick = function() {
 						let input = document.getElementById("bm_image_text_input");
 						let temp = [
@@ -5917,7 +6510,7 @@
 		// converts the given shape into text, and replaces the first field of
 		// the given part's image_text with it.
 			let temp = bodydata_part.image_text.split("||");
-			temp[0] = AAX.shapetostring(shape);
+			temp[0] = AAX.Shape.string(shape);
 			if(temp[0] && temp.length > 1) {
 				temp[0] += "\n";
 			};
@@ -5986,8 +6579,8 @@
 			adjust_half: true,
 			last_adjust: "",
 			// a direction. it can be empty.
-			scale_number: 2,
-			scale_divide: false,
+			scale_numer: 2,
+			scale_denom: 1,
 			scale_type: "both",
 			scale_x: true,
 			scale_y: true,
@@ -6157,10 +6750,10 @@
 				let ref = bm.control.strokedata;
 				let points = bm.control.body_part.shape.points;
 				if(tool === "radius") {
-					ref.radius = AAX.shape_radius(points);
+					ref.radius = AAX.Shape.radius(points);
 				}
 				else {
-					ref.bounds = AAX.shape_bounds(points);
+					ref.bounds = AAX.Shape.bounds(points);
 					ref.axis = tool === "vertical" ? 1 : view%2 ? 2 : 0;
 				};
 				if(tool === "horizontal" || tool === "vertical") {
@@ -6203,6 +6796,11 @@
 			const cell = bm.drawsettings.cell;
 			const view = bm.control.clicktype === "main" ? bm.control.view : Math.floor(click[0]/cell.w);
 			const coor = bm.coorfromcanvas(click[0], click[1], view);
+			let part_select = bm.control.tool !== "move" ? bm.nodecheck(click, view) : null;
+			part_select = part_select && part_select.name !== bm.control.partname ? part_select.name : null;
+			// it doesn't happen for the part that's already selected. not just
+			// because that's wasteful; it would also mean you can't use the
+			// radius tool to shrink something smaller than noderadius.
 			if(view === 0 || view === 1) {
 			// draw coordinates
 				let text = [
@@ -6210,7 +6808,7 @@
 					"xz"[view%2] + ": " + coor["xz"[view%2]],
 					"y: " + coor.y
 				];
-				if(bm.control.clicktype !== "main") {
+				if(bm.control.clicktype !== "main" || part_select) {
 					let node = bm.nodecheck(click, view);
 					bm.pasteimages(false);
 					bm.pasteimages(true);
@@ -6228,6 +6826,22 @@
 				bm.writecoordinates(text);
 			};
 			if(bm.control.clicktype !== "main") {
+				return;
+			};
+			//
+			if(part_select) {
+			// tilt/rotate should allow node selection on mouseup, and visualize
+			// it. that gives much more visual feedback, and therefore
+			// precision.
+				if(finish) {
+					bm.control.partname = part_select;
+					//
+					bm.control.strokecache = null;
+					bm.control.clicktype = null;
+					bm.control.strokedata = null;
+					bm.writecoordinates(null);
+					bm.refresh(["bodytext", "states", "draw"]);
+				};
 				return;
 			};
 			//
@@ -6552,8 +7166,8 @@
 			create: function() {
 				let i1 = 0;
 				let temp1 = [];
-				for(i1 in AAX.shape_templates) {
-					if(AAX.shape_templates.hasOwnProperty(i1)) {
+				for(i1 in AAX.Shape.templates) {
+					if(AAX.Shape.templates.hasOwnProperty(i1)) {
 						temp1.push(i1);
 					};
 				}
@@ -6577,8 +7191,7 @@
 						direction: "r",
 						gap: 5,
 						actions: [
-							["column", "number", "d", 2, 1],
-							["expand", "divide", "l", 1],
+							["column", "number", "d", 4.5, 1],
 							["expand", "x y z".split(" "), "d", 1, true],
 							["column", " type".split(" "), "l", 6, 1],
 							["expand", "branch", "d", 1]
@@ -6665,7 +7278,15 @@
 						],
 						heading: 1,
 					},
-					temp2
+					temp2,
+					{
+						prefix: "px",
+						previous: -2,
+						actions: [
+							["column", "paste replace".split(" "), "d", 6, 2],
+						],
+						heading: 2,
+					}
 					// - simplified:
 				    //   - prefix
 				    //   - previous, direction, gap, adjust
@@ -6720,6 +7341,8 @@
 							prefix === "template"
 							||
 							(prefix === "adjust" && suffix === "directions")
+							||
+							prefix === "px"
 						) {
 							bm.ui.depress.push(i1);
 						};
@@ -6805,6 +7428,7 @@
 									prefix === "tool" ? prefix + "s" :
 									prefix === "template" ? ["shape", prefix + "s"] :
 									prefix === "drawsettings" ? "draw settings" :
+									prefix === "px" ? ["pixel art", "transfer"] :
 									prefix
 								) :
 								prefix === "part" ? (
@@ -6819,8 +7443,7 @@
 								directions ? [] :
 								(prefix === "expand" && suffix === "number") ? bm.control.expand_number :
 								prefix === "scale" ? (
-									suffix === "number" ? (bm.control.scale_number + "").slice(0, 5) :
-									suffix === "divide" ? (bm.control.scale_divide ? "/" : "x") :
+									suffix === "number" ? "x" :
 									suffix === "type" ? bm.control[button] :
 									suffix
 								) :
@@ -6843,12 +7466,21 @@
 							}
 							else if(prefix === "part" && suffix === "hypot") {
 								left.push("length:");
+							}
+							else if(prefix === "scale" && suffix === "number") {
+								right.push(
+									bm.control.scale_denom === 1
+									?
+									(bm.control.scale_numer + "").slice(0, 5)
+									:
+									(bm.control.scale_numer + "/" + bm.control.scale_denom)
+								);
 							};
 							//
 							if(
 								(prefix === "part" && (suffix === "hypot" || suffix === "relcoor" || suffix === "abscoor"))
 								||
-								suffix === "number"
+								(prefix !== "scale" && suffix === "number")
 							) {
 								if(Array.isArray(text)) {
 									right = structuredClone(text);
@@ -6858,11 +7490,15 @@
 								};
 							}
 							else if(
-							heading
-							||
-							(!suffix && prefix !== "expand")
-							||
-							(prefix === "part" && (suffix === "image_text" || suffix === "extra_text" || suffix === "symmetry"))
+								heading
+								||
+								(!suffix && prefix !== "expand")
+								||
+								(prefix === "part" && (suffix === "image_text" || suffix === "extra_text" || suffix === "symmetry"))
+								||
+								prefix === "px"
+								||
+								suffix === "x" || suffix === "y" || suffix === "z"
 							) {
 								if(Array.isArray(text)) {
 									centered = structuredClone(text);
@@ -6879,7 +7515,9 @@
 									left.push(text);
 								};
 							};
+							//
 							if(checkbox) {
+								/*
 								let box = Rect.expand_all(Rect.new(rect.x, rect.y, AAX.ui.block, AAX.ui.block), -1);
 								ctx.fillStyle = bm.color.buttons[1];
 								ctx.strokeStyle = bm.color.buttons[0];
@@ -6898,6 +7536,9 @@
 										ctx.fillRect(box.x, box.y, box.w + 1, box.h + 1);
 									};
 								};
+								//*/
+								AAX.ui.checkbox(ctx, bm.color.buttons, rect.x, rect.y, selected === 2 ? "special check" : !!selected);
+								ctx.strokeStyle = bm.color.buttons[0];
 								rect.x += AAX.ui.block;
 								rect.w -= AAX.ui.block;
 							}
@@ -7045,19 +7686,48 @@
 				}
 				else if(suffix === "number") {
 					let text = (
-						prefix === "scale" ? "enter the scale factor." :
+						prefix === "scale" ? "enter the scale factor. it can be a fraction." :
 						prefix === "expand" ? "enter how much to expand each side by." :
 						"enter a number."
 					);
-					let num = prompt_number(text, prefix === "expand" ? .5 : 0);
+					let num = null;
+					if(prefix === "scale") {
+						text = prompt(text);
+						if(text) {
+							let temp = text.indexOf("/");
+							num = temp === -1 ? [Number(text), 1] : [Number(text.slice(0, temp)), Number(text.slice(temp + 1))];
+							if(num[1] < 0) {
+								num[0] *= -1;
+								num[1] *= -1;
+							};
+							if(
+								isNaN(num[0]) || isNaN(num[1])
+								||
+								num[0] === Infinity || num[0] === -Infinity
+								||
+								num[1] === Infinity || num[1] === 0
+							) {
+								num = null;
+							};
+						}
+					}
+					else {
+						num = prompt_number(text, prefix === "expand" ? .5 : 0);
+					}
 					if(num === null) {
 						no_refresh = true;
 					}
 					else {
-						bm.control[button] = num;
+						if(prefix === "scale") {
+							bm.control.scale_numer = num[0];
+							bm.control.scale_denom = num[1];
+						}
+						else {
+							bm.control[button] = num;
+						}
 					};
 				}
-				else if(bm.ui.checkbox.includes(button) || (prefix === "scale" && (suffix === "divide" || suffix === "x" || suffix === "y" || suffix === "z"))) {
+				else if(bm.ui.checkbox.includes(button) || (prefix === "scale" && (suffix === "x" || suffix === "y" || suffix === "z"))) {
 					bm.control[button] = !bm.control[button];
 				}
 				else if(prefix === "scale" && suffix === "type") {
@@ -7065,8 +7735,8 @@
 					bm.control[button] = array[posmod(array.indexOf(bm.control[button]) + 1, array.length)];
 				}
 				else if(button === "scale") {
-					let scale = bm.control.scale_number;
-					let divide = bm.control.scale_divide;
+					let numer = bm.control.scale_numer;
+					let denom = bm.control.scale_denom;
 					let axes = [];
 					for(i1 = 0; i1 < 3; i1++) {
 						axes.push(bm.control["scale_" + "xyz"[i1]]);
@@ -7074,7 +7744,7 @@
 					let position = bm.control.scale_type === "position" || bm.control.scale_type === "both";
 					let dimension = bm.control.scale_type === "dimension" || bm.control.scale_type === "both";
 					let same_floats = true;
-					if(scale !== 1 && (!divide || scale !== 0) && (position || dimension) && axes.includes(true)) {
+					if((numer !== 1 || denom !== 1) && denom && (position || dimension) && axes.includes(true)) {
 						let keep_float = function(num, odd) {
 							if(!num) {
 								return num;
@@ -7102,7 +7772,7 @@
 							let _part = bm.bodydata[_i0];
 							if(position) {
 								let coor = Points.subtract(all_abs[_i0], start);
-								coor = divide ? Points.divide(coor, scale) : Points.multiply(coor, scale);
+								coor = Points.divide(Points.multiply(coor, numer), denom);
 								coor = Points.add(coor, start);
 								// multiply or divide its distance from the
 								// branch start
@@ -7132,14 +7802,14 @@
 										};
 										for(i3 = 0; i3 < point.length && i3 < 6; i3++) {
 											if(axes[i3%3]) {
-												let num = divide ? point[i3]/scale : point[i3]*scale;
+												let num = point[i3]*numer/denom;
 												if(same_floats) {
 													num = i3 < 3 ? keep_float(num, !!(point[i3]%1)) : Math.round(num);
 												};
 												point[i3] = num;
 											}
 										}
-										if(point.length >= 7 && dimension && scale < 0 && axes.includes(false)) {
+										if(point.length >= 7 && dimension && (numer/denom) < 0 && axes.includes(false)) {
 											point[6] = Quat.mirror.multi(point[6], ...axes);
 										}
 									}
@@ -7163,7 +7833,7 @@
 					for(i0 = 0; i0 < (num ? parts.length : 0); i0++) {
 						let _part = bm.bodydata[parts[i0]];
 						let points = structuredClone(bm.body[bm.body_name(parts[i0])].shape.points);
-						let bounds = AAX.shape_bounds(points);
+						let bounds = AAX.Shape.bounds(points);
 						if(bounds) {
 						// expansion is both movement and scaling of the shape
 						// points.
@@ -7179,7 +7849,7 @@
 									_bounds[_i1] += (i1%2 ? 1 : -1)*num;
 								}
 							}
-							// get the old box with AAX.shape_bounds, modify it to get the new box
+							// get the old box with AAX.Shape.bounds, modify it to get the new box
 							if(!no_refresh) {
 								let center = [];
 								let _center = [];
@@ -7357,14 +8027,10 @@
 							}
 						}
 					}
-					// part
-					//  name/rename
-					//  hypot, relcoor, abscoor
-					//  no heading
 				}
 				else if(prefix === "template") {
 					let temp = part.image_text.split("\n||\n");
-					temp[0] = AAX.shape_templates[suffix];
+					temp[0] = AAX.Shape.templates[suffix];
 					part.image_text = temp.join("\n||\n");
 					refresh.states = true;
 				}
@@ -7410,6 +8076,12 @@
 				}
 				else if(prefix === "color") {
 					no_refresh = AAX.ui.action.color(bm.color, suffix, click, bm.ui.buttons[button]);
+				}
+				else if(prefix === "px") {
+					changefocus("px");
+					px.transfer(bm.ctx, suffix === "replace");
+					//px.transfer(bm.ctx, suffix === "replace", true, bm.drawsettings.cell.w, bm.drawsettings.cell.w);
+					no_refresh = true;
 				}
 				else if(!suffix) {
 					if(prefix === "undo") {
@@ -7494,11 +8166,11 @@
 			linespecial(ctx, x1, y1, x2, y2, temp);
 		},
 		draw_background: function() {
-			AAX.draw_background(bm.ctx, bm.drawsettings, bm.color, false, 2);
+			AAX.draw_background(bm.ctx, bm.drawsettings, bm.color, false, "multi2");
 		},
 		draw: function() {
 			AAX.draw(
-				bm.ctx, bm.drawsettings, bm.color, false, 2,
+				bm.ctx, bm.drawsettings, bm.color, false, "multi2",
 				bm.pose, bm.nodes, bm.control.strokecache
 			);
 		},
@@ -7526,45 +8198,453 @@
 			return bm.version_history[bm.version_history.length - 1];
 		},
 	};
-	bm.initialize();
+	//bm.initialize();
 	//
-	changefocus("aa");
+	document.write(`\n<div id="px_div"></div>`);
+	let px = null;
+	//let px = new PixelArt(document.getElementById("px_div"));
+	//
+	document.write(`\n<div id="se_div"></div>`);
+	let se = {
+		initialize: function() {
+			let i1 = 0;
+			let i2 = 0;
+			let html = [
+				"<textarea name=\"shape\" cols=48></textarea>",
+				"<br><label><input type=\"number\" name=\"spacing\" style=\"width: 3em\" step=1 value=1> cross section spacing</label>",
+				"<br><label><input type=\"number\" name=\"fineness\" style=\"width: 3em\" step=1 value=4> spheroid fineness</label>",
+				"<br><button name=\"update\">update</button>",
+				"<br><br><canvas></canvas>",
+				"<br><label><input type=\"range\" name=\"scan range\"><br><input type=\"number\" name=\"scan\"> scan</label>",
+				// any changes to the tickbox apply to the slider, and vice versa.
+				"<br><label><input type=\"checkbox\" name=\"flip\"> flip</label>"
+			].join("\n");
+			this.html = {};
+			this.html.container = document.getElementById("se_div");
+			let container = this.html.container;
+			container.innerHTML = html;
+			let desc = htmldescendants(container);
+			for(i1 = 0; i1 < desc.length; i1++) {
+				let ref = desc[i1];
+				let name = (
+					ref.name
+					??
+					(
+						"name" in ref.attributes ? ref.attributes.name.value :
+						ref.tagName.toLowerCase() === "button" ? ref.innerHTML :
+						""
+					)
+				);
+				if(name) {
+					this.html[name] = ref;
+				};
+			}
+			//this.html.shape.value = AAX.Shape.templates.sphere;
+			this.html.shape.value = AAX.Shape.templates.head + " / | / 0, 0, 0, 10 / 8, -14, 8".replaceAll(" / ", "\n");
+			this.html.canvas = container.querySelector("canvas");
+			this.html.canvas.style["image-rendering"] = "crisp-edges";
+			this.ctx = this.html.canvas.getContext("2d");
+			let _this = this;
+			this.html.shape.onkeydown = textarea_autosize;
+			textarea_autosize(this.html.shape);
+			this.html.update.onclick = function(e) { _this.update(_this) };
+			this.html.scan.onchange = function(e) {
+				_this.html["scan range"].value = _this.html.scan.value;
+				_this.redraw(_this);
+			};
+			this.html["scan range"].onchange = function(e) {
+				_this.html.scan.value = _this.html["scan range"].value;
+				_this.redraw(_this);
+			};
+			this.html.scan.min = 0;
+			this.html.scan.step = 1;
+			this.html["scan range"].min = 0;
+			this.html["scan range"].step = 1;
+			this.html.flip.onchange = function(e) { _this.redraw(_this) };
+			this.update();
+		},
+		update: function(_this) {
+			_this ??= this;
+			let i0 = 0;
+			let i1 = 0;
+			let i2 = 0;
+			let i3 = 0;
+			let shape = AAX.Shape.new(_this.html.shape.value);
+			let spacing = readnumber(_this.html.spacing.value);
+			let fineness = readnumber(_this.html.fineness.value);
+			if(spacing === null || spacing <= 0) {
+				return;
+			};
+			let points = shape.points;
+			let bounds = AAX.Shape.bounds(points);
+			if(!bounds) {
+				alert("invalid shape. there are no points, or one of the dimensions is zero.");
+				return;
+			};
+			let dim = 0;
+			for(i1 = 0; i1 < 6; i1++) {
+				dim = Math.max(dim, Math.abs(bounds["lrudbf"[i1]]));
+			}
+			let slice_count = 2*Math.floor(dim/spacing) + 1;
+			dim++;
+			dim *= 2;
+			// dim is used for the dimensions of all views. the views will
+			// always show a cube-shaped area centered on [0, 0, 0], so it has
+			// to be whatever number will contain the whole shape.
+			let _points = [];
+			for(i1 = 0; i1 < points.length; i1++) {
+				_points.push(addspheroids(points[i1], fineness));
+				/*
+				for(i2 = 0; i2 < _points[i1].length; i2++) {
+					_points[i1][i2][0] += .5;
+					_points[i1][i2][1] += .5;
+					_points[i1][i2][2] += .5;
+				}
+				//*/
+			}
+			_this.control.slices = {xy: [], xz: [], yz: []};
+			// square rasters for every slice of every axis, showing which
+			// pixels are part of the cross section.
+			_this.control.sectors = {xy: [], xz: [], yz: []};
+			// similar, but not quite the same.
+			// - a sector is the shape created by convexing together two slices.
+			// - this is what is actually shown, since that looks smoother, and
+			//   is closer to what the shape looks like.
+			// - the only reason slices are kept around is so that it can color
+			//   stuff differently if it's inside the shape because of scanning
+			//   is being used.
+			//   - you see, it's inside if it's the layer one scan away from
+			//     being hidden, but...
+			//   - sectors are 3d shapes, not the 2d cross section. so coloring
+			//     the whole sector would be overboard.
+			//   - it doesn't make that much of a difference, but i don't wanna
+			//     half-ass it.
+			// - there is always one more sector than there are slices, since
+			//   slices are divisions between sectors.
+			//   - sector[0], slice[0], sector[1], slice[1], etc. sector[index]
+			//     between slice[index - 1] and slice[index].
+			let rect = Rect.new(-dim/2, -dim/2, dim, dim);
+			for(i0 = 0; i0 < 3; i0++) {
+			// for each axis, make a set of cross sections
+				let axis = "xyz".replace("xyz"[2 - i0], "");
+				let quat = Quat.new();
+				if(axis === "xz") {
+					quat = Quat.rotate(quat, "yz", Math.PI/2);
+				}
+				else if(axis === "yz") {
+					quat = Quat.rotate(quat, "xz", -Math.PI/2);
+				};
+				//
+				let data = [];
+				let center = Points.multiply(Quat.basis(quat)[2], -((slice_count - 1)/2)*spacing);
+				for(i1 = 0; i1 < _points.length; i1++) {
+					data.push(shapeslices(_points[i1], quat, center, slice_count, spacing, true));
+					// (points, quat, center, slice_count, slice_spacing, convert) {
+				}
+				// a shapeslices for each axis, which will be used to make slices
+				// and sectors.
+				for(i1 = 0; i1 <= 2*slice_count; i1++) {
+				// make each slice and sector.
+					let _i1 = Math.floor(i1/2);
+					let image = [];
+					for(i2 = 0; i2 < dim**2; i2++) {
+						image.push(false);
+					}
+					for(i2 = 0; i2 < _points.length; i2++) {
+					// for each point group, add it to the image
+						let shape = null;
+						if(i1%2) {
+						// for a slice, just take the slice shapeslices made.
+							shape = data[i2].slices[_i1];
+						}
+						else {
+						// for a sector, combine the slices that are the
+						// boundaries of the sector, or if it's at the end,
+						// include the points outside all slices.
+							let start = _i1 ? data[i2].slices[_i1 - 1] : data[i2].neg;
+							let end = _i1 < slice_count ? data[i2].slices[_i1] : data[i2].pos;
+							shape = _2dPoly.convexed(structuredClone(start).concat(structuredClone(end)));
+						};
+						if(shape && shape.length) {
+							let _shape = structuredClone(shape);
+							let _rect = Rect.frompoints(shape);
+							_rect = Rect.round_out(_rect);
+							shape = _2dPoly.getdata(shape, true);
+							// convert that from a shape to pixels
+							if(!Rect.encloses(shape.rect, _rect)) {
+								let temp = Rect.overlap(shape.rect, _rect);
+								temp = temp ? temp.w*temp.h : 0;
+								temp = temp/(_rect.w*_rect.h);
+								if(temp < .9) {
+									console.log("-");
+									console.log([axis, (i1%2 ? "slice" : "sector"), _i1].join(" "));
+									console.log(_rect);
+									console.log(shape.rect);
+									console.log("coverage: " + temp);
+									console.log(_shape);
+								}
+							}
+							for(i3 = 0; i3 < shape.within.length; i3++) {
+							// add those pixels to within.
+								if(shape.within[i3]) {
+									let index = Rect.convertindex(shape.rect, rect, i3);
+									if(index === -1) {
+										console.log("this shouldn't happen");
+									}
+									else {
+										image[index] = true;
+									}
+								}
+							}
+						}
+					}
+					_this.control[i1%2 ? "slices" : "sectors"][axis].push(image);
+				}
+			}
+			_this.html.scan.max = slice_count - 1;
+			_this.html.scan.value = 0;
+			_this.html["scan range"].max = slice_count - 1;
+			_this.html["scan range"].value = 0;
+			_this.control.dim = dim;
+			_this.html.flip.checked = false;
+			_this.redraw();
+		},
+		redraw: function(_this) {
+		// refreshes the image, to apply the changes of a shape update, or a
+		// change to scan or flip.
+			_this ??= this;
+			let i0 = 0;
+			let i1 = 0;
+			let i2 = 0;
+			let ctx = _this.ctx;
+			let dim = _this.control.dim;
+			let margin = Math.floor(dim/4);
+			let _dim = dim + 2*margin;
+			let flip = _this.html.flip.checked;
+			let scan = Math.max(0, readnumber(_this.html.scan.value) ?? 0);
+			ctx.canvas.width = 2*_dim;
+			ctx.canvas.height = 2*_dim;
+			ctx.clearRect(0, 0, 2*_dim, 2*_dim);
+			ctx.fillStyle = "#181";
+			ctx.fillRect(0, 0, 2*_dim, 2*_dim);
+			let rect = Rect.new(-dim/2, -dim/2, dim, dim);
+			for(i0 = 0; i0 < 3; i0++) {
+				let axis = "xyz".replace("xyz"[2 - i0], "");
+				let sectors = _this.control.sectors[axis];
+				let x = (axis === "yz" ? 3 : 1)*_dim/2;
+				let y = (axis === "xz" ? 1 : 3)*_dim/2;
+				for(i1 = 0; i1 < sectors.length - scan; i1++) {
+					let _i1 = flip ? (sectors.length - 1 - i1) : i1;
+					let sector = sectors[_i1];
+					let inside = scan && i1 === sectors.length - 1 - scan;
+					// if at least one sector has been hidden by scan, and this
+					// is the closest unhidden sector, some pixels should be
+					// marked as being inside.
+					let color = i1/(sectors.length - 1);
+					inside = (
+						inside
+						?
+						{
+							color: "rgb(255, " + (127 + Math.round(128*color)) + ", 127)",
+							slice: _this.control.slices[axis][_i1],
+						}
+						:
+						null
+					);
+					color = "rgb(255, " + Math.round(255*color) + ", 0)";
+					ctx.fillStyle = color;
+					for(i2 = 0; i2 < sector.length; i2++) {
+						if(sector[i2]) {
+							let coor = Rect.getcoor(rect, i2);
+							if(flip) {
+							// flip doesn't just mean reversing the order, it's
+							// mean to emulate looking at the back, left, and
+							// bottom. so, flip it so it's actually analogous.
+								coor[axis === "xz" ? 1 : 0] *= -1;
+							};
+							if(inside) {
+							// if the inside stuff applies AND this pixel is
+							// also in the slice, use the inside color.
+								ctx.fillStyle = inside.slice[i2] ? inside.color : color;
+							};
+							ctx.fillRect(x + coor[0], y + coor[1], 1, 1);
+						};
+					}
+				}
+			}
+		},
+		control: {
+			dim: 0,
+			slices: null,
+			sectors: null,
+		},
+	};
+	//se.initialize();
+	//
+	document.write(`\n<div id="bg_div"></div>`);
+	let bg = {
+		initialize: function() {
+			let i1 = 0;
+			let html = [
+				"<canvas name=\"canvas\"></canvas>",
+				"<br><button name=\"render\">render</button>"
+			].join("\n");
+			this.container = document.getElementById("bg_div");
+			this.container.innerHTML = html;
+			this.html = {};
+			let list = htmldescendants(this.container);
+			for(i1 = 0; i1 < list.length; i1++) {
+				let name = list[i1].name || list[i1].attributes?.name?.value || "";
+				if(name) {
+					name = name.replaceAll(" ", "_");
+					this.html[name] = list[i1];
+				}
+			}
+			this.ctx = this.html.canvas.getContext("2d");
+			let _this = this;
+			this.html.render.onclick = function() {
+				let paper = new Paper();
+				// - viewer
+				// - w, h
+				// - bg
+				// - fineness
+				// - light
+				//   - x, y, z
+				//   - light_value, dark_value
+				// - sheets
+				for(let i1 = 0; i1 < 6; i1++) {
+				// create a cube. left, right, up, down, back, front.
+					let w = paper.w;
+					let h = (i1 === 2 || i1 === 3) ? paper.w : paper.h;
+					paper.sheets[i1] = new Paper.Sheet(w, h);
+					// - color
+					// - x, y, z
+					// - center
+					//   - x, y
+					// - quat
+					// - shapes
+					// - neighbors
+					let ref = paper.sheets[i1];
+					ref.color = "red orange yellow green blue purple".split(" ")[i1];
+					ref.x = ((i1 === 1 || i1 === 5) ? 1 : -1)*w/2;
+					ref.y = (i1 === 3 ? 1 : -1)*h/2;
+					ref.z = ((i1 === 0 || i1 === 2 || i1 === 5) ? 1 : -1)*w/2;
+					// the position should be the upper left corner of the
+					// rectangle, so...
+					// - l: l u f
+					// - r: r u b
+					// - u: l u f
+					// - d: l d b
+					// - b: l u b
+					// - f: r u f
+					ref.quat = (
+						i1 === 2 ? Quat.new("yz", -Math.PI/2) :
+						i1 === 3 ? Quat.new("yz", Math.PI/2) :
+						i1 === 4 ? Quat.new() :
+						Quat.new("xz", (i1 === 0 ? 3 : i1 === 1 ? 1 : i1 === 5 ? 2 : 0)*Math.PI/2)
+					);
+					/*
+					console.log("lrudbf"[i1]);
+					for(let i2 = 0; i2 < 4; i2++) {
+						let point = [Number(i2%2), Number(i2 >= 2), 0];
+						//console.log(structuredClone(point));
+						point = Points.multiply(point, [w, h, 1]);
+						//console.log(structuredClone(point));
+						point = Quat.apply(ref.quat, point);
+						//console.log(structuredClone(point));
+						point = Points.add(Points.convert(ref), point);
+						//console.log(structuredClone(point));
+						point = Points.divide(point, [paper.w, paper.h, paper.w]);
+						//console.log(structuredClone(point));
+						point = Points.applyfunc(point, Math.sign);
+						point = (
+							"-0+"[point[0] + 1]
+							+
+							"-0+"[point[1] + 1]
+							+
+							"-0+"[point[2] + 1]
+						);
+						console.log(point);
+					}
+					//*/
+				}
+				paper.render(_this.ctx);
+			};
+		},
+	};
+	//bg.initialize();
 	//
 	let temp = document.getElementsByName("userfocus");
 	for(let i1 in temp) {
 		if(temp.hasOwnProperty(i1)) {
 			let focus = temp[i1].value;
-			if(focus === userfocus) {
-				temp[i1].checked = true;
-			}
-			else {
-				document.getElementById(focus + "_div").hidden = true;
-			};
+			document.getElementById(focus + "_div").hidden = true;
 			temp[i1].onchange = function(e) {
-				let radio = document.getElementsByName("userfocus");
-				for(let i1 in radio) {
-					if(radio.hasOwnProperty(i1)) {
-						let focus = radio[i1].value;
-						document.getElementById(focus + "_div").hidden = !radio[i1].checked;
-						if(radio[i1].checked) {
-							changefocus(focus);
-						};
-					}
+				if(e.target.checked) {
+					changefocus(e.target.value);
 				}
 			}
 		}
 	}
+	let userfocus_init = [];
+	// lists strings that userfocus has been set to, so that it can initialize
+	// the tools only the first time you use them.
+	function changefocus(focusname) {
+		userfocus = focusname;
+		if(!userfocus_init.includes(userfocus)) {
+		// initializing happens here, mostly because it's a little wasteful for
+		// shape examiner to generate all those cross sections if the user
+		// doesn't even open it.
+			userfocus_init.push(userfocus);
+			if(userfocus === "aa") {
+				aa.initialize();
+			}
+			else if(userfocus === "bm") {
+				bm.initialize();
+			}
+			else if(userfocus === "px") {
+				px = new PixelArt(document.getElementById("px_div"));
+				//px.html.anim_vertical.checked = true;
+				// it shouldn't be checked by default most of the time, but it
+				// should for this page, to match how aa exports animations.
+			}
+			else if(userfocus === "se") {
+				se.initialize();
+			}
+			else if(userfocus === "bg") {
+				bg.initialize();
+			};
+		};
+		document.getElementsByName("userfocus").forEach(function(element) {
+			element.checked = element.value === userfocus;
+			document.getElementById(element.value + "_div").hidden = !element.checked;
+		});
+		document.getElementById("desc").innerHTML = (
+			userfocus === "aa" ? "a character animation system that's featured out the ass. works better with a mouse. read the manual." :
+			userfocus === "bm" ? "a tool for creating bodytexts you can use in armature artist. make sure to read the manual of that to get how bodytext works. or what a bodytext is." :
+			userfocus === "px" ? "a pixel art tool. lets you edit images from armature artist or body maker into proper sprites." :
+			userfocus === "se" ? "lets you examine the 3d shapes you can use in armature artist and body maker. the 3d system doesn't show inner outlines or lighting, so this lets you look at cross sections to get an idea of its form." :
+			userfocus === "bg" ? "uses a scripting system to generate backgrounds out of 2d shapes oriented in 3d space." :
+			""
+		);
+	};
+	changefocus("aa");
+	//
 	addEventListener("load", function() {
 	// this is so stupid. but i'm cryin tears of joy that it works.
 	// - the font in the ui graphics is blurry until the first page refresh or
 	//   ui refresh, since the page/canvas loads faster than the font. this
 	//   triggers a ui refresh after the page fully loads.
-		let skip = structuredClone(AAX.valid.refresh);
-		skip.splice(skip.indexOf("ui"), 1);
-		aa.refresh(skip);
-		skip = structuredClone(bm.valid.refresh);
-		skip.splice(skip.indexOf("ui"), 1);
-		bm.refresh(skip);
+		if(userfocus === "aa") {
+			let skip = structuredClone(AAX.valid.refresh);
+			skip.splice(skip.indexOf("ui"), 1);
+			aa.refresh(skip);
+		}
+		else if(userfocus === "bm") {
+			let skip = structuredClone(bm.valid.refresh);
+			skip.splice(skip.indexOf("ui"), 1);
+			bm.refresh(skip);
+		};
 	}, false);
 	</script>
 	</body>

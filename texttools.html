@@ -147,7 +147,7 @@
 				wrapper.refresh();
 			},
 		};
-		let verticalscreen = (window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight) > (window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth);
+		//let verticalscreen = (window.innerHeight || document.documentElement.clientHeight || document.body.clientHeight) > (window.innerWidth || document.documentElement.clientWidth || document.body.clientWidth);
 		function divideat(input, index) {
 		// returns an array of the part of the string before and after the index
 		// specified. use it with .indexOf.
@@ -2785,7 +2785,8 @@
 				// run for every day in all the months the record covers.
 					loop.tick(1);
 					let slice = string.length;
-					let date = new Date(start_value + i1*day_length);
+					//let date = new Date(start_value + i1*day_length);
+					let date = new Date(input.start[0], input.start[1], input.start[2] + i1);
 					if(date.getDate() === 1) {
 						if(i1 < input.record.length) {
 							string += "\n" + datestring(date.getFullYear(), date.getMonth());
@@ -3360,7 +3361,8 @@
 							"indented lines with nothing but a divider (=, -, a date) will be added as dividers for the descendant bullet after it.",
 							"the main bullet can have dividers too, by writing them between \"add\" and the colon.",
 							"if any bullet text starts with one of the allowed bullet characters besides the first, that first character will be sliced away and used as the bullet's character. (ex: if you allow -, *, and ^, starting text with * or ^ will mark it as a */^.)",
-							"the new bullet/branch is <i>not</i> selected."
+							"the new bullet/branch is <i>not</i> selected.",
+							"if a line starts with /, (with or without space before the /) it's added to the previous line. useful for if the line is long enough to get word wrapped in whatever program/app you're writing it in."
 						],
 						"\"delete\" and \"clear\" delete bullets.",
 						[
@@ -4117,6 +4119,7 @@
 					let zero_dividers = [];
 					let date = newpara_date;
 					input[i0] = input ? input[i0].split("\n") : [];
+					let errors = [];
 					for(i1 = 0; i1 < input[i0].length; i1++) {
 						let line = input[i0][i1];
 						let error = "line " + i1 + " (\"" + line + "\"): ";
@@ -4132,21 +4135,21 @@
 						}
 						else if(line.startsWith("add")) {
 							let temp = line.indexOf(":");
-				            if(temp === -1) {
-				                console.log(error + "\"add\" command has no colon.");
-				            }
-				            else {
+							if(temp === -1) {
+								errors.push(error + "\"add\" command has no colon.");
+							}
+							else {
 								let zero = !(select in bullets);
 								let dividers = trimunspecial(line.slice("add".length, temp));
 								line = line.slice(temp + ":".length).trim();
-				                dividers = dividers ? dividers.split(" ") : [];
-				                for(i2 = 0; i2 < dividers.length; i2++) {
-				                    if(!Bullets.validdivider(dividers[i2], null, myformatting)) {
-				                        console.log(error + "only dividers are allowed between an \"add\" and the colon, and \"" + dividers[i2] + "\" is not a valid divider.");
-				                        dividers.splice(i2, 1);
-				                        i2--;
-				                    };
-				                }
+								dividers = dividers ? dividers.split(" ") : [];
+								for(i2 = 0; i2 < dividers.length; i2++) {
+									if(!Bullets.validdivider(dividers[i2], null, myformatting)) {
+										errors.push(error + "only dividers are allowed between an \"add\" and the colon, and \"" + dividers[i2] + "\" is not a valid divider.");
+										dividers.splice(i2, 1);
+										i2--;
+									};
+								}
 								if(zero) {
 									dividers = structuredClone(zero_dividers).concat(dividers);
 									zero_dividers = [];
@@ -4197,6 +4200,21 @@
 									if(Bullets.validdivider(_line, false, myformatting)) {
 										dividers.push(_line);
 									}
+									else if(_line.startsWith("/")) {
+										if(array.length) {
+											array[array.length - 1].text += _line.slice(1);
+											// it's intentional that the line is
+											// not trimmed after the slice. this
+											// way, the user can avoid having a
+											// space between lines, if they
+											// want. (for one thing, it could be
+											// used for words that are longer
+											// than a line?)
+										}
+										else {
+											errors.push(error + "this shouldn't happen (/ is being used to continue a bullet, but there's no previous bullet.)");
+										}
+									}
 									else {
 										array.push(structuredClone(Bullets.template));
 										let ref = array[array.length - 1];
@@ -4222,7 +4240,7 @@
 						}
 						else if(line === "delete" || line === "clear") {
 							if(!(select in bullets)) {
-								console.log(error + "no bullet is selected.");
+								errors.push(error + "no bullet is selected.");
 							}
 							else {
 								let branches = line === "clear" ? bullets.children(select) : [select];
@@ -4255,7 +4273,7 @@
 						}
 						else if(line.startsWith("rewrite:")) {
 							if(!(select in bullets)) {
-								console.log(error + "no bullet is selected.");
+								errors.push(error + "no bullet is selected.");
 							}
 							else {
 								set_text(bullets[select], trimunspecial(line.slice("rewrite:".length)));
@@ -4263,7 +4281,7 @@
 						}
 						else if(line.startsWith("alias:")) {
 							if(!(select in bullets)) {
-								console.log(error + "no bullet is selected.");
+								errors.push(error + "no bullet is selected.");
 							}
 							else {
 								for(i2 in alias) {
@@ -4288,11 +4306,11 @@
 											select = alias[line];
 										}
 										else {
-											console.log(error + "this shouldn't happen (alias leads to a nonexistent index)");
+											errors.push(error + "this shouldn't happen (alias leads to a nonexistent index)");
 										}
 									}
 									else {
-										console.log(error + "undefined alias");
+										errors.push(error + "undefined alias");
 									}
 								}
 								else {
@@ -4311,7 +4329,7 @@
 									// indent. if they're tied there, stick with the
 									// lower index.
 									if(match === -1) {
-										console.log(error + "bullet not found.");
+										errors.push(error + "bullet not found.");
 									}
 									else {
 										select = match;
@@ -4319,15 +4337,18 @@
 								}
 							}
 							else {
-								console.log(error + "select lines must use :, >, @, or null.");
+								errors.push(error + "select lines must use :, >, @, or null.");
 							};
 						}
 						else {
-							console.log(error + "unknown meaning.");
+							errors.push(error + "unknown meaning.");
 						}
 					}
 					for(i1 = 0; i1 < bullets.length; i1++) {
 						full_bullets.push(bullets[i1]);
+					}
+					if(errors.length) {
+						alert("paragraph " + i0 + "\n\n" + errors.push("\n\n"));
 					}
 				}
 				//
