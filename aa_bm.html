@@ -149,6 +149,14 @@
 			"the default bodytext now has 3d shapes for the hands, not 2d images.",
 		],
 		//*/
+		"26mar25: v1.4.1",
+		[
+			"added the select tool to armature artist and body maker.",
+			[
+				"selects whatever part is closest to where you clicked.",
+				"the stuff i did to make it easier to select parts was not nearly enough for mobile devices. it's just that hard to get precise."
+			]
+		],
 		"25mar25: v1.4",
 		[
 			"initial release of the pixel art tool, which armature artist and body maker can send images to. it also has an animation tester.",
@@ -3517,25 +3525,27 @@
 			}
 			loop.end();
 		},
+		get noderadius() {
+			return (aa.control.posetool === "select" || (aa.control.posetool === "perspective" && aa.control.posetool_inversion)) ? Infinity : AAX.noderadius;
+		},
 		nodecheck: function(click, view) {
-			let i1 = 0;
-			let loop = new Loop("aa.nodecheck");
-			for(i1 = aa.nodes[view].length - 1; i1 >= 0; i1--) {
+			let node = null;
+			let hypot = aa.noderadius + .5;
+			for(let i1 = aa.nodes[view].length - 1; i1 >= 0; i1--) {
 			// search backwards, so it finds the closer nodes first.
-				loop.tick(1);
-				let node = aa.nodes[view][i1];
-				let hypot = Math.hypot(
-					node.x - click[0],
-					node.y - click[1]
+				let _node = aa.nodes[view][i1];
+				let _hypot = Math.hypot(
+					_node.x - click[0],
+					_node.y - click[1]
 				);
-				if(hypot < AAX.noderadius + .5 && (!aa.currpose[node.name].hide || !aa.drawsettings.total_hide)) {
+				if(_hypot < hypot && (!aa.currpose[_node.name].hide || !aa.drawsettings.total_hide)) {
 				// if the part is hidden and total hide is on, don't allow the
 				// node to be selected or clicked.
-					return node;
+					node = _node;
+					hypot = _hypot;
 				};
 			}
-			loop.end();
-			return null;
+			return node;
 		},
 		getnode: (view, name) => AAX.getnode(aa.nodes, view, name),
 		xz_radius: () => Math.floor((aa.drawsettings.cell.w - 2*AAX.noderadius)/4),
@@ -3588,7 +3598,7 @@
 			const cell = aa.drawsettings.cell;
 			const view = Math.floor(click[0]/cell.w);
 			aa.control.view = view;
-			let node = aa.nodecheck(click, view);
+			let node = aa.nodecheck(click, view, aa.control.posetool === "select" ? Infinity : null);
 			aa.control.partclicked = node !== null;
 			if(aa.control.partclicked) {
 				aa.control.partname = node.name;
@@ -3683,6 +3693,8 @@
 					aa.control.posetool === "rotate"
 					||
 					(aa.control.posetool === "perspective" && aa.control.posetool_inversion)
+					||
+					aa.control.posetool === "select"
 				)
 				?
 				aa.nodecheck(click, view)
@@ -4421,6 +4433,7 @@
 					],
 					`the perspective pose tool lets you create an offset for each view, letting you position things around a vanishing point.`,
 					`certain graphical changes only apply in perspective mode, namely the perspective offsets, and camera angle. perspective mode is for visualizing what the pose/animation will look like at the end, while the other modes are meant to be easier to understand and edit, like an engineering multiview.`,
+					`the select pose tool selects whatever part is closest to where you click. useful for mobile devices, where it's hard to click close enough.`,
 					`selecting the pose tool you already have selected "inverts" it, making it work differently.`,
 					[
 						`inverted move will use the current hypotenuse of the part, rather than the hypotenuse it has in the default pose. (useful if you used deform to lengthen limbs or something.)`,
@@ -4955,6 +4968,11 @@
 						canvas.onpointerdown = aa.mousedown;
 						canvas.onpointermove = aa.mousemove;
 						canvas.onpointerup = aa.mouseup;
+						canvas.onpointerleave = function(e) {
+							aa.pasteimages(true);
+							aa.pasteimages(false);
+							aa.writecoordinates(null);
+						};
 						// like mouse events, except they work for phones and
 						// drawing tablets.
 						canvas.style["touch-action"] = "none";
@@ -6179,7 +6197,7 @@
 			//   what prefixes.
 		}),
 		valid: {
-			tools: "child sibling move horizontal vertical radius".split(" "),
+			tools: "child sibling move select horizontal vertical radius".split(" "),
 			refresh: ["bodytext", "states", "draw", "ui"],
 			draw_type: ["parts", "silhouette", "neither"],
 			// - parts only, with overlapping outlines
@@ -6235,6 +6253,7 @@
 					`sibling: create a sibling to the current part.`,
 					//`rapid: creates a child, but autonames it. useful for creating bodies quickly.`
 					`move: move where a part is, relative to its parent.`,
+					`select: select the part closest to where you click. useful for mobile devices.`
 				],
 				"scale tools": [
 					`radius: scales the shape so that the furthest point of the shape is just as far away from the center as the mouse is.`,
@@ -6317,6 +6336,11 @@
 					canvas.onpointerdown = bm.mousedown;
 					canvas.onpointermove = bm.mousemove;
 					canvas.onpointerup = bm.mouseup;
+					canvas.onpointerleave = function(e) {
+						bm.pasteimages(true);
+						bm.pasteimages(false);
+						bm.writecoordinates(null);
+					};
 					// like mouse events, except they work for phones and
 					// drawing tablets.
 					canvas.style["touch-action"] = "none";
@@ -6592,21 +6616,27 @@
 				return bm.drawsettings.skeleton && bm.drawsettings.nodes;
 			},
 		},
+		get noderadius() {
+			return bm.control.tool === "select" ? Infinity : AAX.noderadius;
+		},
 		nodecheck: function(click, view) {
+			let node = null;
+			let hypot = bm.noderadius + .5;
 			for(let i1 = bm.nodes[view].length - 1; i1 >= 0; i1--) {
 			// search backwards, so it finds the closer nodes first.
-				let node = bm.nodes[view][i1];
-				if(
-					Math.hypot(node.x - click[0], node.y - click[1]) < AAX.noderadius + .5
-					&&
-					(!bm.pose[node.name].hide || !bm.drawsettings.total_hide)
-				) {
+				let _node = bm.nodes[view][i1];
+				let _hypot = Math.hypot(
+					_node.x - click[0],
+					_node.y - click[1]
+				);
+				if(_hypot < hypot && (!bm.pose[_node.name].hide || !bm.drawsettings.total_hide)) {
 				// if the part is hidden and total hide is on, don't allow the
 				// node to be selected or clicked.
-					return node;
+					node = _node;
+					hypot = _hypot;
 				};
 			}
-			return null;
+			return node;
 		},
 		coortocanvas: (point, view, nonulls, viewoffset) => AAX.coortocanvas(bm.drawsettings.cell, bm.drawsettings.standpoint, point, view, nonulls, viewoffset),
 		coorfromcanvas: (x, y, view) => AAX.coorfromcanvas(bm.drawsettings.cell, bm.drawsettings.standpoint, x, y, view),
@@ -7241,7 +7271,7 @@
 						previous: 0,
 						direction: "d",
 						actions: [
-							["column", "create child sibling move".split(" "), "r", 7, 1],
+							["column", "create child sibling move select".split(" "), "r", 7, 1],
 							["column", "scale radius horizontal vertical".split(" "), "r", 7, 1]
 						],
 					},
@@ -8504,6 +8534,10 @@
 			let _this = this;
 			this.html.render.onclick = function() {
 				let paper = new Paper();
+				paper.w = _this.w;
+				paper.h = _this.h;
+				paper.viewer.vp_x = _this.vp_x;
+				paper.viewer.vp_y = _this.vp_y;
 				// - viewer
 				// - w, h
 				// - bg
@@ -8512,6 +8546,30 @@
 				//   - x, y, z
 				//   - light_value, dark_value
 				// - sheets
+				const head_front = [
+					[0, -11],
+					[8, -10],
+					[12, -2],
+					[12, 5],
+					[8, 12],
+					[3, 16],
+					[0, 17],
+					[-3, 16],
+					[-8, 12],
+					[-12, 5],
+					[-12, -2],
+					[-8, -10]
+				];
+				const head_right = [
+					[0, -11],
+					[8, -7],
+					[12, -1],
+					[5, 14],
+					[-8, 17],
+					[-12, 11],
+					[-12, -1],
+					[-8, -7]
+				];
 				for(let i1 = 0; i1 < 6; i1++) {
 				// create a cube. left, right, up, down, back, front.
 					let w = paper.w;
@@ -8543,34 +8601,29 @@
 						i1 === 4 ? Quat.new() :
 						Quat.new("xz", (i1 === 0 ? 3 : i1 === 1 ? 1 : i1 === 5 ? 2 : 0)*Math.PI/2)
 					);
-					/*
-					console.log("lrudbf"[i1]);
-					for(let i2 = 0; i2 < 4; i2++) {
-						let point = [Number(i2%2), Number(i2 >= 2), 0];
-						//console.log(structuredClone(point));
-						point = Points.multiply(point, [w, h, 1]);
-						//console.log(structuredClone(point));
-						point = Quat.apply(ref.quat, point);
-						//console.log(structuredClone(point));
-						point = Points.add(Points.convert(ref), point);
-						//console.log(structuredClone(point));
-						point = Points.divide(point, [paper.w, paper.h, paper.w]);
-						//console.log(structuredClone(point));
-						point = Points.applyfunc(point, Math.sign);
-						point = (
-							"-0+"[point[0] + 1]
-							+
-							"-0+"[point[1] + 1]
-							+
-							"-0+"[point[2] + 1]
-						);
-						console.log(point);
+					let shape = structuredClone(head_right);
+					for(let i2 = 0; i2 < shape.length; i2++) {
+						shape[i2][0] += w/2;
+						shape[i2][1] += h/2;
+						shape[i1][0] *= 2;
+						shape[i1][1] *= 2;
 					}
-					//*/
+					//ref.shapes.push(new Paper.Shape("subtract", [shape]));
 				}
+				//paper.viewer.disable = true;
 				paper.render(_this.ctx);
 			};
+			this.html.render.onclick();
+			this.html.canvas.onclick = function(e) {
+				_this.vp_x = Math.round(e.clientX - e.target.getBoundingClientRect().left) - _this.w/2;
+				_this.vp_y = Math.round(e.clientY - e.target.getBoundingClientRect().top) - _this.h/2;
+				_this.html.render.onclick();
+			}
 		},
+		w: 128,
+		h: 128,
+		vp_x: 0,
+		vp_y: 0,
 	};
 	//bg.initialize();
 	//
