@@ -3037,32 +3037,35 @@ class Line {
         if(!Array.isArray(point)) {
             point = [0, 0, 0];
         };
-        let place = this.plane().pointtotal( this.movetoline(point) );
-        let sign = Math.sign(this.plane().pointtotal( this.findposition(1) ));
+        let plane = this.plane();
+        let place = plane.pointtotal( this.movetoline(point) );
+        let sign = Math.sign(plane.pointtotal( this.findposition(1) ));
         return place*sign;
     }
     planeintersect(plane) {
     // returns the coordinates of a line/plane intersection.
-        let point = [this.x, this.y, this.z];
-        // a point where its distances from the Line's coordinate match the
-        // ratio of the Line's angle numbers, and where the coordinates
-        // the plane mods plus offset = 0.
-        let total = point[0]*plane.x + point[1]*plane.y + point[2]*plane.z + plane.offset;
-        // this is how far it is from x*x + y*y + z*z + offset equaling 0.
-        if(total === 0) {
+        let point = Points.convert(this);
+        let total = plane.pointtotal(point);
+        if(!total) {
             return point;
         };
-        let unit = Angle.numbers(this.angle);
-        unit = unit[0]*plane.x + unit[1]*plane.y + unit[2]*plane.z;
-        // this is how much moving one unit in the Line's angle will change
-        // the total.
-        if(unit === 0) {
-            return null;
-            // parallel to the plane
+        let unit = plane.pointtotal(Angle.numbers(this.angle)) - plane.offset;
+        if(!unit) {
+        // parallel to the plane
+            return 0;
         };
         return this.findposition(-total/unit);
-        // if you go enough units for the change to be the opposite of the
-        // total, it will balance out to zero. donezo.
+        // - for a point to be on the plane, the pointtotal has to be zero.
+        // - that is, point[0]*plane.x + plane[1]*plane.y + point[2]*plane.z +
+        //   plane.offset must be zero.
+        // - [line.x, line.y, line.z] has a pointtotal.
+        // - since the intersection has to be on the line, it has to be a point
+        //   that starts at [line.x, line.y, line.z] and moves some number of
+        //   units in line.angle to get pointtotal to zero.
+        // - and that isn't so difficult to figure out. if it's just a matter of
+        //   how many times we add Angle.numbers(line.angle)...
+        // - you just have to figure out how much adding one of those changes
+        //   the pointtotal. then do division.
     }
     movetoline(point) {
     // moves the given point to a place on the line, using perpendicular
@@ -3105,6 +3108,7 @@ class Line {
     }
     cone_intersect(tip, basis, xr, yr, h) {
     // finds the intersections of a line and a double-cone, if they exist.
+    // UNFINISHED.
     // - basis' z axis is used to find the tip-to-base direction, and the x/y
     //   axes are the perpendicular directions that xr and yr apply to.
     //   - xr/yr stand for "x/y radius".
@@ -3250,6 +3254,7 @@ class Line {
     }
     cyl_intersect(top, basis, xr, yr) {
     // read the comments for cone_intersect. this is almost the same process.
+    // UNFINISHED.
     	let line = this;
     	let start = Points.convert(line);
     	start = Points.subtract(start, top);
@@ -9892,7 +9897,7 @@ knee:
     valid: {
     // stores arrays for which values are accepted, whether to check for
     // validity or iterate through them. mostly for drawsettings.
-        posetools: ["move", "deform", "tilt", "rotate", "perspective"],
+        posetools: ["move", "deform", "tilt", "rotate", "perspective", "select"],
         // pose tool names. used to create the buttons, and cycle through
         // them.
         background: ["gridless", "grid", "blank"],
@@ -17375,12 +17380,16 @@ class RayViewer {
         if(this.disable) {
             return new Line(...point, Angle.get(...Quat.apply(this.quat, [0, 0, -1])));
         };
-        let xz = x/(this.scale*this.range/Math.PI);
-        let yz = y/(this.scale*this.range/Math.PI);
+        let xz = x/this.scale - this.vp_x;
+        let yz = y/this.scale - this.vp_y;
+        // - divide by scale to cancel it out
+        // - subtract vanishing point so angles are measured by how close it is
+        //   to that
+        xz /= this.range/Math.PI;
+        yz /= this.range/Math.PI;
+        // - divide by range/pi to convert it from pixels back to angle
         xz += xz < 0 ? 2*Math.PI : 0;
         yz += yz < 0 ? 2*Math.PI : 0;
-        // - divide by scale to cancel it out
-        // - divide by range/pi to convert it from pixels back to angle
         // - make sure it ranges between 0 and 2 pi instead of -pi and pi
         let angle = rotate(rotate([0, 0, -1], "xz", xz), "yz", yz);
         angle = Angle.get(...Quat.apply(this.quat, angle));
@@ -17445,8 +17454,7 @@ class Paper {
         this.viewer = new RayViewer();
         this.w = 128;
         this.h = 128;
-        this.viewer.y -= this.h/2;
-        this.viewer.z -= this.w/2;
+        this.viewer.z += this.w/2;
         this.bg = "black";
         this.fineness = 8;
         this.light = {
@@ -17478,11 +17486,46 @@ class Paper {
             ]);
             this.neighbors = [];
         }
+        get plane() {
+            let point = Points.convert(this);
+            let basis = Quat.basis(this.quat);
+            return Plane.frompoints([
+                point,
+                Points.add(point, Quat.apply(this.quat, [1, 0, 0])),
+                Points.add(point, Quat.apply(this.quat, [0, 1, 0]))
+            ]);
+        }
+        tosheetspace(point) {
+        // converts a 3d coordinate to the coordinates within a sheet.
+        // - subtracts [this.x, this.y, this.z]
+        // - does the opposite of the rotation this.quat does
+        // - "sheet space" is what shape coordinates are measured in. a point at
+        //   [3, 7] means 3 in the Sheet's x direction, not x itself, and 7 in
+        //   the sheet's y direction, not y itself.
+        // - the third coordinate is usually irrelevant, but it's still
+        //   included. layering. making sure it's actually on the plane. stuff
+        //   like that.
+        //   - right. the third coordinate is equivalent to
+        //     this.plane.pointtotal(point).
+        //     - it might have an opposite sign, actually. Plane isn't great
+        //       with signs, but this is.
+            return Quat.apply(
+                Quat.invert(this.quat),
+                Points.subtract(point, Points.convert(this))
+            );
+        }
+        fromsheetspace(point) {
+        // does the opposite. the input can be 2d or 3d.
+            return Points.add(
+                Points.convert(this),
+                Quat.apply(this.quat, [point[0], point[1], point[2] ?? 0])
+            );
+        }
     }
     static Shape = class {
-        constructor(type) {
+        constructor(type, points) {
             this.type = Paper.Shape.types.includes(type) ? type : Paper.Shape.types[0];
-            this.points = [];
+            this.points = Array.isArray(points) ? points : [];
         }
         static types = ["add", "subtract"]
     }
@@ -17662,17 +17705,18 @@ class Paper {
         let planes = [];
         let colors = [];
         for(i1 = 0; i1 < this.sheets.length; i1++) {
+            //console.log("lrudbf"[i1]);
             let ref = this.sheets[i1];
-            let basis = Quat.basis(ref.quat);
-            let point = [ref.x, ref.y, ref.z];
-            planes.push(Plane.frompoints([
-                point,
-                Points.add(point, Points.add(point, basis[0])),
-                Points.add(point, Points.add(point, basis[1]))
-            ]));
-            //
-            let angle = Angle.get(...basis[2]);
-            let center = Points.add(Points.add(point, Points.multiply(ref.center_x, basis[0])), Points.multiply(ref.center_y, basis[1]))
+            planes.push(ref.plane);
+            // this sounds unnecessary, since you could just use
+            // this.sheets[i1].plane later on and the code is fairly simple, but
+            // keep in mind that would make the plane getter run
+            // this.w*this.h*this.sheets.length times. if you do it ahead of
+            // time, it runs this.sheet.length times.
+            let angle = Angle.get(...Quat.apply(ref.quat, [0, 0, 1]));
+            let center = ref.fromsheetspace([ref.center_x, ref.center_y, 0]);
+            //console.log(center);
+            //let center = Points.add(Points.add(point, Points.multiply(ref.center_x, basis[0])), Points.multiply(ref.center_y, basis[1]))
             let _angle = Angle.get(...Points.subtract(Points.convert(this.light), center));
             let compare = Angle.compare(angle, _angle);
             let alpha = colortohex(ctx, ref.color);
@@ -17708,16 +17752,23 @@ class Paper {
         }
         let ctx_rect = Rect.new(0, 0, this.w, this.h);
         for(i1 = 0; i1 < this.w*this.h; i1++) {
+            let log = [0, this.w - 1, this.w*this.h - this.w, this.w*this.h - 1].includes(i1);
             let coor = Rect.getcoor(ctx_rect, i1);
             let ray = this.viewer.ray(
                 coor[0] - this.w/2 + .5,
                 coor[1] - this.h/2 + .5
             );
+            if(log) {
+                console.log("ray:");
+                console.log("\t" + Points.convert(ray));
+                console.log("\t" + Angle.numbers(ray.angle));
+            };
             let intersect = [];
             // {point, index}
-            for(i2 = 0; i2 < planes.length; i2++) {
-                let point = ray.planeintersect(planes[i2]);
-                if(point !== null) {
+            for(i2 = 0; i2 < this.sheets.length; i2++) {
+                let plane = planes[i2];
+                let point = ray.planeintersect(plane);
+                if(point) {
                     let place = roundspecial(ray.findplace(point));
                     if(place > 0) {
                         intersect.push({point, place, index: i2});
@@ -17741,10 +17792,8 @@ class Paper {
                 let _colors = [];
                 for(i2 = 0; i2 < intersect.length; i2++) {
                     let _i2 = intersect[i2].index;
-                    let point = intersect[i2].point;
                     let sheet = this.sheets[_i2];
-                    point = Points.subtract(point, Points.convert(sheet));
-                    point = Quat.apply(Quat.invert(sheet.quat), point);
+                    let point = sheet.tosheetspace(intersect[i2].point);
                     let ref = {
                         sheet: raster.sheet[_i2],
                         shape: raster.shape[_i2],
