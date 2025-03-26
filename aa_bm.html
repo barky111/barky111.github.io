@@ -141,7 +141,7 @@
 	document.write(`\n<br><label><input type="radio" name="userfocus" value="px">pixel art</label>`);
 	document.write(`\n<br hidden><label hidden><input type="radio" name="userfocus" value="se">shape examiner</label>`);
 	document.write(`\n<br hidden><label hidden><input type="radio" name="userfocus" value="bg">paper background maker</label>`);
-	document.write("<details class=\"text\">\n\t<summary>changelog</summary>\n\t" + arraytoul([
+	document.write("<details id=\"changelog\" class=\"text\">\n\t<summary>changelog</summary>\n\t" + arraytoul([
 		/*
 		"???: v1.4",
 		[
@@ -154,7 +154,7 @@
 			"added the select tool to armature artist and body maker.",
 			[
 				"selects whatever part is closest to where you clicked.",
-				"the stuff i did to make it easier to select parts was not nearly enough for mobile devices. it's just that hard to get precise."
+				"the stuff i did to make it easier to select parts was not nearly enough for mobile devices. it's just that hard to get precise on a touchscreen."
 			]
 		],
 		"25mar25: v1.4",
@@ -1089,10 +1089,7 @@
 			editmodefalse: null,
 			coor: null,
 		},
-		version_history: "v1.0 v1.0.1 v1.1 v1.1.1 v1.2 v1.3".split(" "),
-		get version() {
-			return aa.version_history[aa.version_history.length - 1];
-		},
+		version: "",
 		partinfo_is_default: function(part, view, suffix) {
 			let _default = false;
 			if(suffix in AAX.part_properties && ["body_exclusive", "pose_exclusive"].includes(AAX.part_properties[suffix].type)) {
@@ -5240,6 +5237,26 @@
 				aa.drawsettings.vp.y = Math.floor(aa.drawsettings.vp.y/2);
 			}
 			// this has to be done here so that head is fully defined
+			let version = document.getElementById("changelog").querySelector("li").innerHTML.trim();
+			temp = version.indexOf(":");
+			if(temp !== -1 && datechecker(version.slice(0, temp))) {
+				version = version.slice(temp + 1).trim();
+				let valid = version.startsWith("v");
+				for(let i1 = 1; valid && i1 < version.length; i1++) {
+					let char = version[i1];
+					valid = char.toLowerCase() !== char.toUpperCase() || "0123456789.".includes(char);
+				}
+				if(valid) {
+					aa.version = version;
+				}
+				else {
+					console.log("this shouldn't happen");
+				}
+			}
+			else {
+				console.log("this shouldn't happen");
+			}
+			// define aa.version before the ui is created
 			aa.anims[0] = aa.newanim();
 			let canvas = aa.ctx.main.canvas;
 			canvas.addEventListener("mousedown", aa.mousedown);
@@ -8222,10 +8239,6 @@
 				bm.bodytext_change(reader.result);
 			};
 			reader.readAsText(file);
-		},
-		version_history: "v1.0".split(" "),
-		get version() {
-			return bm.version_history[bm.version_history.length - 1];
 		},
 	};
 	//bm.initialize();
