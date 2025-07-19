@@ -60,6 +60,7 @@
 				leit: "leitner box",
 				lic: "life is cruel",
 				bul: "Bullets tool",
+				mox: "???",
 			},
 			param: new URLSearchParams(new URL(document.URL).search),
 			create: function(prefix, inside) {
@@ -620,7 +621,9 @@
 			for (i1 in input) {
 				if (input.hasOwnProperty(i1) && input[i1].trim()) {
 				// for each date... (that actually has text.)
-					let bullets = Bullets.new(input[i1], true).split();
+					let bullets = Bullets.new(input[i1], true);
+					bullets = bullets.split();
+					//let bullets = Bullets.new(input[i1], true).split();
 					// an array of Bullets, broken up so each 0 indent bullet is
 					// the start of an index.
 					for (i2 = 0; i2 < bullets.length; i2++) {
@@ -3291,68 +3294,73 @@
 					addhtml("bul", "button", "remove") + list[0] + [
 						addhtml("bul", "input", "remove indexes", `type="text"`, null, "indexes:")
 					].join(list[1]) + list[2],
-					addhtml("bul", "button", "intent") + arraytoul([
+					addhtml("bul", "button", "intent"),
+					`<ul>`,
+					`\t` + [
 						addhtml("bul", "textarea", "realizers", `rows=12 cols=12`),
-						`complicated as fuck tag system for organizing character
-						notes. it's too obtuse to understand without
-						explanation, but also too obtuse to expect someone to
-						seriously read the explanation.`,
-						`all tags must be used under an ancestor marked as
-						"(center)"`,
-						`(center) or (intent) tags represent something you
-						want to convey, and the "realizers" represent how
-						it's conveyed. ex: through character design, music,
-						story beats`,
-						[
-							`the point is to help with character design and
-							whatever by trimming down a really big concept
-							to key points you want to convey, and what was
-							already done to convey them.`,
-							`systems like this are either brilliant or dumb
-							as hell.`
-						],
-						`by default, they're associated with the closest
-						ancestor that's an intent or center, but you can
-						specify something different by putting a set of
-						brackets right after the tag type. it'll search for
-						an intent under the same center that has that phrase
-						inside it. (if there's multiple matches, it favors
-						the ones that share a closer common ancestor, then
-						the ones that have the lowest indent, then the ones
-						that show up earliest)`,
-						`realizers can also be parented to realizers of the
-						same type, through either of those methods.`,
-						`you can force it to parent to the center by typing
-						empty brackets. (useful if its ancestry would make
-						it parent to something else.)`,
-						`you can make the center/intent/realizer only show
-						part of the bullet's text by writing something like
-						(intent&#60;) or (intent&#62;)`,
-						`&#60; or &#62;s of the same type within the same
-						bullet can limit each other, ex: "a (intent&#62;) b
-						(intent&#60;) c" will create a single intent that
-						says "b", and "a (intent&#62;) b (intent&#62;) c"
-						will create two that say "b" and "c"`,
-						`or you can write entirely new content by putting a
-						colon after the tag type, ex: "a b c (intent: d)"`,
-						`a lot of realizers evoke simple traits like
-						"confident" or "cruel" that would be implied rather
-						than stated, so tags can create intents to parent
-						themselves to. "(desi #confident #cruel >)" would
-						put it under an intent that says "confident,
-						cruel".`,
-						`there can be any number of spaces, indents, etc
-						between stuff like the tag type, hashtags,
-						attachment parentheses, :/&#60;/&#62;/etc. the
-						interpreter will still be able to read it.`
-					]),
+						`<details>\n\t<summary>info</summary>\n\t` + arraytoul([
+							`complicated as fuck tag system for organizing character
+							notes. it's too obtuse to understand without
+							explanation, but also too obtuse to expect someone to
+							seriously read the explanation.`,
+							`all tags must be used under an ancestor marked as
+							"(center)"`,
+							`(center) or (intent) tags represent something you
+							want to convey, and the "realizers" represent how
+							it's conveyed. ex: through character design, music,
+							story beats`,
+							[
+								`the point is to help with character design and
+								whatever by trimming down a really big concept
+								to key points you want to convey, and what was
+								already done to convey them.`,
+								`systems like this are either brilliant or dumb
+								as hell.`
+							],
+							`by default, they're associated with the closest
+							ancestor that's an intent or center, but you can
+							specify something different by putting a set of
+							brackets right after the tag type. it'll search for
+							an intent under the same center that has that phrase
+							inside it. (if there's multiple matches, it favors
+							the ones that share a closer common ancestor, then
+							the ones that have the lowest indent, then the ones
+							that show up earliest)`,
+							`realizers can also be parented to realizers of the
+							same type, through either of those methods.`,
+							`you can force it to parent to the center by typing
+							empty brackets. (useful if its ancestry would make
+							it parent to something else.)`,
+							`you can make the center/intent/realizer only show
+							part of the bullet's text by writing something like
+							(intent&#60;) or (intent&#62;)`,
+							`&#60; or &#62;s of the same type within the same
+							bullet can limit each other, ex: "a (intent&#62;) b
+							(intent&#60;) c" will create a single intent that
+							says "b", and "a (intent&#62;) b (intent&#62;) c"
+							will create two that say "b" and "c"`,
+							`or you can write entirely new content by putting a
+							colon after the tag type, ex: "a b c (intent: d)"`,
+							`a lot of realizers evoke simple traits like
+							"confident" or "cruel" that would be implied rather
+							than stated, so tags can create intents to parent
+							themselves to. "(desi #confident #cruel >)" would
+							put it under an intent that says "confident,
+							cruel".`,
+							`there can be any number of spaces, indents, etc
+							between stuff like the tag type, hashtags,
+							attachment parentheses, :/&#60;/&#62;/etc. the
+							interpreter will still be able to read it.`
+						]).replaceAll("\n", "\n\t") + `</details>`
+					].join("\n").replaceAll("\n", "\n\t"),
+					`</ul>`,
 					addhtml("bul", "button", "sort", null, "sort ideas") + list[0] + [
 						// addhtml(prefix, type, name, settings, inside, label)
 						"this one is pretty experimental. it'll take some time before i have input varied enough to be sure every aspect of it works.",
 						"unfinished.",
 						addhtml("bul", "textarea", "sort tags", "rows=12 cols=12")
 					].join(list[1]) + list[2],
-					addhtml("bul", "button", "living") + arraytoul([
+					addhtml("bul", "button", "living") + `<ul><details>\n\t<summary>info</summary>\n\t` + arraytoul([
 						"a tool for displaying a \"living document\". you enter a linear sequence of edits, and it organizes that into the Bullets it represents. (this way, deleted content is preserved, and it's easy to revert to a previous state of the document.)",
 						"lines that start with \"add\" add a bullet or branch, added as a child of the currently selected bullet.",
 						[
@@ -3398,7 +3406,7 @@
 							"using those paragraph breaks and dates in the script will make it use the same breaks/dates in the Bullets it creates.",
 							"most importantly, each script paragraph is totally self-contained. you can't select, delete, or edit bullets in other paragraphs, and aliases don't carry over between paragraphs either."
 						]
-					]),
+					]).replaceAll("\n", "\n\t") + `</details></ul>`,
 					addhtml("bul", "pre", "output")
 				].join("\n");
 				wrapper.create("bul", html);
@@ -4357,6 +4365,282 @@
 			}
 		}
 		bul.initialize();
+		//
+		let mox = {
+			prefix: {
+				none: "",
+				confident: String.fromCharCode(5478, 91, 758, 242, 65103, 243, 758, 93, 5476),
+				skeptical: String.fromCharCode(40, 172, 95, 95, 172, 41),
+				weepy: String.fromCharCode(7884, 95, 95, 95, 7884),
+				angry: String.fromCharCode(242, 65081, 243),
+				// if i type the characters directly, it'd probably make this
+				// file bigger, since it has to change character encoding to
+				// allow more unicode characters.
+			},
+			grammar: [
+				"the a an and or so some no to of in for on with at by from out if into than now over after because but about when then only also how not as would could",
+				"do does did know knew have has had",
+				"be is are were am was",
+				"which any these those what who this that there",
+				"he him his she her they them their it its i me my you your we us our",
+				"what's that's there's who's he's she's they're it's i'm you're we're",
+				"what've who've they've i've you've we've",
+				"what'd who'd that'd there'd he'd she'd they'd it'd i'd you'd we'd",
+				"what'll who'll this'll that'll there'll he'll she'll they'll it'll i'll you'll we'll",
+				"let's gonna wanna dunno isn't don't doesn't didn't won't"
+			].join(" ").split(" "),
+			initialize: function() {
+				let i1 = 0;
+				let html = [];
+				for(i1 in mox.prefix) {
+					if(mox.prefix.hasOwnProperty(i1)) {
+						html.push("<button name=\"prefix_" + i1 + "\">" + i1.replaceAll("_", " ") + "</button>");
+					}
+				}
+				html = [
+					"<label>prefix: <input type=\"text\"></label>",
+					"<ul>" + html.join("<br>") + "</ul>",
+					"<label>casing: <select>",
+					"\t" + [
+						"<option>no change</option>",
+						"<option>uppercase</option>",
+						"<option>lowercase</option>",
+						"<option>non-grammar words</option>",
+						"<option>wobbly</option>",
+						"<option>inner jumble</option>"
+					].join("\n\t"),
+					"</select></label>",
+					"<br><label>punctuation: <select>",
+					"\t" + [
+						"<option>no change</option>",
+						"<option>excited</option>",
+						"<option>slow</option>"
+					].join("\n\t"),
+					"</select></label>",
+					"<br><label>width: <input type=\"number\" style=\"width: 4em\" min=1></label>",
+					"<br><textarea></textarea><textarea readonly></textarea>"
+				].join("\n");
+				wrapper.create("mox", html);
+				mox.container = document.getElementById("mox_wrapper");
+				let desc = htmldescendants(mox.container);
+				mox.html = {};
+				for(i1 = 0; i1 < desc.length; i1++) {
+					let ref = desc[i1];
+					let type = ref.tagName.toLowerCase();
+					let name = "";
+					if(type === "textarea") {
+						name = ("input" in mox.html) ? "output" : "input";
+					}
+					else if(type === "input" || type === "select") {
+						let parent = ref.parentElement;
+						name = parent.tagName.toLowerCase() === "label" ? parent.innerHTML.replace(ref.outerHTML, "").trim() : "";
+						if(name.endsWith(":")) {
+							name = name.slice(0, -1).trim();
+						};
+					}
+					else {
+						name = ref.name ?? "";
+					};
+					//
+					if(name) {
+						mox.html[name] = ref;
+					};
+					if(type === "option") {
+						ref.value = ref.innerHTML;
+					};
+				}
+				for(i1 in mox.prefix) {
+					if(mox.prefix.hasOwnProperty(i1)) {
+						let _i1 = i1;
+						mox.html["prefix_" + i1].onclick = function() {
+							mox.html.prefix.value = mox.prefix[_i1];
+							mox.refresh();
+						};
+						if(!mox.html.prefix.value) {
+							mox.html["prefix_" + i1].click();
+						}
+					}
+				}
+				mox.html.casing.onchange = mox.refresh;
+				mox.html.punctuation.onchange = mox.refresh;
+				mox.html.input.onkeyup = mox.refresh;
+				mox.html.width.onchange = function(e) {
+					let num = Number(mox.html.width.value);
+					if(Number.isInteger(num) && num > 0) {
+						mox.html.input.cols = num;
+						mox.html.output.cols = num;
+					};
+					mox.autosize();
+				};
+				const width = 33;
+				mox.html.width.value = width;
+				mox.html.input.cols = width;
+				mox.html.output.cols = width;
+				mox.refresh();
+			},
+			refresh: function() {
+				mox.html.output.value = mox.convert(mox.html.input.value);
+				mox.autosize();
+			},
+			autosize: function() {
+				textarea_autosize(mox.html.input);
+				textarea_autosize(mox.html.output);
+				let max = Math.max(mox.html.input.rows, mox.html.output.rows);
+				mox.html.input.rows = max;
+				mox.html.output.rows = max;
+			},
+			convert: function(string) {
+				let i1 = 0;
+				let i2 = 0;
+				let i3 = 0;
+				let isletter = (letter) => letter === "'" || letter.toUpperCase() !== letter.toLowerCase();
+				let casing = mox.html.casing.value;
+				if(casing === "no change") {
+
+				}
+				else if(casing === "uppercase") {
+					string = string.toUpperCase();
+				}
+				else if(casing === "lowercase") {
+					string = string.toLowerCase();
+				}
+				else if(casing === "non-grammar words" || casing === "inner jumble") {
+					for(i1 = 0; i1 < string.length; i1++) {
+						let start = i1;
+						while(i1 < string.length && isletter(string[i1])) {
+							i1++;
+						};
+						let _word = string.slice(start, i1);
+						let word = _word;
+						if(casing === "non-grammar words") {
+							word = mox.grammar.includes(word.toLowerCase()) ? word.toLowerCase() : word.toUpperCase();
+						}
+						else if(casing === "inner jumble") {
+							if(word.length > 3) {
+								let _inner = word.slice(1, -1).split("");
+								let inner = structuredClone(_inner);
+								for(i2 = 0; i2 < inner.length; i2++) {
+									let length = 1 + Math.floor(Math.random()*2);
+									let options = [];
+									for(i3 = 0; i3 < inner.length - length; i3++) {
+										if(inner[i3] === _inner[i3] && inner[i3 + length] === _inner[i3 + length]) {
+											options.push(i3);
+										}
+									}
+									if(options.length) {
+										let a = options[Math.floor(Math.random()*options.length)];
+										let b = a + length;
+										let temp = inner[a];
+										inner[a] = inner[b];
+										inner[b] = temp;
+									};
+								}
+								word = word[0] + inner.join("") + word[word.length - 1];
+							}
+						};
+						if(word !== _word) {
+							string = string.slice(0, start) + word + string.slice(i1);
+							i1 = start + word.length;
+						};
+					}
+				}
+				else if(casing === "wobbly") {
+					string = wobblytext(string);
+				}
+				else {
+					console.log("this shouldn't happen");
+				};
+				let punctuation = mox.html.punctuation.value;
+				let reverse = false;
+				if(punctuation !== "no change") {
+					for(i1 = 0; i1 < string.length; i1++) {
+						let start = i1;
+						while(i1 < string.length && string[i1].trim() && !isletter(string[i1])) {
+							i1++;
+						};
+						let punct = string.slice(start, i1);
+						if(punct) {
+							let after = string.charAt(i1);
+							if(!after.trim() || ")]}'\"`*".includes(after)) {
+							// it must be the end of a sentence, or the end of a
+							// text.
+								let space = 0;
+								while((start - 1 - space) >= 0 && string[start - 1 - space] === " ") {
+									space++;
+								};
+								let dot = -1;
+								while(punct.startsWith(".".repeat(dot + 1))) {
+									dot++;
+								};
+								if(!punct.slice(dot).replaceAll("!", "").replaceAll("?", "")) {
+								// it must be nothing but periods, exclamation
+								// points, and question marks, and all periods must
+								// be at the beginning.
+									function halve(string, char) {
+										let count = Math.floor(string.length - string.replaceAll(char, "").length)/char.length;
+										for(let i1 = 0; i1 < count; i1++) {
+											string = string.replace(char, "");
+										}
+										return string;
+									};
+									punct = (
+										punctuation === "excited" ?
+										(
+											reverse ? (
+												punct === "!" ? "." :
+												punct === "." ? "..." :
+												(punct.length > dot && dot === 1) ? (".." + punct.slice(1)) :
+												!punct.replaceAll("!", "") ? "!".repeat(Math.max(0, Math.floor((punct.length - 1)/2))) :
+												!punct.replaceAll("?", "") ? "?".repeat(Math.max(0, Math.floor((punct.length - 1)/2))) :
+												!punct.replaceAll("!", "").replaceAll("?", "") ? halve(halve(punct, "!"), "?") :
+												punct
+											)
+											:
+											dot === punct.length ? (
+												dot === 1 ? "!" :
+												"."
+											) :
+											dot ? ("." + punct.replaceAll(".", "")) :
+											!punct.replaceAll("!", "") ? "!".repeat(2*punct.length + 1) :
+											!punct.replaceAll("?", "") ? "?".repeat(2*punct.length + 1) :
+											!punct.replaceAll("!", "").replaceAll("?", "") ? punct.repeat(2) :
+											punct
+										)
+										:
+										punctuation === "slow" ?
+										(
+											reverse ? (".".repeat(Math.max(0, Math.floor((dot - 1)/2))) + punct.slice(dot)) :
+											dot ? (".".repeat(2*dot + 1) + punct.slice(dot)) :
+											(".." + punct)
+										)
+										:
+										punct
+									);
+									// . => !
+									// ! => !!!
+									// !! => !!!!!
+									// ? => ???
+									// ?? => ?????
+									// !? and other combinations => double it
+									// ... => .
+									// ..!, ..?, ..!?, etc => replace the periods with one space, and don't do anything to what's left
+								}
+							};
+							string = string.slice(0, start) + punct + string.slice(i1);
+							i1 = start + punct.length - 1;
+						};
+					}
+				};
+				string = string.split("\n");
+				let prefix = mox.html.prefix.value;
+				for(i1 = 0; i1 < string.length; i1++) {
+					string[i1] = prefix + (prefix && string[i1] ? " " : "") + string[i1];
+				}
+				string = string.join("\n");
+				return string;
+			},
+		}
+		mox.initialize();
 		/*
 		let pho = {
 			element: (name) => document.getElementById("pho_" + tohtmlid(name)),

@@ -149,18 +149,57 @@
 			"the default bodytext now has 3d shapes for the hands, not 2d images.",
 		],
 		//*/
+		"18jul25: v1.5 (77h51m48s of development since the last update.)",
+		[
+			"added the posescript system. read the manual section for that. the bulk of this update was spent on that.",
+			"minor changes to the text shown while using pose tools.",
+			[
+				"move italicizes the third coordinate.",
+				"coordinates have a plus sign if they're positive.",
+				"coordinates are indented so their decimal points line up."
+			],
+			"fixes",
+			[
+				"the pixel art tool wouldn't let you drag the sliders on mobile, since swipes were interpreted as page scrolling.",
+				"for that and other elements where touch scrolling is disabled, touch zooming is now allowed. (for elements that disable touch scrolling and zooming, you can end up softlocked if you zoom in enough for it to cover the whole screen. if that happens, all you can do is hit back, wiping away everything you did.)",
+				"an issue with yz local rotate for symmetrical counterparts",
+				"sometimes the tweening screwed up orientation. (the quaternion interpolation was flawed.)"
+			],
+			"\"STANDARD\" BODYTEXT CHANGES:",
+			[
+				"the manubrium is now split between left and right, so that it's easier to move the shoulders.",
+				"added more detail to the toes, so that rotating them actually does something.",
+				"the positions of the shoulder, elbow, and hand are modified to be more realistic.",
+				"the elbow and hand are rotated a little by default, mostly for the sake of local rotate."
+			],
+			"\"HAND\" BODYTEXT CHANGES:",
+			[
+				"thumb_1, thumb_2, and thumb_3 are rotated a little by default, for the sake of local rotate."
+			],
+			"added posing tips to the manual.",
+			"font improvements.",
+			"parts can now be rotated in bodytext, using the tilt() command. (used to give local rotations more accurate axes, mostly.)",
+			"spheroids and bodytext tilt() can now be oriented with local rotations, using the \"local\" keyword.",
+			"body maker",
+			[
+				"the buttons that let you insert shape templates while editing image text now add the shape as a new group rather than just inserting it where your cursor is.",
+				"added fatscript, a small scripting system that makes it easier to expand a lot of parts at once."
+			],
+			"added to-do."
+		],
 		"26mar25: v1.4.1",
 		[
 			"added the select tool to armature artist and body maker.",
 			[
 				"selects whatever part is closest to where you clicked.",
-				"the stuff i did to make it easier to select parts was not nearly enough for mobile devices. it's just that hard to get precise on a touchscreen."
+				"the stuff i did to make it easier to select parts was not nearly enough for mobile devices. it's just that hard to get precise on a touchscreen.",
+				"inverted perspective works the same way."
 			]
 		],
 		"25mar25: v1.4",
 		[
 			"initial release of the pixel art tool, which armature artist and body maker can send images to. it also has an animation tester.",
-			"on the armature artist page, tools do not initialize until they're opened, which makes the page load faster",
+			"on the armature artist page, tools do not initialize until they're first opened, which makes the page load faster",
 			"it's much easier to select parts, especially on mobile.",
 			[
 				"the clickable radius is a little bigger, to account for the inaccuracy of touch clicks,",
@@ -309,7 +348,7 @@
 			"scaled up the template bodytexts by 1.5x, tweaked them a bit.",
 			"parts with no shape or image, when being incorporated into a silhouette, will act as if they have one point, at the center.",
 			"capsule connections look better",
-			"more efficient spheroid system. fineness now measures the number of sides of a quarter-circle, not a full circle.",
+			"more efficient spheroid system. also, fineness now measures the number of sides of a quarter-circle, not a full circle.",
 			"fixes",
 			[
 				"problems with changing interface/buttons colors",
@@ -340,6 +379,149 @@
 		],
 		"07oct24: v1.0"
 	]).replaceAll("\n", "\n\t") + "\n</details>");
+	document.write(manualhtml({
+		// 23may25
+		"high priority": [
+			"issues",
+			[
+				"mirror clears images.",
+				"rotate oddity",
+				[
+					"custom axis: [1, 3, 1]",
+					"rotate. do it slowly enough to notice that the basis' axes are moving weirdly."
+				],
+				"the midsection is all wobbly during the walk cycle, and only when it sways to the left.",
+				[
+					"points are being left out in the convexing, somehow."
+				],
+				"spheroids centered on odd coordinates look wrong. the dimensions are off, and sometimes coordinates have to be larger than they should be to move them.",
+				"i'd like to replace the hand images with shapes, but when i try, there's a one-pixel offset between left and right, for some reason. there's a problem somewhere in my image system.",
+				// 17jul25
+				[
+					"realized this is especially important because, when a first-time user rotates the body just to feel out what the tool is, and the head and torso rotate but the hands don't, and they didn't read the manual to know why... it just looks like a bug."
+				],
+				"bodytext changes don't account for if a part's default orientation is different between the old body and the new body."
+			],
+			// 17jul25
+			"sizing shapes with perspective, and/or applying perspective to individual points. (this will be optional, through the draw settings.)",
+			"add a scale input in the bodytext changing. (you could use body maker, but that's way too much trouble.)"
+			//"posescript",
+			//[
+			//],
+		],
+		"medium priority": [
+			"posescript",
+			[
+				// 17jul25
+				"adding a sample run cycle.",
+				"adding more samples in general. just for the novelty of it.",
+				[
+					"an animation like they're throwing a baseball (you can modify that to look like a punch, or swinging a one-handed weapon. versatile.)",
+					"a finger snap",
+					"jump",
+					"backflip",
+					"thinking"
+				],
+				"adding sorta boring and easy hand pose samples that are nevertheless useful",
+				[
+					"pointing",
+					"spread but not tense",
+					"narrow but not tense",
+					"thumbs up",
+					"blocking the sun (the kind of pose you make when you raise your hand to your forehead to look at something far away)",
+					"peace sign",
+					"holding various objects",
+					[
+						"apple-sized round thing",
+						"pole",
+						"pen",
+						"mug",
+						"glass"
+					]
+				],
+				"automatic perspective correction is sorta incomplete. there might be more cases that need correction than the ones it currently accommodates.",
+				"adding hide and perspective adjustment to \"time\".",
+				"\"every scene\" target that's like scene, but applies changes to every frame?",
+				"selective apply tweening",
+				// 17jul25
+				"saving/loading files",
+				[
+					"not everyone uses text editors and stuff all the time and has a place to store these scripts.",
+					"it'd be especially useful to save/load files that contain multiple posescripts..."
+				]
+			],
+			"make it so stretch/widen affects the shape of spheroids, not just their position",
+			"make posetext use basicobjtotext? (makes it more compact.)",
+			"make perspective coordinates pose-exclusive",
+			[
+				"it's confusing to be able to reset it to default <i>and</i> be able to automate it, when 99% of the time they do exactly the same thing. why would you even need to specify non-automatic default coordinates, to make sure an anime pompadour points in the right direction? that's fucking stupid.",
+				"technically, the point of perspective coordinates isn't just to conform to perspective, but to allow 2d adjustment independent of the real 3d positions. construction drawing is not all there is to art. that's why 2d images are possible, too.",
+				"but i'm having trouble picturing a real need to keep it how it is, and even if there's cases i haven't thought of, you could always use posescript. (make a script that applies the perspective coordinates you want to always start with, and run that when you start an animation or make a blank frame.)",
+				// 17jul25
+				"i'll replace the \"automate perspective coordinates\" button with being able to reset perspective coordinates in posescript."
+			],
+			"arc bones",
+			[
+				"you know, for spines.",
+				"requires a lot of planning to know how the hell it works. specifically, what direction it curves in."
+			],
+			"body maker",
+			[
+				"make it so you can select and apply different template bodytexts in body maker, like you can for armature artist",
+				// 17jul25
+				"make a fatscript that shows up by default and works ok."
+			],
+			// 17jul25
+			"make it so stretch/widen is applied <i>after</i> orientation, maybe. (it should probably be optional. a draw settings checkbox or w/e.)",
+			"make it so apply tweening asks the user what to omit, rather than using hide?",
+			"misc buttons",
+			[
+				"correct autoperspective (already exists in posescript, but it should exist outside it.)"
+			],
+			"saving/loading \"preference\" files",
+			[
+				"stores draw settings, certain default values, that kind of thing... maybe you can use a custom set of posescripts, bodytext templates, or shape templates?",
+				"they'd be tedious to input one by one. to make it optimally not-tedious, you have to gather everything like this into one file."
+			],
+			"visualizing \"invisible\" properties",
+			[
+				"whether perspective is automatic",
+				"whether a part image is 2d rather than being created from a shape"
+			]
+		],
+		"low priority": [
+			"issues",
+			[
+				// 10jun25
+				"rarely, words will be blurry horizontally just a little in the ui canvases. not sure if i can even fix that, i'm 100% my coordinates are always integers, and if the bitmap font's scale was wrong, it wouldn't be nearly this rare. it doesn't hinder readability either, it just looks ugly."
+			],
+			"posescript",
+			[
+				"scene rotation",
+				[
+					"keep the same floats for stem position",
+					"position_only addendum",
+					"make it possible to specify a point or part as a fulcrum",
+					"make it possible to rotate only one stem (name or number)"
+				],
+				// 17jul25
+				"true/local/custom addendums clash with local axis names a bit.",
+				[
+					"you can only create or use local axis names if local is on, right.",
+					"but using the \"local\" addendum won't help you there, even though it's supposed to switch you to local axes temporarily.",
+					"sorta inconsistent, but low priority on account of it being a rare scenario and slightly counter to the reason axis names are strictly local to begin with."
+				]
+			],
+			"have it wait a second before it clears the coordinate text? so it's easier to understand what numbers to use in posescript to do the same thing.",
+			"shape examiner",
+			[
+				"a tool that lets you visualize the depth and form of armature artist's 3d shapes, and probably edit them too.",
+				"it's already written, but it doesn't work yet."
+			]
+			// 17jul25
+			// "separate camera rotation from perspective_coor"
+		],
+	}, "to-do"));
 	//document.write("\n<br>");
 	document.write("<ul id=\"desc\" style=\"width: 40em\"></ul>");
 	//
@@ -1204,7 +1386,7 @@
 			loop.end();
 			return true;
 		},
-		inbetweenvalues: function(num, curve, easeA, easeB) {
+		inbetweenvalues: function(num, curve, easeA, easeB, randomize) {
 		// used by the inbetween visual and creation.
 		// - one of those things that's only a function because it bothers me to
 		//   write the same code twice.
@@ -1217,12 +1399,11 @@
 				(easeB ? "in/out" : "in")
 			);
 			let _array = null;
-			if(curve < 0) {
+			if(randomize) {
 			// makes it look sorta wonky and random.
 				_array = [];
-				curve = Math.abs(curve);
 				for(let i1 = 0; i1 < num; i1++) {
-					_array[_array.length] = (Math.random() + (i1 + 1)/(num + 1))/2;
+					_array.push( (Math.random() + (i1 + 1)/(num + 1))/2 );
 				}
 				_array.sort((a, b) => a - b);
 			}
@@ -1242,7 +1423,7 @@
 				let loop = new Loop("aa.ui.create");
 				let temp = structuredClone(AAX.ui.color_area);
 				temp.direction = "r";
-	            temp.adjust = 2;
+	            temp.adjust = 3;
 				let areas = [
 					{
 						prefix: "states",
@@ -1262,9 +1443,9 @@
 							w: 3, h: 3,
 						},
 						actions: [
-							["expand", "previous", "l", 2],
+							["expand", "prev", "l", 2],
 							["expand", "next", "r", 2],
-							["subtract", "previous", "u", 1],
+							["subtract", "prev", "u", 1],
 							["subtract", "next", "u", 1],
 							["column", "blank duplicate delete move_up move_down".split(" "), "d", 7, 1]
 						],
@@ -1300,7 +1481,8 @@
 							["expand", "clearimage editshape".split(" "), "d", 2, true],
 							["expand", "stretch_widen refreshshape".split(" "), "d", 2, true],
 							["expand", "reset_part reset_branch".split(" "), "d", 2, true],
-							["expand", "posetoshape", "d", 1]
+							["expand", "posetoshape", "d", 1],
+							["expand", "posescript", "d", 2]
 						],
 					},
 					{
@@ -1547,8 +1729,8 @@
 			//   - 1: action when shift is held
 			//   - 2: action when ctrl is held
 			//   - 3: action when both are held
-				w: ["posetool_previous", null],
-				a: ["frame_previous", "view_previous"],
+				w: ["posetool_prev", null],
+				a: ["frame_prev", "view_prev"],
 				s: ["posetool_next", null, "save"],
 				d: ["frame_next", "view_next"],
 				//
@@ -1568,6 +1750,8 @@
 				//
 				z: [null, null, "states_undo", "states_redo"],
 				o: [null, null, "load"],
+				//
+				"\\": "misc_posescript",
 			},
 			// keys added automatically:
 			// - the number keys are drawsettings toggles, and hide toggles when
@@ -1738,7 +1922,7 @@
 								suffix === "add" ? "+" :
 								suffix === "subtract" ? "-" :
 								suffix === "number" ? ref.number :
-								suffix === "curve" ? (ref.curve < 0 ? "?" : "^") + roundspecial(Math.abs(ref.curve), -5) :
+								suffix === "curve" ? "^" + roundspecial(Math.abs(ref.curve), -5) :
 								suffix === "easeA" || suffix === "easeB" ? (
 									suffix === "easeB" && ref.easeA === ref.easeB ? "" :
 									ref[suffix] ? "out" : "in"
@@ -1893,6 +2077,8 @@
 							(prefix === "rotate" && (suffix.startsWith("select") || suffix.startsWith("invert") || suffix.startsWith("switch") || suffix === "type"))
 							||
 							prefix === "px"
+							||
+							prefix === "misc"
 						);
 						align = align ? "center" : "left";
 						if(prefix === "partinfo" && !heading) {
@@ -2115,8 +2301,8 @@
 								ctx.textAlign = "left";
 							};
 						}
-						else if(prefix === "frame" && ["previous", "next"].includes(suffix)) {
-							const w = (suffix === "previous" ? -1 : 1)*rect.w/2;
+						else if(prefix === "frame" && ["prev", "next"].includes(suffix)) {
+							const w = (suffix === "prev" ? -1 : 1)*rect.w/2;
 							const h = rect.h*1/2;
 							const points = [
 								[
@@ -2174,10 +2360,10 @@
 							}
 							ctx.fillStyle = color[0];
 							let ref = aa.control.inbetween;
-							ref.values = aa.inbetweenvalues(ref.number, ref.curve, ref.easeA, ref.easeB);
+							let values = aa.inbetweenvalues(ref.number, ref.curve, ref.easeA, ref.easeB);
 							circledraw(ctx, start + .5, center[1] + .5, 2.5, true);
-							for(i2 = -1; i2 <= ref.values.length; i2++) {
-								circledraw(ctx, start + ref.values[i2]*(end - start) + .5, center[1] + .5, 2.5, true);
+							for(i2 = -1; i2 <= values.length; i2++) {
+								circledraw(ctx, start + values[i2]*(end - start) + .5, center[1] + .5, 2.5, true);
 							}
 							circledraw(ctx, end + .5, center[1] + .5, 2.5, true);
 						}
@@ -2250,11 +2436,15 @@
 						}
 						else if(prefix === "rotate" && suffix === "display") {
 							let basis = aa.control.rotate.type;
-							basis = (
-								basis === "local" ? Quat.basis(part.orient) :
-								basis === "custom" ? aa.control.rotate.basis :
-								Basis.new()
-							);
+							if(basis === "local") {
+								basis = Quat.basis(part.orient);
+								if(part.mirror) {
+									basis[0] = Points.invert(basis[0]);
+								};
+							}
+							else {
+								basis = basis === "custom" ? aa.control.rotate.basis : Basis.new();
+							};
 							AAX.ui.basis(
 								ctx,
 								Math.floor(rect.x + rect.w/2), Math.floor(rect.y + rect.h/2),
@@ -2379,7 +2569,7 @@
 				if(!aa.ui.buttons.hasOwnProperty(button)) {
 				// it's not like these have to be separate, i just wanna group
 				// all key-only actions in the same place.
-					if(["previous", "next"].includes(suffix)) {
+					if(["prev", "next"].includes(suffix)) {
 						let index = null;
 						let remainder = null;
 						if(prefix === "posetool") {
@@ -2396,7 +2586,7 @@
 						if(suffix === "next") {
 							index++;
 						}
-						else if(suffix === "previous") {
+						else if(suffix === "prev") {
 							index--;
 						};
 						index = posmod(index, remainder);
@@ -2563,60 +2753,26 @@
 					}
 				}
 				else if(prefix === "mirror") {
-					let desc = aa.control.part.descendants;
 					refresh.states = true;
-					for(i1 = -1; i1 < desc.length; i1++) {
-						let partname = i1 === -1 ? aa.control.partname : desc[i1];
-						if(i1 !== -1) {
-							aa.currpose[partname][suffix] *= -1;
-						}
-						aa.currpose[partname].orient = Quat.mirror[suffix]( aa.currpose[partname].orient );
-					}
+					aa.posescript_dry(null, "mirror", {axis: "xyz".indexOf(suffix)});
 				}
 				else if(prefix === "frame") {
 					refresh.states = true;
-					if(suffix === "previous" || suffix === "next") {
-						aa.currframe = posmod(aa.currframe + (suffix === "previous" ? -1 : suffix === "next" ? 1 : 0), aa.frames.length);
-						refresh.states = false;
-					}
-					else if(suffix === "display") {
-						let num = Number(prompt(`which frame do you want to switch to?`)) - 1;
-						if(Number.isInteger(num) && num >= 0 && num < aa.frames.length) {
-							aa.currframe = num;
+					let success = (
+						suffix === "display" ? aa.posescript_dry("frame", "jump", {input: prompt(`which frame do you want to switch to?`)}) :
+						aa.posescript_dry("frame", suffix.replaceAll("_", " "))
+					);
+					if(success) {
+						if(suffix === "prev" || suffix === "next" || suffix === "display") {
+							refresh.states = false;
 						}
-						refresh.states = false;
-					}
-					else if(["blank", "duplicate"].includes(suffix)) {
-						aa.frames.splice(aa.currframe + 1, 0, (suffix === "duplicate" ? aa.frameclone(aa.currframe) : aa.newpose()));
-						aa.currframe++;
-						// splice it into the position after this one, and
-						// switch to it.
-					}
-					else if(suffix === "delete") {
-						if(aa.frames.length === 1) {
-						// clear the pose instead
-							aa.frames.splice(aa.currframe, 1, aa.newpose());
-						}
-						else {
-							aa.frames.splice(aa.currframe, 1);
-							aa.currframe--;
-						};
-					}
-					else if(["move_up", "move_down"].includes(suffix)) {
-						let newframe = aa.currframe + (suffix === "move_up" ? 1 : suffix === "move_down" ? -1 : 0);
-						if(newframe >= 0 && newframe < aa.frames.length) {
-							let temp = aa.frames[aa.currframe];
-							aa.frames.splice(aa.currframe, 1);
-							aa.frames.splice(newframe, 0, temp);
-							aa.currframe = newframe;
+						else if(suffix === "move_up" || suffix === "move_down") {
 							refresh.draw = false;
-						}
-						else {
-							no_refresh = true;
 						};
+					}
+					else {
+						no_refresh = true;
 					};
-					aa.clampframe();
-					// make sure it isn't out of bounds.
 				}
 				else if(prefix === "view") {
 					aa.control.view = Number(suffix);
@@ -2679,11 +2835,17 @@
 							part._image.right = null;
 						};
 					}
-					else if(suffix === "editshape") {
-						let temp = AAX.Shape.string(part.shape);
-						document.getElementById("aa_editshape_input").rows = temp.split("\n").length;
-						document.getElementById("aa_editshape_input").value = temp;
-						document.getElementById("aa_editshape_dialog").showModal();
+					else if(suffix === "editshape" || suffix === "posescript") {
+						let textarea = document.getElementById("aa_" + suffix + "_input");
+						if(suffix === "editshape") {
+							textarea.value = AAX.Shape.string(part.shape);
+						};
+						textarea_autosize(textarea);
+						document.getElementById("aa_" + suffix + "_dialog").showModal();
+						setTimeout(function() {
+							textarea.focus({focusVisible: true});
+						}, 0);
+						// i have no idea why it doesn't work without this.
 					}
 					else if(suffix === "stretch_widen") {
 						refresh.states = true;
@@ -2734,11 +2896,7 @@
 						refresh.ui = false;
 					}
 					else if(suffix === "reset_part" || suffix === "reset_branch") {
-						let list = aa.hidelist(aa.control.partname, suffix === "reset_branch" ? "branch" : "part");
-						for(i1 = 0; i1 < list.length; i1++) {
-							let _i1 = list[i1];
-							aa.currpose[_i1] = new AAX.Part(aa, aa.body, aa.currpose, _i1);
-						}
+						aa.posescript_dry(null, "reset", {desc: suffix === "reset_branch"});
 						refresh.states = true;
 					}
 					else if(suffix === "posetoshape") {
@@ -2810,7 +2968,7 @@
 							part["perspective_" + view] = "default";
 						}
 						else if(suffix === "shape_settings") {
-							part.orient = Quat.new();
+							part.orient = structuredClone(part.bodyref.orient);
 							part.stretch = 1;
 							part.widen = 1;
 						}
@@ -2923,34 +3081,20 @@
 						}
 					}
 					else if(suffix === "number") {
-						let num = prompt(`enter how many inbetweens to make.`);
-						if(num === null) {
-							no_refresh = true;
-						}
-						else {
-							num = Number(num);
-							if(Number.isInteger(num) && num >= 1) {
-								ref.number = num;
-							}
-							else {
+						let input = prompt(`enter how many inbetweens to make.`);
+						if(input) {
+							no_refresh = !aa.posescript_dry("tween", "number", {input});
+							if(no_refresh) {
 								alert(`invalid number. must be an integer greater than zero.`);
-								no_refresh = true;
 							};
 						}
 					}
 					else if(suffix === "curve") {
-						let num = prompt(`enter the curve factor. (2 is like square easing, 3 is like cubic, etc. look up stuff about easing. the default value is the square root of 3, which makes it very close to a sine curve.)`);
-						if(num === null) {
-							no_refresh = true;
-						}
-						else {
-							num = Number(num);
-							if(Number.isInteger(Math.round(num))) {
-								ref.curve = num;
-							}
-							else {
+						let input = prompt(`enter the curve factor. (2 is like square easing, 3 is like cubic, etc. look up stuff about easing. leaving it as the default value or writing "sine" makes it use the square root of 3, which is very close to a sine curve.)`);
+						if(input) {
+							no_refresh = !aa.posescript_dry("tween", "curve", {input});
+							if(no_refresh) {
 								alert(`invalid number.`);
-								no_refresh = true;
 							};
 						}
 					}
@@ -2964,23 +3108,14 @@
 					else if(suffix === "create" || suffix === "apply") {
 						refresh.draw = true;
 						refresh.states = true;
-						const apply = suffix === "apply";
-						let values = aa.control.inbetween.values;
-						if(apply && aa.frames.length < values.length + 2) {
+						no_refresh = !aa.posescript_dry("tween", suffix);
+						if(no_refresh) {
 							alert(`not counting the start and end frame, there's ` + (aa.frames.length - 2) + ` frames, but you're trying to apply tweening to ` + values.length + ` frames.`);
-							no_refresh = true;
-						}
-						else {
-							AAX.inbetweening(aa, aa.body, aa.frames, aa.currframe, values, apply);
-							//aa.currframe++;
-							// switch to the first inbetween.
-							aa.currframe = posmod(aa.currframe + values.length + 1, aa.frames.length);
-							// switch to the end pose.
-						}
+						};
 					}
 					else {
 						no_refresh = true;
-					}
+					};
 				}
 				else if(button === "projectname") {
 					let name = prompt(`enter a name for the project.\n\nif you type an asterisk anywhere, it'll be replaced by the current date.`);
@@ -3075,73 +3210,34 @@
 						}
 						else if(suffix.startsWith("invert_")) {
 							let axis = "xyz".indexOf(suffix.slice("invert_".length));
-							basis[axis] = Points.invert(basis[axis]);
+							aa.posescript_dry("rotate", "invert", {axis});
 						}
 						else if(suffix.startsWith("switch_")) {
 							let temp = suffix.slice("switch_".length).split("_");
 							let axis1 = "xyz".indexOf(temp[0]);
 							let axis2 = "xyz".indexOf(temp[1]);
-							temp = structuredClone(basis[axis1]);
-							basis[axis1] = structuredClone(basis[axis2]);
-							basis[axis2] = structuredClone(temp);
+							aa.posescript_dry("rotate", "switch", {axis1, axis2});
 						}
 						else if(
 							AAX.valid.rotate_axis_setters.includes(suffix)
 							&&
 							!AAX.ui.rotate_axis_setter_disabled(aa.currpose, part.name, basis, aa.control.rotate.select, suffix)
 						) {
-							let point = [0, 0, 0];
-							let axis = aa.control.rotate.select;
-							if(suffix === "parent") {
-								point = Points.normalized(Points.invert(part.relcoor));
-							}
-							else if(suffix === "child") {
-								let child = AAX.getchildren(aa.currpose, part.name)[0];
-								point = Points.normalized(aa.currpose[child].relcoor);
-							}
-							else if(suffix === "cross") {
-								point = Points.normalized(Points.cross(
-									basis[posmod(axis + 1, 3)],
-									basis[posmod(axis + 2, 3)]
-								));
-							}
-							else if(suffix === "true") {
-								point[axis] = 1;
-							}
-							else if(suffix === "local") {
-								point[axis] = (part.bodyref.mirror && axis === 0) ? -1 : 1;
-								// the -1 thing mimics how the local mode of the
-								// rotate tool works.
-								point = Quat.apply(part.orient, point);
+							let args = {axis: aa.control.rotate.select};
+							if(suffix === "parent" || suffix === "child" || suffix === "local") {
+								args.partname = part.name;
 							}
 							else if(suffix === "written") {
-								point = prompt("enter a new axis. three coordinates, separated by commas or spaces. it'll use the angle that has, relative to (0, 0, 0).\n\ncurrent:\n\t" + basis[axis].join(",\n\t")) ?? "";
-								point = trimunspecial(point.replaceAll(",", " ")).split(" ");
-								if(point.length >= 3) {
-									for(i1 = 0; i1 < 3; i1++) {
-										point[i1] = Number(point[i1]);
-										if(isNaN(point[i1]) || point[i1] === Infinity || point[i1] === -Infinity) {
-											point[i1] = 0;
-										};
-									}
-									point = Points.normalized(point.slice(0, 3));
-								}
-								else {
-									point = null;
-								};
-							}
-							//
-							if(point && Math.hypot(...point)) {
-								basis[axis] = structuredClone(point);
-							}
-							else {
+								args.input = prompt("enter a new axis. three coordinates, separated by commas or spaces. it'll use the angle that has, relative to (0, 0, 0).\n\ncurrent:\n\t" + basis[args.axis].join(",\n\t")) ?? "";
+							};
+							no_refresh = !aa.posescript_dry("rotate", suffix, args);
+							if(no_refresh) {
 								if(suffix !== "written") {
 									console.log("this shouldn't happen");
 								};
 								no_refresh = true;
-							};
-							//
-							if(!no_refresh) {
+							}
+							else {
 								aa.control.rotate.select = posmod(aa.control.rotate.select + 1, 3);
 							};
 						};
@@ -3258,7 +3354,7 @@
 						}
 						ctx.fillStyle = px.forecolor;
 						ctx.textBaseline = "alphabetic";
-						ctx.font = "6px 'thick 4x4'";
+						ctx.font = "16px 'barkyfont'";
 						let pos = [grid, grid];
 						let standpoint = aa.control.perspectived ? ds.perspectived_standpoint : ds.standpoint;
 						for(i1 = 0; i1 < images.length; i1++) {
@@ -3315,7 +3411,7 @@
 					prefix === "frame" ? suffix !== "display" :
 					prefix === "inbetween" ? (suffix === "add" || suffix === "subtract" || suffix === "create" || suffix === "apply") :
 					(button === "save" || button === "load") ? true :
-					prefix === "misc" ? (suffix !== "autoperspective" && suffix !== "stretch_widen" && suffix !== "posetoshape") :
+					prefix === "misc" ? (suffix !== "autoperspective" && suffix !== "stretch_widen") :
 					prefix === "anim" ? (suffix === "blank" || suffix === "duplicate" || suffix === "delete") :
 					prefix === "rotate" ? (
 						(AAX.valid.rotate_axis_setters.includes(suffix) && suffix !== "written")
@@ -3465,15 +3561,6 @@
 				easeA: false,
 				easeB: false,
 				// false means in, true means out.
-				values: [.5],
-				// this stores the values generated during aa.ui.draw for the
-				// visualization.
-				// - ...it sounds weird, but it's useful for the negative curve
-				//   thing, where the easing has randomness to it
-				// - the default value should never be used, but just in case, i
-				//   want one value in there. (aa.currframe ticks up one when
-				//   create inbetween is used. if there's no values, there's no
-				//   inbetweens, so currframe could end up out of bounds.)
 			},
 			projectname: "untitled",
 			rotate: {
@@ -3521,6 +3608,153 @@
 				};
 			}
 			loop.end();
+		},
+		sample_posescripts: {
+			humanoid: {
+				header:
+`all: reset
+rotate:
+ local
+ in/out = -xy(..l_manubrium, ..l_hip) +xy(..r_manubrium, ..r_hip)
+ raise/lower = -yz(all) +yz(..l_manubrium, ..r_manubrium) except(.pelvis, .midsection, ..l_hip, ..r_hip) +yz(.l_ankle, .r_ankle)
+ forward/back = +yz(.l_hip, .r_hip)
+ open/close = +yz(.l_knee, .r_knee) +xy(.l_elbow) -xy(.r_elbow)
+ pronate/supinate = -xz(.l_hand) +xz(.r_hand)
+ twist-in/twist-out = +xz(.r_hip) -xz(.l_hip)
+ bend/unbend = +yz(.l_toe, .r_toe)
+ windup/pitch = +xz(.l_manubrium, .l_shoulder) -xz(.r_manubrium, .r_shoulder)
+ tilt-l/tilt-r = -xy(.torso, ..neckbase)
+ turn-l/turn-r = +xz(.torso, ..neckbase)
+//
+`,
+				// this or the multi-frame header will be added to all other samples during
+				// initialize
+				"multi-frame header": ``,
+				// this will be made from the standard header during initialize
+				walk:
+`.l_hip, .r_hip: 5 in
+.l_hip: 15 forward
+.l_knee: 50 close
+//
+frame: blank
+.pelvis: +10 xz exc(l_knee, r_knee, neckbase)
+.l_hip, .r_hip: tilt -10 xz
+.l_hip, .r_hip: 5 in
+//.l_hip: 5 in
+.l_hip: 35 forward
+.l_knee: 20 close
+.l_ankle: 15 raise
+.r_hip: 15 back
+.r_knee: 25 close
+.r_ankle: 10 lower
+.pelvis: [0, 2, 0]
+//
+frame: blank
+.l_hip, .r_hip: 5 in
+.r_hip: 15 forward
+.r_knee: 50 close
+//
+frame: blank
+.pelvis: -10 xz exc(l_knee, r_knee, neckbase)
+.l_hip, .r_hip: tilt +10 xz
+.l_hip, .r_hip: 5 in
+//.r_hip: 5 in
+.r_hip: 35 forward
+.r_knee: 20 close
+.r_ankle: 15 raise
+.l_hip: 15 back
+.l_knee: 25 close
+.l_ankle: 10 lower
+.pelvis: [0, 2, 0]
+//
+frame: 1
+tween: 1, create out, create in, create out, create in`,
+			},
+			hand: {
+				header:
+`all: reset
+rotate:
+ local
+ point/bend = +yz(..thumb_2, ..index_1, ..middle_1, ..ring_1, ..pinkie_1) except(.thumb_4, .index_4, .middle_4, .ring_4, .pinkie_4)
+ spread/narrow = -xy(.thumb_1, .index_1, .middle_1) +xy(.ring_1, .pinkie_1)
+ forward/back = -xz(.thumb_1)
+//
+`,
+				"multi-frame header": ``,
+				// same deal
+				hanging:
+`.wrist: +10 yz
+.index_1, .middle_1, .ring_1, .pinkie_1: 45 bend curl
+.index_2, .middle_2, .ring_2, .pinkie_2: 15 bend curl
+.index_2, .middle_2, .ring_2: 10 bend curl
+.ring_1: 5 spread
+.index_1: 5 point curl, 5 point
+.thumb_1: 30 forward
+.wrist: +5 yz, -90 xz, -10 xy//, +180 xy
+//
+// this pose was used to generate the default hand shape for humanoids, using pose to shape.`,
+				"tense and narrow":
+`.index_1, .ring_1: 5 narrow
+.pinkie_1: 10 narrow
+// narrow the fingers
+.wrist: -15 yz
+.index_1, .middle_1, .ring_1, .pinkie_1: 20 point
+.index_2, .middle_2, .ring_2, .pinkie_2: 10 point curl
+// curve the hand and fingers
+.thumb_1: 20 back
+.thumb_2: 15 point curl
+// curve the thumb too`,
+				"tense and spread":
+`.index_1: 15 spread
+.ring_1: 15 spread
+.pinkie_1: 30 spread
+// spread the fingers
+.wrist: -15 yz
+.index_1, .middle_1, .ring_1, .pinkie_1: 20 point
+.index_2, .middle_2, .ring_2, .pinkie_2: 10 point curl
+// curve the hand and fingers
+.thumb_2: 40 point curl
+.thumb_1: 15 spread
+// curve the thumb too`,
+				fist:
+`.index_1, .middle_1, .ring_1, .pinkie_1: 100 bend
+.index_2, .middle_2, .ring_2, .pinkie_2: 100 bend
+.index_3: 80 bend
+.middle_3: 100 bend
+.ring_3: 90 bend
+.pinkie_3: 90 bend
+// curl fingers in
+.thumb_1: 50 forward
+.thumb_2: 45 bend
+.thumb_3: 45 bend
+// move the thumb over the fingers`,
+				"horn sign":
+`.middle_1, .ring_1: 100 bend
+.middle_2, .ring_2: 100 bend
+.middle_3: 30 bend
+.ring_3: 30 bend
+// curl fingers in
+.thumb_1: 105 forward
+.thumb_2: 15 bend
+// move the thumb over the fingers
+.index_2, .pinkie_2: 10 point curl
+.index_1: 10 spread
+.pinkie_1: 20 spread
+// banana the index and pinkie backward a bit, and spread them (they can't angle backward as far when some of them are curling forward. the fingers can't spread as much, either.)`,
+				"open thumb horn sign":
+`.middle_1, .ring_1: 100 bend
+.middle_2, .ring_2: 100 bend
+.middle_3: 30 bend
+.ring_3: 30 bend
+// curl fingers in
+.thumb_2: 40 point curl
+.thumb_1: 15 spread
+// point the thumb out, with some tension to it
+.index_2, .pinkie_2: 10 point curl
+.index_1: 10 spread
+.pinkie_1: 20 spread
+// banana the index and pinkie backward a bit, and spread them (they can't angle backward as far when some of them are curling forward. the fingers can't spread as much, either.)`,
+			},
 		},
 		get noderadius() {
 			return (aa.control.posetool === "select" || (aa.control.posetool === "perspective" && aa.control.posetool_inversion)) ? Infinity : AAX.noderadius;
@@ -3872,15 +4106,25 @@
 						view,
 						true
 					);
-					let sign3 = (
-						invertboolean([2, 3].includes(view), aa.control.moveaway)
-						?
-						-1
-						:
-						1
-					);
-					relcoor = aa.movecoor(part, hypot, relcoor[view%2 ? 2 : 0], relcoor[1], sign3, "xz"[view%2] + "y");
-					aa.writecoordinates(relcoor);
+					//
+					let axis1 = view%2 ? 2 : 0;
+					let axis2 = 1;
+					let axis3 = view%2 ? 0 : 2;
+					let temp = aa.movecoor(relcoor[axis1], relcoor[axis2], hypot, !!floats[axis3]);
+					if(invertboolean([2, 3].includes(view), aa.control.moveaway)) {
+						temp[2] *= -1;
+					};
+					relcoor[axis1] = temp[0];
+					relcoor[axis2] = temp[1];
+					relcoor[axis3] = temp[2];
+					//
+					let text = AAX.coortext(relcoor);
+					text[axis3] = "<i>" + text[axis3] + "</i>";
+					// italicize the third coordinate, to distinguish it (makes
+					// it easier to know how to write a posescript action that
+					// does the same thing. the user knows to replace the
+					// italicized coordinate with just a sign.)
+					aa.writecoordinates(text);
 				}
 				else if(mode === "perspective" && !inversion) {
 					const unperspective_coor = aa.coortocanvas(part.abscoor, view, true, true);
@@ -3900,41 +4144,22 @@
 					];
 					ctx.strokeStyle = aa.color.perspective;
 					aa.nodeline(ctx, ...rotated_coor, ...click, view, true);
+					let text = AAX.coortext(relcoor);
 					aa.writecoordinates([
 						part.name,
-						"screen x: " + (relcoor[0] > 0 ? "+" : relcoor[0] === 0 ? " " : "") + relcoor[0],
-						"screen y: " + (relcoor[1] > 0 ? "+" : relcoor[1] === 0 ? " " : "") + relcoor[1]
+						"screen " + text[0],
+						"screen " + text[1]
 					]);
 				};
 				// no logic for select mode because it doesn't do anything.
 				// (rotate mode acts like select mode if a part was clicked.)
 				if(finish) {
-					if(["move", "deform"].includes(mode)) {
-						if(mode === "deform" && inversion) {
-							let change = [
-								Math.trunc(relcoor[0] - part.x),
-								Math.trunc(relcoor[1] - part.y),
-								Math.trunc(relcoor[2] - part.z)
-							];
-							// these should all be integers to begin with, but.
-							let children = AAX.getchildren(aa.currpose, part.name);
-							for(i1 = 0; i1 < children.length; i1++) {
-								let ref = aa.currpose[ children[i1] ];
-								ref.x -= change[0];
-								ref.y -= change[1];
-								ref.z -= change[2];
-							};
-							// apply an inverse change to all children, so that they
-							// stay in place.
-						}
-						part.x = relcoor[0];
-						part.y = relcoor[1];
-						part.z = relcoor[2];
-						// descendants will follow, since it's relative.
+					if(mode === "move" || mode === "deform") {
+						aa.posescript_dry(null, "deform", {x: relcoor[0], y: relcoor[1], z: relcoor[2]}, mode === "deform" && inversion ? ["disjointed"] : []);
 					}
 					else if(mode === "perspective" && !inversion) {
-						part["perspective_coor_" + view] = structuredClone(relcoor);
-					}
+						aa.posescript_dry(null, "perspective", {view, x: relcoor[0], y: relcoor[1]});
+					};
 				};
 			}
 			else if(mode === "tilt" || mode === "rotate") {
@@ -3966,6 +4191,7 @@
 				};
 				_angle = _angle.sign + "&#160;".repeat(3 - (_angle.num + "").length) + _angle.num;
 				aa.writecoordinates(_angle + " " + ["yz", "xz", "xy"][axis]);
+				//
 				if(inversion) {
 				// i equate xy rotation to the z axis and yz to the x axis, but
 				// xz is different. since the coordinate order is reversed, the
@@ -3978,7 +4204,8 @@
 					angle *= -1;
 				};
 				if(aa.control.rotate.type === "local") {
-					axis = Quat.basis(part.bodyref.mirror ? Quat.mirror.x(part.orient) : part.orient)[axis];
+					//axis = Quat.basis(part.mirror ? Quat.mirror.x(part.orient) : part.orient)[axis];
+					axis = Points.multiply(Quat.basis(part.orient)[axis], ((part.mirror && axis === 0) ? -1 : 1));
 					// the flipping is sorta inconsistent, but more intuitive.
 					// this way, a totally unaltered part's locals will always
 					// align with the true axes, like the user expects.
@@ -4008,9 +4235,6 @@
 				if(finish) {
 				// apply the new relative coordinates in rotatecoor
 					if(!no_refresh) {
-						//console.log("before:" + String.fromCharCode(10) + Quat.string(part.orient));
-						part.orient = structuredClone(quat);
-						//console.log(Quat.string(part.orient));
 						if(mode !== "tilt") {
 							for(i1 in rotatecoor) {
 								if(rotatecoor.hasOwnProperty(i1)) {
@@ -4018,10 +4242,13 @@
 									_part.x = rotatecoor[i1][0];
 									_part.y = rotatecoor[i1][1];
 									_part.z = rotatecoor[i1][2];
-									_part.orient = structuredClone(Quat.rotate(_part.orient, axis, (_part.orient.flip ? -1 : 1)*angle));
 								}
 							}
 						}
+						aa.posescript_dry(
+							[partname].concat(mode === "tilt" ? [] : AAX.getdesc(aa.body, partname)),
+							"tilt", {axis, angle}
+						);
 					}
 				}
 				else {
@@ -4417,19 +4644,17 @@
 			//console.log(aa.body);
 			// make sure a body exists
 			//
-			let string = `<details class="text">`;
-			string += `\n\t<summary>manual</summary><ul>`;
-			let manual = {
+			let string = manualhtml({
 				"pose tools": [
 					`the deform pose tool lets you move parts anywhere, even if it changes how far the part is from their parent. (useful for body parts connected by a spine instead of a bone.)`,
 					`the move pose tool lets you move parts, but keeps it as far away from the parent as it is in the default pose. (the third axis will be whatever positivity/negativity brings it closer to the camera for that view. if you're on the front view, it will move forward, if it's the back view it will move backward.)`,
 					`if you click a part in the rotate pose tool, it will select that part. if you click anywhere else, you can rotate the selected part and its descendants.`,
 					[
 						`tilt is similar, but doesn't affect descendants.`,
-						`you can select parts by starting OR ending your click on them.`
+						`you can select parts by starting <i>or</i> ending your click on them.`
 					],
-					`the perspective pose tool lets you create an offset for each view, letting you position things around a vanishing point.`,
-					`certain graphical changes only apply in perspective mode, namely the perspective offsets, and camera angle. perspective mode is for visualizing what the pose/animation will look like at the end, while the other modes are meant to be easier to understand and edit, like an engineering multiview.`,
+					`the perspective pose tool lets you create an offset for each view, letting you make 2d adjustments or position things around a vanishing point.`,
+					`certain graphical changes only apply in perspective mode, namely the perspective offsets, and camera angle. this is because perspective mode is for visualizing what the pose/animation will look like at the end, while the other modes are meant to be easy to understand and edit, like an engineering multiview.`,
 					`the select pose tool selects whatever part is closest to where you click. useful for mobile devices, where it's hard to click close enough.`,
 					`selecting the pose tool you already have selected "inverts" it, making it work differently.`,
 					[
@@ -4441,12 +4666,16 @@
 				],
 				"editing/switching bodies": [
 					`open the "bodytext" thing.`,
-					`by editing the content in that text area and clicking "apply changes", you can edit or replace the body. a lot of part properties can only be changed in here.`,
+					`by editing the content in that text area and clicking "apply changes", you can edit or replace the body. some part properties can only be changed in here.`,
 					`there's also a dropdown with some example bodytexts to use or start from, like a hand.`,
 					`you can write these manually, but the "body maker" tool makes it much easier.`,
 					`structure of a bodytext`,
 					[
 						`the first area defines parts, their names, parent structure, and coordinates.`,
+						[
+							`if you lift the knee, the foot should be lifted too, right? that's "parenting". when a part moves, its children move too.`,
+							`the coordinates here are "relative", meaning they represent how far away the part is from its parent.`
+						],
 						`the second area is images.`,
 						[
 							`type a bracketed part name to make lines after that part of that part's shapes/images.`,
@@ -4483,13 +4712,13 @@
 								],
 								`generation(): enter two numbers in the parentheses to add the images of the part's ancestors and/or descendants. for example, "generation(1, 2)" makes it combine the part's image, its parent's image, all of its childrens' images, and all of its grandchildrens' images.`,
 								[
-									`<b>by default, it adds the parent's image. if you don't want that, you have to override it with an empty generation() command.</b>`
+									`<b>by default, it's (1, 0), meaning it adds the parent's image. if you don't want that, you have to override it with an empty generation() command.</b>`
 								],
 								`core(): enter a number. using that as the diameter, it will add a circle centered on the part. this is used for the hands.`,
 								`bone(): enter a number. using that as the diameter, it will add a capsule shape, that begins at the part's parent and ends at the part. used for the neck.`,
 								`concave(): if you enter this, the silhouette image will be turned into a convex shape <i>before</i> the part's main image is added. use this for concave shapes, like if the head has horns, or you just don't want it convexed to its parent.`,
 								[
-									`this affects bone(), too, if you have one.`,
+									`this affects bone(), too, if you have one. the bone will be added after convexing.`,
 								]
 							],
 							`hide(): the part is hidden by default.`,
@@ -4498,6 +4727,13 @@
 								`enter view 0's x, view 0's y, view 1's x, etc.`,
 								`you can also enter "auto". that counts for two coordinates, since it applies to a whole view`,
 								`by default, all views have automatic perspective.`
+							],
+							`tilt(): lets you rotate the part.`,
+							[
+								`mostly this is useful for local rotate.`,
+								`for example, the open/close axis of the elbow doesn't quite match the xy axis, and the forearm-twist axis of the hand should line up with the angle from the elbow to the hand, not the xz axis. that can be fixed by rotating the xy/xz axis of those parts to where they should be.`,
+								`naturally, it will also rotate the shape, so make sure to account for that.`,
+								`the syntax is the same as it is for rotating spheroids in shapes, so check the "shape system" section for that.`
 							]
 						]
 					],
@@ -4513,7 +4749,8 @@
 					`points can be made into spheres/spheroids by writing more than three numbers. if there's four, the fourth is used as the diameter of a sphere. if there's six, the last three numbers are used for width, height, and depth.`,
 					`you can rotate spheroids, too. anything past the sixth number is used for that, either through xy/yz/xz rotations (axis, colon, 0 to 1 number, ex: "xy: 1/4, xz: .37") or a quaternion. (ex: "w: .707, x: 0, y: 0, z: .707")`,
 					[
-						`you can also write "x mirror", "y mirror", or "z mirror" to mirror the quaternion.`
+						`you can write "x mirror", "y mirror", or "z mirror" to mirror the quaternion.`,
+						`you can write "local" to make subsequent rotations local rotations, and "true" to change it back. (check the "rotate settings" section if you don't know what local rotation is.)`
 					],
 					`you can type a point that's nothing but axis letters to copy the previous point with those axes inverted in the coordinates and orientation. useful for designing symmetrical shapes.`,
 					`if you type axis letters and a point index, you can make copies of other points. (the first point is 0. negative indexes will start from the most recent points, so -1 means "the point before this one".)`,
@@ -4557,7 +4794,7 @@
 						`when the pose tool is "perspective", switching to/from part artist will import/export the perspective image of the current part, in the current selected view. (the selected view is whatever view you last clicked to edit. there's view buttons to indicate/change the view.)`,
 						`when the pose tool is anything else, switching to/from part artist will import/export both the front and right unperspectived images.`,
 						`the "clear image" button follows the same rules.`,
-						`if said 2d image doesn't exist, part artist imports/exports whatever the 3d shape draws.`,
+						`if said 2d image doesn't exist, part artist imports/exports the image it uses the 3d shape to generate.`,
 						`if you ever get mixed up which images exist and don't exist, check the part information window.`,
 						`the difference between the first and second color is that for the first color, any interior pixels will use the "part fill" color, with only the edges being the part's color. this isn't true for the second color.`,
 						[
@@ -4568,7 +4805,7 @@
 				"hide/show": [
 					`"part" hide/show: hides/shows the selected part.`,
 					`"branch" hide/show: hides/shows the selected part and its descendants.`,
-					`"group" hide/show: hides/shows all parts in the same silhouette group.`,
+					`"group" hide/show: hides/shows all parts with the same silhouette group number.`,
 					`"body" hide/show: hides/shows all parts in the same body. (if you have parts that are unconnected objects or even separate characters, those won't be affected.)`,
 					`"body-branch" hide/show: short for "body minus branch". hides all parts part of the same body but not the same branch.`,
 					`hide/shows with similar names work the same way. hiding/showing everything that fits into the first type but not the second.`,
@@ -4576,7 +4813,7 @@
 				],
 				"other part properties": [
 					`relative coordinates are the part's coordinates relative to the part's parent.`,
-					`perspective coor is the offset the perspective pose tool creates. it's only shown in perspective mode. if it's set to "auto", it'll be calculated automatically, based on the draw settings vanishing point and range.`,
+					`perspective coor is the offset the perspective pose tool creates. it's only shown in perspective mode. if it's set to "auto", it'll be calculated automatically, based on the draw settings' vanishing point and range.`,
 				],
 				"draw settings": [
 					`grid: increments for the grid lines. "2, 2, 4" would mean lines are drawn every 2 pixels in the first grid color, then every 2*2 pixels in the second grid color, then every 2*2*4 pixels in the third grid color. putting a 0 anywhere makes it draw lines at the standpoint and only the standpoint.`,
@@ -4617,16 +4854,6 @@
 						`hitting "cancel" on a color prompt will keep it as it is, but hitting "ok" without typing anything will reset the color to default.`,
 						`the standpoint grid lines move while in perspective mode, but that only represents where a [0, 0, 0] point would be perspectived to. it's not like it changes which pixels are what coordinates or anything.`
 					]
-				],
-				"keymap": [
-					`w, a, s, d: lets you switch pose tools and frames.`,
-					`shift+a, shift+d: change which view you have selected. (relevant to buttons that edit perspective images or perspective coordinates, and the "update animation" button.)`,
-					`e: inverts or uninverts the pose tool.`,
-					`q, shift+q: switches to/from the image editor, with or without exporting.`,
-					`t, f, g, h: selects parts by moving through the family structure. t selects the parent of the current part, g selects the first child of the part, and f and h cycle through siblings.`,
-					`j, i, k, o, l: frame actions (blank, duplicate, delete, etc)`,
-					`ctrl+z, ctrl+shift+z: undo, redo`,
-					`ctrl+s, ctrl+o: save, load`
 				],
 				"inbetweens": [
 					`what tweening is`,
@@ -4745,6 +4972,223 @@
 						`the z axis will be made into something that opens or closes the elbow/knuckle.`
 					]
 				],
+				"posescript": [
+					`lets you edit poses through text, for precision. breaking down the steps helps you understand a pose better too, or modify it.`,
+					`there are also a few actions that can only be done with posescript. somewhat niche actions, or actions that require too much user input.`,
+					`there are targets, and actions done to those targets.`,
+					`lines with a colon set the target. other lines and content after the colon are actions done to it.`,
+					`list of targets, and the actions that can be used on them: (actions that can only be done with posescript are marked with stars.)`,
+					[
+						`"part " + part name: used for actions done to a part. mostly, the same things the pose tools do.`,
+						[
+							`details about targeting`,
+							[
+								`you can edit multiple parts at once by using "branch" instead of "part", or any other word there's a hide button for, like "body" or "body-branch".`,
+								`you can write "." + [part name] as shorthand for "part " + [part name], and ".." + [part name] as shorthand for "branch " + [part name].`,
+								[
+									`there can be space between the periods and the part name, or there can be none. i'll work either way. so, if for some reason a part name starts with a period, add a space to keep that period from turning it into a branch selection.`
+								],
+								`you can combine multiple part selections by separating them with commas. (ex: ".l_shoulder, .r_shoulder: +90 yz" will raise both arms.)`
+							],
+							`angle + " " + axis: rotate or tilt`,
+							[
+								`the angle should be measured in degrees.`,
+								`axis should be "xy", "xz", or "yz".`,
+								`write "tilt " at the beginning to make it tilt instead of rotate.`,
+								`if you write these words after the axis, it'll cause the following changes: (you can write multiple.)`,
+								[
+									`true: uses the true axes, even if rotate settings is currently set to use local or custom.`,
+									`local: uses the local axes, even if rotate settings is currently set to use true or custom.`,
+									`custom: uses the custom axes, even if rotate settings is currently set to use true or local.`,
+									`curl: uses curl, even if that's turned off in rotate settings.`,
+									`!curl: doesn't use curl, even if that's turned on in rotate settings.`,
+									9734,
+									`inc(): list parts in the parentheses. only those parts and their descendants will have their position and shape rotated.`,
+									9734,
+									[
+										`for example, ".manubrium: +30 xy inc(l_shoulder)" will only rotate the left arm and shoulder, with the right being unaffected.`,
+										`short for "include".`
+									],
+									9734,
+									`exc(): list parts in the parentheses. those parts and their descendants won't have their position or shape rotated.`,
+									9734,
+									[
+										`for example, ".pelvis: -90 yz exc(l_hip, r_hip)" would make the armature bow, without moving the legs.`,
+										`short for "exclude".`
+									]
+								]
+							],
+							`"[" + [three coordinates, separated by commas] + "]": move or deform`,
+							[
+								`write "+" or "-" in place of one of the coordinates to use move instead of deform.`,
+								`if you put a % directly after the closing bracket, the coordinates are multiplied by the hypotenuse of the part.`,
+								[
+									`for example, "[0, -1/2, +]%". the resulting x coordinate will be zero, the y coordinate will be the part's hypotenuse times -1/2, and the z coordinate will be whatever positive amount keeps the hypotenuse about the same.`,
+									`the point is that if you use this system, the operation has similar effects between different bodies.`,
+									`as usual, it uses the hypotenuse in the default pose.`,
+									`the oddness is kept the same as it was before. if you double the %, it snaps to the nearest .5 instead.`
+								],
+								`deform operations are assumed to be a relative change, meaning the coordinates are added to the coordinates it already has.`,
+								`move operations are assumed to be an absolute change, meaning the coordinates <i>replace</i> whatever coordinates it already has.`,
+								`add these words to the end to cause the following changes:`,
+								[
+									`move operations`,
+									[
+										`rel: makes it relative instead of absolute.`,
+										`currlength: does the same thing as the inverted move pose tool, meaning it uses the part's current distance from its parent, rather than the distance they have in the default pose.`,
+										[
+											`this also applies to the % modifier.`
+										]
+									],
+									`deform operations`,
+									[
+										`abs: makes it absolute instead of relative.`,
+										`disjointed: does the same thing as the inverted deform pose tool, meaning the part's descendants stay where they are instead of following.`
+									]
+								]
+							],
+							`[view number] + " [" + [two coordinates, separated by a comma] + "]": perspective`,
+							[
+								`just like move/deform, it's assumed to be adding to the existing coordinates, not replacing them. write "abs" after the coordinates to make it an absolute change.`,
+							],
+							`"stretch " + [number]: changes stretch`,
+							`"widen " + [number]: changes widen`,
+							`"reset": resets the part.`,
+							[
+								`if "branch" is written after, it'll reset the part and all its descendants.`,
+								9734,
+								`if "desc" is written, it'll reset only its descendants.`,
+								9734,
+								`if "coor" and/or "orient" is written after, parts will have just their coordinates and/or orientation reset, instead of resetting all properties.`
+							],
+							`"mirror x", "mirror y", "mirror z"`,
+							`"hide", "show"`
+						],
+						`"all": allows the same actions as part, except they're applied to all parts.`,
+						`"rotate": used for actions that edit the rotate settings.`,
+						[
+							`"true", "local", "custom": changes which axes rotate/tilt uses`,
+							`"curl", "no curl": turns curl on/off`,
+							`axis + " = " + something: edits custom axes`,
+							[
+								`just like the buttons, there's "parent", "child", "cross", "true", "local", and "written".`,
+								`"parent", "child", and "local" require writing a part name after.`,
+								`"written" requires writing coordinates after. (bracketed and separated by commas, like move/deform coordinates.)`,
+							],
+							`"invert " + axis: custom axis inverting`,
+							`"switch " + [axis 1] + " " + [axis 2]: custom axis switching`,
+							9734,
+							`axis naming`,
+							9734,
+							[
+								`this is a feature exclusive to local rotate. it only works while local rotate is on.`,
+								`conceptualizing body movement as xy/yz/xz rotations is difficult because without visual feedback, it's hard to understand what each axis does for each part, and which direction is positive and which direction is negative.`,
+								`this system fixes that by letting you assign names to parts' axes, and an opposite name that will inverse the rotation.`,
+								`here's an example action: "rotate: open/close = +xy(.l_elbow) -xy(.r_elbow) +yz(.l_knee, .r_knee)"`,
+								[
+									`"open" is the name being assigned.`,
+									`those sets of parentheses assign it to specific parts and axes.`,
+									[
+										`"-xy(.l_elbow)" means that a rotation like ".l_elbow: 30 open" means to rotate +30 degrees xy.`,
+										`"+xy(.r_elbow)" is the same. the sign is opposite of l_elbow's sign because it's the mirrored counterpart, so the direction for opening is the opposite of what it is for l_elbow.`,
+										`"+yz(.l_knee, .r_knee)"... you get the idea. positive yz rotations open the knee.`,
+									],
+									`the contents of parentheses follow the same syntax as part-targeting.`,
+									`"close" is the opposite name. if this name is used, the angle is inverted. "30 close" would be equivalent to "-30 open".`,
+									`you can also write an "except()" set of parentheses. any parts listed inside, effects previous parentheses had on them will be reversed. (for example, "raise/lower = -yz(all) except(.pelvis, .midsection) +yz(..manubrium, ..l_hip, ..r_hip)".)`
+								],
+								`ideally, you should try to have a name for every axis of every part, unless rotating in that axis is rare or impossible.`,
+								[
+									`it help you understand what your rotations are doing,`,
+									`it marks unnamed axes as abnormalities. for example, elbows should pretty much only do xy rotations. elbows are a hinge, not a ball-and-socket joint. if you try to perform a yz rotation on the elbow, that's likely a mistake, so it should stick out from conventions to make it easier to notice.`,
+									`i also leave the pelvis and midsections' axes unnamed. rotation of the pelvis is rotation of the whole body, so it should be thought of geometrically. and the same is true for the midsection, since rotation doesn't represent actual muscle movement, just "based on the position and direction of the pelvis and torso, it should be something like this".`
+								],
+								`only one name can be assigned to a given part-axis combination. (one name and one opposite-direction name, i mean.) if a new name is assigned to the elbow's xy axis, open/close will be overwritten.`,
+								`axis naming can make scripts a little shorter, too. for example, if you write "in/out = -xy(..l_shoulder, ..l_hip) +xy(..r_shoulder, ..r_hip)" to define inward xy rotations as "in" and outward xy rotations as "out", you can write ".l_hip, .r_hip: 10 in" would rotate both legs inward, whereas normally you'd need to write ".l_hip: -10 xy" and ".r_hip +10 xy".`,
+								`defining axis names doesn't prevent you from using the typical xy/yz/xz names.`
+							]
+						],
+						`"frame": used for actions involving the frame system. does the same things the frame buttons do.`,
+						[
+							`"prev", "next"`,
+							`"blank", "duplicate", "delete", "move up", "move down"`,
+							`[any number]: jumps to that frame.`,
+							9734,
+							`if you enter a number after any of these except clear or the frame jump, the action is done multiple times. for example, "frame: duplicate 3" is like clicking the duplicate button three times.`
+						],
+						`"tween": used for actions involving inbetweens.`,
+						[
+							`"curve " + number: changes the curve.`,
+							[
+								`if you write "sine" instead of a number, it'll set it as the square root of 3.`
+							],
+							`"ease in", "ease out", "ease in-out", "ease out-in": sets the ease type.`,
+							`[any number]: sets the number of inbetweens.`,
+							`"create", "apply"`,
+							[
+								`if you write an ease type and/or a number after it, it'll use that ease type and/or number of inbetweens, without changing the settings. (for ease types, don't include the word "ease". write "in", not "ease in".)`,
+								9734,
+								`if you write a bracketed list of numbers, you can set your own inbetween values.`,
+								9734,
+								[
+									`like "tween: create [1/8, 1/4, 1/2]", if you prefer that over "perfect" computer ease numbers`,
+									`numbers below 0 or above 1 are accepted. "frame: 1", "tween: create [9/8]", "frame: prev 2", "tween: create" would add some overshoot.`
+								]
+							]
+						],
+						9734,
+						`"scene": used for actions that involve all parts.`,
+						9734,
+						[
+							`any use of "stem" here means parts that don't have any parent. like the pelvis. every body is built around a stem.`,
+							/*
+							`"rotate " + angle + " " + axis: rotates all bodies.`,
+							[
+								`equivalent to doing part rotation for every stem, and also rotating the stems' positions.`,
+								`by default, the fulcrum is [0, 0, 0], but you can choose your own fulcrum by writing a three-coordinate point in brackets, after the axis. you can also write a part name to use that part's absolute position.`
+							],
+							//*/
+							`"[" + [three coordinates, separated by commas] + "]": shifts the scene. moves all bodies.`,
+							`"mirror " + axis: mirrors all bodies.`,
+							[
+								`equivalent to using the part mirror for every stem, and also mirroring the stems' positions.`,
+								`by default, it mirrors around 0 x/y/z, but you can choose your own mirror line by writing a number after the axis. you can also write a part name to use that part's absolute coordinate for the given axis.`
+							]
+						],
+						9734,
+						`"time": used for actions that involve all frames.`,
+						9734,
+						[
+							`"clear": deletes all frames, leaving just one blank frame.`,
+							`"hide(" + [list of parts] + ")": hides parts on all frames. (the list syntax is the same as part targeting's syntax.)`,
+							[
+								`if no parenthesed list is included, it'll hide all parts.`
+							],
+							`"show(" + [list of parts] + ")": shows parts on all frames. works just like hide.`,
+							`"correct ap": deals with a certain flaw of autoperspective.`,
+							[
+								`a part's position in 3d space affects the autoperspective offset it's given.`,
+								`but in rare cases, these changes can come at very awkward and ugly timing. (and "rare" isn't that rare considering a humanoid armature has 22 parts, there's four views, and there's who knows how many frames.)`,
+								`for example, a walk has the legs swinging forward and back. the forward and back movement could easily cause changes in the x perspective coordinate, even though the parts aren't moving in the x axis at all. that makes visual sense if it changes right in the <i>middle</i> of the movement... but what if you're unlucky and it only crosses the threshold on the frame where it's as close to the camera as it gets? that doesn't look like perspective. that just looks like it's tweaking out for no reason.`,
+								`basically, if an animation looks weird, but only when perspective is on, the flaw is likely something along those lines. this can fix it.`,
+								`as for the technical details of what it does... (this is probably only worth reading if you're trying to figure something out.)`,
+								[
+									`for both axes of every view, for every part, for every frame...`,
+									`it looks at the version of it on the previous frame and the next frame.`,
+									`if all three use autoperspective, and before that's applied, all of them have the same coordinate for the given axis...`,
+									`<i>but</i> after autoperspective is applied, both neighboring frame's coordinate are different from the frame in question, one pixel off in the same direction...`,
+									`then it concludes that this is one of those weird coordinates that looks janky, and that's fixed by having it imitate the neighboring frames.`
+								],
+								`add "unlooping" if the animation doesn't represent any kind of looping motion like walking. it'll avoid running this process for the first and last frame.`
+							]
+						]
+					],
+					`for all rotate-related commands, you can use one letter or two. (ex: "xy" and "z" both refer to the same axis.)`,
+					`you can write multiple actions in one line by separating them with commas. (ex: "l_hip: reset branch, -5 xy")`,
+					`you can write comments with //. everything after a // is ignored.`,
+					`no matter what rotate settings and the inbetween settings are like before the script is run, it assumes they're how they are by default. that way, scripts always do the same thing.`,
+					`frame and tween actions change which frame it's on the same way the buttons do. if you make a new frame, it'll go to that frame. if you do "frame: prev" on the first frame, it'll go to the last frame. if you make or apply tweens, it'll go to the end key.`
+				],
 				"animation and exporting": [
 					`below the ui buttons is the animation system.`,
 					[
@@ -4774,6 +5218,19 @@
 						`for "all x" and "all y", the names of the animations are written as well.`
 					]
 				],
+				"keymap": [
+					`w, a, s, d: lets you switch pose tools and frames.`,
+					`shift+a, shift+d: change which view you have selected. (relevant to buttons that edit perspective images or perspective coordinates, and the "update animation" button.)`,
+					`e: inverts or uninverts the pose tool.`,
+					`q, shift+q: switches to/from the image editor, with or without exporting.`,
+					`t, f, g, h: selects parts by moving through the family structure. t selects the parent of the current part, g selects the first child of the part, and f and h cycle through siblings.`,
+					`j, i, k, o, l: frame actions (blank, duplicate, delete, etc)`,
+					`ctrl+z, ctrl+shift+z: undo, redo`,
+					`ctrl+s, ctrl+o: save, load`,
+					`z, x, c, v, b, n: pose tools`,
+					`\\: posescript`,
+					`the number keys are draw settings toggles. when shifted, they're hide toggles.`
+				],
 				"etc": [
 					`the part information window shows which properties are different from the default pose by marking them with a !. click that line of the window to reset that property to default.`,
 					`oddify makes it so the part is centered on a .5 coordinate instead of a .0 coordinate, and vice versa. the images are edited to match, so the center row/column(s) might be deleted or expanded. it can also be used in perspective mode, to affect perspective offset.`,
@@ -4782,13 +5239,14 @@
 					`if multiple nodes are on the same screen position, clicking it will select whichever one is closest to the camera. the text below the multiview shows the name of the part you're about to click.`,
 					//`"refresh shape": if images based on 3d shapes aren't updating properly, this might fix it? (by clearing the image cache.) but that really shouldn't happen, so let me know if it does!`,
 					`in the part information and rotate settings axis displays, if an axis line looks "incomplete", that means the axis points backward.`,
+					`"pose to shape" converts a pose into a shape, with the option to scale it up/down. this is very useful for hands. (in another tab, use the hand bodytext and pose it, then use pose to shape to get a shape that can be used for the humanoid pose's hands.) silhouette properties decide how the shapes are combined.`,
 					`if there are performance issues:`,
 					[
 						`lower the state limit and truncator. (every state stores every frame's pose, and depending on how many animations you have, it can store a lot of states. the maximum amount it could be storing is limit + (number of animations - 1) * (2*truncator + 1).)`,
 						`turn off silhouettes`,
 						`create perspectived/unperspectived images so it doesn't have to convert shapes. (i went through a lot of caching hell to avoid this process slowing things down, but it still runs every time orientation or anything like that changes.)`,
 						`lower fineness`
-					]
+					],
 					/*
 					//`if you switch to the image editor while using the perspective pose tool, you'll only edit how it looks in the current view, while perspectived. you can use this to make a part bigger or smaller depending on how far it is from the camera.`,
 					//`if you write a part name at the beginning of a shape point group, or a part name + a colon before a point, that group/point will follow the orientation and scaling of the named part, instead of the part the shape is part of. (this is useful for certain anatomy, like elbows.)`,
@@ -4796,20 +5254,51 @@
 					`"create inbetweens" creates new frames between the current frame and the next frame that act as a bridge between the two. "apply tweening" modifies existing frames instead. (ex: if you're on frame 2 and you "create" 5 inbetweens, it'll insert 5 inbetweens that start like frame 2 and end like frame 3. if you "apply" instead, existing frames 3-7 will be made into inbetweens for frames 2 and 8.)`,
 					`when you use create or apply tweening, it doesn't do anything for parts that are hidden on the starting pose. for "create", those parts will stay like how they are in the starting pose the whole way through. for "apply", they'll stay how they were before. this is what makes "apply" tweening useful: you can keep the poses mostly the same while only tweening one character, one limb, etc.`
 					*/
+					`if there's anything you don't get after reading this, <a href="mailto:barky11111@gmail.com">email</a> me about it. i'll try to explain it, and incorporate that explanation into the manual.`,
+					`same for bug reports. check the to-do thing first though, i might know about it already.`,
+					`feature requests are also welcome.`
 				],
-			};
-			for(i1 in manual) {
-				if(manual.hasOwnProperty(i1)) {
-					string += [
-						``,
-						`<details>`,
-						`\t<summary>` + i1 + `</summary>`,
-						`\t` + arraytoul(manual[i1], 1).replaceAll(`\n`, `\n\t`),
-						`</details>`
-					].join(`\n`).replaceAll(`\n`, `\n\t`);
-				}
-			}
-			string += `\n</ul></details>`;
+				"posing tips": [
+					`local rotation is a little difficult to understand at times, but if you want complex poses, you should almost always use it. particularly in posescript.`,
+					[
+						`let's say you have a hand pose where the fingers are spread out, the fingers sorta banana backward to convey tension, and the thumb is moved to match.`,
+						`if you stick to local rotation, those three tenets of the pose can happen in any order, and will achieve about the same result.`,
+						`this makes it very easy to stitch together new poses from pieces of old poses, or make small changes without having to rewrite much. for example, switching out the finger spread with rotations that close the fingers instead.`,
+						[
+							`when you have the freedom to switch out components like "reaching arm back as if to throw something or punch", posing gets faster the more poses you've done.`
+						],
+						`local rotation also keeps the orientation from looking wrong.`,
+						`both of these are because local rotation is the closest to how joints operate in real life. they rotate on axes that, themselves, are rotated by previous rotations from parent/ancestor parts, or their own rotations. the xy axis of the shoulder's rotation only aligns with the true xy axis if the shoulder itself hasn't been affected by rotations. an ideal, perfectly rigid rotation system would only allow local rotation, with no move or deform either.`
+					],
+					`posescript tips`,
+					[
+						`during the trial-and-error process of posing through posescript, it helps to put "all: reset" at the top of the script. that way, you don't have to hit undo between tries, and you can look at the results of previous tries through undo/redo.`,
+						[
+							`or for animations, "time: clear".`,
+							`the "header" samples include this.`
+						],
+						`make use of the axis-naming system, starting from the names the "header" samples give you. it makes script actions much easier to understand.`,
+						`use comments to label what each chunk of your script does. it makes it easier to reuse those chunks in other poses.`,
+						`use empty comment lines for important divisions of the script, like the divide between the header and the rest of the script, before you switch frames and start editing a new pose, or before you start making tweens of all the frames at the end.`
+					],
+					`non-technical tips`,
+					[
+						`if a pose looks stiff, that means not enough parts are moving.`,
+						[
+							`the shoulders aren't moved. shoulders don't just rotate, they move. a lot of movements start at the manubrium, not the shoulder.`,
+							`the torso is oriented the same way as the pelvis. for energetic poses, there's usually at least a little bit of twist between them.`,
+							`the pelvis, and by extension, the position of the hips, has no xy or xz rotation. if either foot leaves the ground or either leg is moving forward or backward, there should probably be a little rotation.`,
+							`for expressive poses, the head should move. rotating xy a little, looking up/down, looking to the side.`
+						],
+						`for poses that involve the legs, try rotating them inward a little.`,
+						[
+							`".l_hip: -5 xy", ".r_hip: +5 xy"`,
+							`whether they're lifted or moved forward/backward, moving either leg from a typical standing position makes the pose less stable, so they naturally move inward a little to compensate.`
+						],
+						`try to avoid completely horizontal or completely vertical lines in the skeleton. it looks less interesting, and it can also be a sign of parts that should be moving but aren't.`
+					]
+				],
+			}, "manual");
 			string += [
 				`<details>`,
 				`\t<summary>bodytext</summary>`,
@@ -4876,14 +5365,53 @@
 			string += "\n" + [
 				`<dialog id="aa_editshape_dialog" autofocus>`,
 				`enter new text to define the shape.`,
-				`<br><textarea id="aa_editshape_input"></textarea>`,
+				`<br><textarea id="aa_editshape_input" cols=32></textarea>`,
 				`<br><button id="aa_editshape_enter">enter</button>`,
 				`<button id="aa_editshape_close">close</button>`,
 				`</dialog>`
 			].join("\n");
+			ref = aa.sample_posescripts;
+			let temp = "";
+			for(i1 in ref) {
+				if(ref.hasOwnProperty(i1)) {
+					temp += temp ? "\n" : "";
+					temp += "<details id=\"aa_posescript_samples_" + i1 + "\">";
+					temp += "\n\t<summary>samples (" + i1 + ")</summary>";
+					temp += "\n\t<ul>";
+					if(ref[i1].hasOwnProperty("multi-frame header")) {
+						ref[i1]["multi-frame header"] = ref[i1].header.replace("all: reset", "time: clear");
+					};
+					let bool = false;
+					for(i2 in ref[i1]) {
+						if(ref[i1].hasOwnProperty(i2)) {
+							temp += "\n\t" + (bool ? "<br>" : "") + "<button>" + i2 + "</button>";
+							bool = true;
+							//
+							if(!i2.endsWith("header")) {
+								let headername = i1 === "humanoid" ? i2 === "walk" : false;
+								headername = (headername ? "multi-frame " : "") + "header";
+								if(ref[i1].hasOwnProperty(headername)) {
+									ref[i1][i2] = ref[i1][headername] + ref[i1][i2];
+								};
+							}
+						}
+					}
+					temp += "\n\t</ul>";
+					temp += "\n</details>";
+				}
+			}
+			string += "\n" + [
+				`<dialog id="aa_posescript_dialog" autofocus>`,
+				`enter posescript code and click enter to execute it.`,
+				temp,
+				`<br><textarea id="aa_posescript_input" cols=64></textarea>`,
+				`<br><button id="aa_posescript_enter">enter</button>`,
+				`<button id="aa_posescript_close">close</button>`,
+				`</dialog>`
+			].join("\n");
 			string += "\n" + [
 				`<dialog id="aa_posetoshape_dialog" autofocus>`,
-				`<textarea id="aa_posetoshape_text"></textarea>`,
+				`<textarea id="aa_posetoshape_text" cols=32></textarea>`,
 				`<br><button id="aa_posetoshape_close">close</button>`,
 				`</dialog>`
 			].join("\n");
@@ -4972,7 +5500,7 @@
 						};
 						// like mouse events, except they work for phones and
 						// drawing tablets.
-						canvas.style["touch-action"] = "none";
+						canvas.style["touch-action"] = "pinch-zoom";
 						// this keeps it from sliding around when you're using a
 						// phone.
 						AAX.dragndrop(canvas, aa.readfile);
@@ -4986,7 +5514,7 @@
 			aa.div.coor.style["text-shadow"] = "silver .5px .5px";
 			aa.div.coor.style["font-size"] = "8px";
 			aa.writecoordinates(null);
-			let temp = document.getElementById("aa_bodytext");
+			temp = document.getElementById("aa_bodytext");
 			temp.value = aa.bodytext;
 			textarea_autosize(temp);
 			temp.onkeydown = function(e) {
@@ -5192,6 +5720,8 @@
 				aa.filldatatext();
 			});
 			// div creation, non-canvas buttons
+			document.getElementById("aa_editshape_input").onkeydown = textarea_autosize;
+			document.getElementById("aa_editshape_input").onchange = textarea_autosize;
 			document.getElementById("aa_editshape_enter").onpointerdown = function(e) {
 				let shape = AAX.Shape.new(document.getElementById("aa_editshape_input").value, aa.currpose, aa.control.partname);
 				if(shape) {
@@ -5205,9 +5735,48 @@
 				document.getElementById("aa_editshape_input").value = "";
 				document.getElementById("aa_editshape_dialog").close();
 			};
+			document.getElementById("aa_posescript_input").onkeydown = textarea_autosize;
+			document.getElementById("aa_posescript_input").onchange = textarea_autosize;
+			document.getElementById("aa_posescript_enter").onpointerdown = function(e) {
+				let script = document.getElementById("aa_posescript_input").value;
+				let error = aa.posescript(script);
+				if(error === "no refresh") {
+				}
+				else if(error) {
+				// show the error and reverse changes
+					alert(error);
+					aa.loadstate(aa.state_index, true);
+				}
+				else {
+				// refresh and save a new state
+					aa.refresh();
+				};
+				document.getElementById("aa_posescript_dialog").close();
+			};
+			ref = aa.sample_posescripts;
+			for(i1 in ref) {
+				if(ref.hasOwnProperty(i1)) {
+					let details = document.getElementById("aa_posescript_samples_" + i1);
+					let list = htmldescendants(details);
+					let obj = {};
+					for(i2 = 0; i2 < list.length; i2++) {
+						if(list[i2].tagName.toLowerCase() === "button") {
+							let value = ref[i1][ list[i2].innerHTML ];
+							list[i2].onclick = function(e) {
+								let input = document.getElementById("aa_posescript_input");
+								input.value = value;
+								textarea_autosize(input);
+							};
+						}
+					}
+				}
+			}
 			document.getElementById("aa_editshape_close").onpointerdown = function(e) {
 				document.getElementById("aa_editshape_input").value = "";
 				document.getElementById("aa_editshape_dialog").close();
+			};
+			document.getElementById("aa_posescript_close").onpointerdown = function(e) {
+				document.getElementById("aa_posescript_dialog").close();
 			};
 			document.getElementById("aa_posetoshape_close").onpointerdown = function(e) {
 				document.getElementById("aa_posetoshape_text").value = "";
@@ -5237,7 +5806,9 @@
 				aa.drawsettings.vp.y = Math.floor(aa.drawsettings.vp.y/2);
 			}
 			// this has to be done here so that head is fully defined
-			let version = document.getElementById("changelog").querySelector("li").innerHTML.trim();
+			let version = document.getElementById("changelog").querySelector("li").innerHTML;
+			version = even_blocks_only(version, block_ranges(version, false, "(", ")"));
+			version = trimunspecial(version.join(""));
 			temp = version.indexOf(":");
 			if(temp !== -1 && datechecker(version.slice(0, temp))) {
 				version = version.slice(temp + 1).trim();
@@ -5254,7 +5825,7 @@
 				}
 			}
 			else {
-				console.log("this shouldn't happen");
+				console.log("this shouldn't happen (invalid date in changelog, can't retrieve the version name)");
 			}
 			// define aa.version before the ui is created
 			aa.anims[0] = aa.newanim();
@@ -5262,9 +5833,12 @@
 			canvas.addEventListener("mousedown", aa.mousedown);
 			canvas.addEventListener("mousemove", aa.mousemove);
 			canvas.addEventListener("mouseup", aa.mouseup);
-			aa.ctx.main.font = "6px 'thick 4x4'";
 			aa.ui.create();
 			aa.control.projectname = "aa " + filedate() + " " + aa.control.projectname;
+			aa.control.default_rotate = structuredClone(aa.control.rotate);
+			aa.control.default_inbetween = structuredClone(aa.control.inbetween);
+			// need to save the defaults for these. posescript resets them, then
+			// restores them at the end.
 			aa.anim_index = 0;
 			// it was already 0, but the setter will fill aa.frames.
 			temp = {
@@ -5490,90 +6064,35 @@
 		//AAX.dim(body, part, view, length, size)
 		//aa._rect(size, oddness, right)
 		//aa.hypot(partname, deform)
-		movecoor: function(part, hypot, coor1, coor2, sign3, axes) {
-		// what the main move mode uses. returns a full set of coordinates,
-		// relative to the parent.
-		// - coor1, coor2, axes: new relative coordinates for both axes, and a
-		//   two-letter string for what axes those are.
-		//   - axes should be a two-letter string of the axes coor1 and coor2
-		//     are.
-		// - it applies move1 and move2 to the relative coordinates it already
-		//   had, then calculates the third axis by what fits within the
-		//   hypotenuse, has a Math.sign matching sign3, and has the same
-		//   posmod(coordinate, 1)s as before.
-		// - NOTE this is not allowed to move in decimal numbers. that's what
-		//   oddify is for.
-		// - this is used to display numbers on the screen, too.
-			let i1 = 0;
-			if(typeof axes !== "string" || axes.length < 2 || !"xyz".includes(axes[0]) || !"xyz".includes(axes[1]) || axes[0] === axes[1]) {
-				console.log("invalid axes.");
-				return;
+		movecoor: function(x, y, hypot, z_oddness) {
+		// used in the move pose tool and the move posescript action.
+		// - x, y: the coordinates that are already figured out. if the third
+		//   axis is actually x or something, switch them around before and
+		//   after running this function.
+		// - hypot: the hypotenuse of x, y, and z will be around this much.
+		// - z_oddness: the oddness z should have. if it's nullish, it'll go
+		//   with whatever's closest.
+		// =
+		// - remember to switch around the coordinates before/after, and
+		//   remember to invert z if it should be inverted.
+			hypot += .5;
+			z_oddness ??= null;
+			z_oddness = z_oddness === null ? null : z_oddness ? true : false;
+			let temp = hypot**2 - (x**2 + y**2);
+			if(temp <= 0) {
+			// x and y are too big.
+				let multiply = hypot/Math.hypot(x, y, z_oddness ? .5 : 0);
+				return [
+					x + Math.trunc(multiply*x - x),
+					y + Math.trunc(multiply*y - y),
+					z_oddness ? .5 : 0
+				];
 			}
-			else if(![-1, 1].includes(sign3)) {
-				console.log("invalid sign3. must be 1 or -1.");
+			else {
+				z = Math.trunc(Math.sqrt(temp)*2)/2;
+				z = z_oddness === null ? z : Math.trunc(z) + (z_oddness ? .5 : 0);
+				return [x, y, z];
 			};
-			hypot ??= aa.hypot(part.name);
-			// reference the hypotenuse in body (using the pose's hypotenuse
-			// would make it subject to rounding decay)
-			let axis1 = "xyz".indexOf(axes[0]);
-			let axis2 = "xyz".indexOf(axes[1]);
-			let axis3 = "xyz".indexOf( "xyz".replace(axes[0], "").replace(axes[1], "") );
-			let float = part.rel_oddness;
-			float = [
-				float[0]/2,
-				float[1]/2,
-				float[2]/2
-			];
-			const old_relcoor = part.relcoor;
-			const diff = [
-				Math.round( (old_relcoor[axis1] - coor1) *2)/2,
-				Math.round( (old_relcoor[axis2] - coor2) *2)/2
-			];
-			if(diff[0] === 0 && diff[1] === 0) {
-			// no change
-				return old_relcoor;
-			}
-			else if(
-				!Number.isInteger( diff[0] )
-				||
-				!Number.isInteger( diff[1] )
-			) {
-				console.log("invalid coor1 or coor2. the difference between them and the original must be an integer.");
-				return;
-			};
-			let point = structuredClone(old_relcoor);
-			point[axis1] = coor1;
-			point[axis2] = coor2;
-			let temp = (hypot + .5)**2 - (point[axis1]**2 + point[axis2]**2);
-			point[axis3] = (
-				temp <= 0
-				?
-				0
-				// fixfloats will take care of trimming the other two.
-				:
-				sign3*Math.sqrt(temp)
-			);
-			point = AAX.fixfloats(point, float, hypot, true, "hypot");
-			// list of valid points, sorted by highest hypotenuse first
-			if(diff[0] === 0) {
-			// pick the first point whose axis1 is still the same as it is in
-			// old_relcoor (if you didn't move it in that axis, you wouldn't
-			// expect a change in that axis. but the math in fixfloats sort of
-			// encourages that.)
-				for(i1 = 0; i1 < point.length; i1++) {
-					if(point[i1][axis1] === old_relcoor[axis1]) {
-						return point[i1];
-					}
-				}
-			}
-			else if(diff[1] === 0) {
-				for(i1 = 0; i1 < point.length; i1++) {
-					if(point[i1][axis2] === old_relcoor[axis2]) {
-						return point[i1];
-					}
-				}
-			}
-			return point[0];
 		},
 		rotatecoor: function(fulcrum, axis, magnitude) {
 		// returns new relative coordinates for all parts involved in a
@@ -5731,7 +6250,7 @@
 			frame ??= state.currframe;
 			return aa.poseobjtotext(state[frame]);
 		},
-		poseobjtotext: function(_obj) {
+		poseobjtotext: function(_obj, basic) {
 			_obj ??= aa.currposeobj;
 			let i1 = 0;
 			let i2 = 0;
@@ -5778,7 +6297,7 @@
 				}
 			};
 			loop.end();
-			return objtotext(obj);
+			return basic ? basicobjtotext(obj) : objtotext(obj);
 			// bracketindent JSON.stringify-s when used with an object
 		},
 		texttopose: function(text) {
@@ -5995,6 +6514,1237 @@
 			aa.refresh();
 			return parts;
 		},
+		posescript_dry: function(target, action, args) {
+		// dry stands for "don't repeat yourself", a programming principle. if
+		// something can be done through posescript, but also buttons or pose
+		// tools, it'll be in here. this exists to avoid redundant code.
+		// - target: same format as posescript.
+		//   - array of partnames: the action edits parts
+		//   - "rotate": action affects rotate settings
+		//   - "frame": action affects frame system
+		//   - "tween": action affects inbetween system
+		// - action: a string for what you're doing to the target
+		// - args: an object of arguments for the given action, like which frame
+		//   to jump to.
+		// - returns a boolean for whether the action was successful or not.
+		//   (for example, if you try to jump to a nonexistent frame, nothing
+		//   happens, so you should skip refresh and stuff like that.)
+			target ??= [aa.control.partname];
+			args ??= {};
+			let i1 = 0;
+			let i2 = 0;
+			let i3 = 0;
+			let success = true;
+			let num = (
+				typeof args.num === "number" ? args.num :
+				typeof args.input === "string" ? (
+					(target === "tween" && action === "curve") ?
+					readnumber(args.input) : Number(args.input)
+				) :
+				null
+			);
+			if(Array.isArray(target)) {
+				function targetbranch() {
+					let branch = [];
+					for(i1 = 0; i1 < target.length; i1++) {
+						let desc = aa.currpose[ target[i1] ].descendants;
+						for(i2 = -1; i2 < desc.length; i2++) {
+							let _i2 = i2 === -1 ? target[i1] : desc[i2];
+							if(!branch.includes(_i2)) {
+								branch.push(_i2);
+							};
+						}
+					}
+					return branch;
+				};
+				//
+				if(action === "tilt") {
+					args.omit = Array.isArray(args.omit) ? args.omit : [];
+					for(i1 = 0; i1 < target.length; i1++) {
+						let _i1 = target[i1];
+						if(!args.omit.includes(_i1)) {
+							let part = aa.currpose[_i1];
+							part.orient = Quat.rotate(part.orient, args.axis, (part.orient.flip ? -1 : 1)*args.angle);
+						};
+					}
+				}
+				else if(action === "deform") {
+					let coor = Points.convert(args);
+					coor = Points.divide(Points.trunc(Points.multiply(coor, 2)), 2);
+					// make sure it's .0 or .5
+					for(i1 = 0; i1 < target.length; i1++) {
+						let part = aa.currpose[ target[i1] ];
+						let before = Points.convert(part);
+						if(args.rel ?? false) {
+						// rel should be on by default for posescript, but off
+						// by default for other uses of posescript_dry.
+							coor = Points.add(before, coor);
+						};
+						part.x = coor[0];
+						part.y = coor[1];
+						part.z = coor[2];
+						// descendants will follow, since it's relative.
+						args.disjointed ??= false;
+						if(args.disjointed ?? false) {
+						// apply an inverse change to all children, so that they
+						// stay in place.
+							let change = Points.subtract(coor, before);
+							let children = AAX.getchildren(aa.currpose, target[i1]);
+							for(i2 = 0; i2 < children.length; i2++) {
+								let child = aa.currpose[ children[i2] ];
+								child.x -= change[0];
+								child.y -= change[1];
+								child.z -= change[2];
+							};
+						};
+					}
+				}
+				else if(action === "perspective") {
+					let coor = [args.x, args.y];
+					for(i1 = 0; i1 < target.length; i1++) {
+						let part = aa.currpose[ target[i1] ];
+						let _coor = (args.rel ?? false) ? Points.add(part["perspective_coor_" + args.view], coor) : coor;
+						part["perspective_coor_" + args.view] = structuredClone(_coor);
+					}
+				}
+				else if(action === "reset") {
+					let list = (
+						(args.desc ?? false)
+						?
+						((args.omit_self ?? false) ? targetbranch().filter((element) => !target.includes(element)) : targetbranch())
+						:
+						((args.omit_self ?? false) ? [] : target)
+					);
+					for(i1 = 0; i1 < list.length; i1++) {
+						let part = aa.currpose[ list[i1] ];
+						if(args.coor ?? false) {
+							part.x = part.bodyref.x;
+							part.y = part.bodyref.y;
+							part.z = part.bodyref.z;
+						};
+						if(args.orient ?? false) {
+							part.orient = structuredClone(part.bodyref.orient);
+						};
+						if(!(args.coor ?? false) && !(args.orient ?? false)) {
+							aa.currpose[ list[i1] ] = new AAX.Part(aa, aa.body, aa.currpose, list[i1]);
+						};
+					}
+				}
+				else if(action === "mirror") {
+					let branch = targetbranch();
+					let axis = "xyz"[args.axis];
+					for(i1 = 0; i1 < branch.length; i1++) {
+						let part = aa.currpose[ branch[i1] ];
+						if(branch.includes(part.parent)) {
+							part[axis] *= -1;
+						};
+						part.orient = Quat.mirror[axis]( part.orient );
+						for(i2 = 0; i2 < AAX.valid.view.length; i2++) {
+						// mirror the images.
+							if(args.axis === 1 || args.axis === (i2%2 ? 2 : 0)) {
+							// x mirror: x mirror front and back images
+							// y mirror: y mirror all images
+							// z mirror: x mirror left and right images
+								let view = AAX.valid.view[i2];
+								let source = typeof view === "number" ? "perspective" : "image";
+								let property = source + "_" + view;
+								let value = part.getwithoutredirects(property);
+								let isdefault = value === "default";
+								value = isdefault ? part.bodyref[source][view] : value;
+								// image is real: mirror it
+								// image is "default", body image it refers to is real: create a mirrored copy of that
+								// image is "default", body image is null: do nothing
+								// image is null: do nothing
+								if(value !== null) {
+									let w = part.dim(view, value.length);
+									//part[property] = args.axis === 1 ? Raster.ymirror(value, w) : Raster.xmirror(value, w);
+									part["_" + source][view] = args.axis === 1 ? Raster.ymirror(value, w) : Raster.xmirror(value, w);
+								};
+							}
+						}
+					}
+				}
+			}
+			else if(target === "rotate") {
+				let basis = aa.control.rotate.basis;
+				if(action === "invert") {
+					basis[args.axis] = Points.invert(basis[args.axis]);
+				}
+				else if(action === "switch") {
+					if(args.axis1 === args.axis2) {
+						success = false;
+					}
+					else {
+						temp = structuredClone(basis[args.axis1]);
+						basis[args.axis1] = structuredClone(basis[args.axis2]);
+						basis[args.axis2] = structuredClone(temp);
+					};
+				}
+				else if(AAX.valid.rotate_axis_setters.includes(action)) {
+				// required args properties:
+				// - axis
+				// - partname: for parent, child, or local
+				// - input: for written
+					let point = [0, 0, 0];
+					let part = typeof args.partname === "string" ? (aa.currpose[args.partname] ?? null) : null;
+					if(AAX.ui.rotate_axis_setter_disabled(aa.currpose, (args.partname ?? ""), basis, args.axis, action)) {
+						success = false;
+					}
+					else if(action === "parent") {
+						point = Points.normalized(Points.invert(part.relcoor));
+					}
+					else if(action === "child") {
+						let child = AAX.getchildren(aa.currpose, part.name)[0] ?? null;
+						point = child ? Points.normalized(aa.currpose[child].relcoor) : null;
+					}
+					else if(action === "cross") {
+						point = Points.normalized(Points.cross(
+							basis[posmod(args.axis + 1, 3)],
+							basis[posmod(args.axis + 2, 3)]
+						));
+					}
+					else if(action === "true") {
+						point[args.axis] = 1;
+					}
+					else if(action === "local") {
+						point[args.axis] = (part.bodyref.mirror && args.axis === 0) ? -1 : 1;
+						// the -1 thing mimics how the local mode of the
+						// rotate tool works.
+						point = Quat.apply(part.orient, point);
+					}
+					else if(action === "written") {
+						point = trimunspecial(args.input.replaceAll(",", " ")).split(" ");
+						if(point.length >= 3) {
+							for(i1 = 0; i1 < 3; i1++) {
+								point[i1] = Number(point[i1]);
+								if(isNaN(point[i1]) || point[i1] === Infinity || point[i1] === -Infinity) {
+									point[i1] = 0;
+								};
+							}
+							point = Points.normalized(point.slice(0, 3));
+						}
+						else {
+							point = null;
+						};
+					}
+					//
+					success = success && point && Math.hypot(...point);
+					if(success) {
+						basis[args.axis] = structuredClone(point);
+					};
+				};
+			}
+			else if(target === "frame") {
+				if(action === "prev" || action === "next") {
+					aa.currframe = posmod(aa.currframe + (action === "prev" ? -1 : action === "next" ? 1 : 0), aa.frames.length);
+				}
+				else if(action === "jump") {
+					num--;
+					if(Number.isInteger(num) && num >= 0 && num < aa.frames.length) {
+						aa.currframe = num;
+					}
+					else {
+						success = false;
+					};
+				}
+				else if(action === "blank" || action === "duplicate") {
+					aa.frames.splice(aa.currframe + 1, 0, (action === "duplicate" ? aa.frameclone(aa.currframe) : aa.newpose()));
+					aa.currframe++;
+					// splice it into the position after this one, and
+					// switch to it.
+				}
+				else if(action === "delete") {
+					if(aa.frames.length === 1) {
+					// clear the pose instead
+						aa.frames.splice(aa.currframe, 1, aa.newpose());
+					}
+					else {
+						aa.frames.splice(aa.currframe, 1);
+						aa.currframe--;
+					};
+				}
+				else if(action === "move up" || action === "move down") {
+					let newframe = aa.currframe + (action === "move up" ? 1 : action === "move down" ? -1 : 0);
+					if(newframe >= 0 && newframe < aa.frames.length) {
+						let temp = aa.frames[aa.currframe];
+						aa.frames.splice(aa.currframe, 1);
+						aa.frames.splice(newframe, 0, temp);
+						aa.currframe = newframe;
+					}
+					else {
+						success = false;
+					};
+				};
+				aa.clampframe();
+			}
+			else if(target === "tween") {
+				let ref = aa.control.inbetween;
+				if(action === "number") {
+					if(Number.isInteger(num) && num >= 1) {
+						ref.number = num;
+					}
+					else {
+						success = false;
+					};
+				}
+				else if(action === "curve") {
+					if("input" in args && args.input.trim() === "sine") {
+						ref.curve = Math.sqrt(3);
+					}
+					else if(Number.isInteger(Math.round(num)) && num >= 0) {
+						ref.curve = num;
+					}
+					else {
+						success = false;
+					};
+				}
+				else if(action === "create" || action === "apply") {
+					const apply = action === "apply";
+					let values = args.values ?? aa.inbetweenvalues(ref.number, ref.curve, ref.easeA, ref.easeB);
+					if(apply && aa.frames.length < values.length + 2) {
+						success = false;
+					}
+					else {
+						AAX.inbetweening(aa, aa.body, aa.frames, aa.currframe, values, apply);
+						//aa.currframe++;
+						// switch to the first inbetween.
+						aa.currframe = posmod(aa.currframe + values.length + 1, aa.frames.length);
+						// switch to the end pose.
+					}
+				}
+				else {
+					success = false;
+				};
+			};
+			return success;
+		},
+		posescript: function(script) {
+		// interprets the scripts given in the posescript button.
+		// - if there's something wrong with the input, it returns a string
+		//   explaining the problem.
+		// - otherwise, it returns an empty string, or "no refresh" if there
+		//   were no actions in the script.
+			let i1 = 0;
+			let i2 = 0;
+			let i3 = 0;
+			let i4 = 0;
+			let restore = {
+				rotate: structuredClone(aa.control.rotate),
+				inbetween: structuredClone(aa.control.inbetween),
+			};
+			aa.control.rotate = structuredClone(aa.control.default_rotate);
+			aa.control.inbetween = structuredClone(aa.control.default_inbetween);
+			// reset these to default
+			function end() {
+				aa.control.rotate = structuredClone(restore.rotate);
+				aa.control.inbetween = structuredClone(restore.inbetween);
+				// restore these to how they were
+			};
+			script = AAX.body_read.uncomment(script).split("\n");
+			let array = [];
+			// array of {target, actions} objects.
+			// - target is an array of part names, or a string if it's "frame"
+			//   or something like that.
+			// - actions is an array of the lines of code representing actions.
+			let parttarget = function(string) {
+				string = string.trim();
+				if(!string) {
+					return [];
+				};
+				let list = string.split(",");
+				let target = [];
+				for(let i1 = 0; i1 < list.length; i1++) {
+					let text = list[i1].trim();
+					if(text === "all") {
+						return aa.hidelist("", text);
+					};
+					let unprefixed = aa.currpose.hasOwnProperty(text);
+					let dot = 0;
+					while(text.startsWith(".")) {
+						text = text.slice(1);
+						dot++;
+					};
+					text = text.trimStart();
+					text = (dot === 2 ? "branch " : dot === 1 ? "part " : "") + text;
+					if(text.includes(" ")) {
+						let _text = text;
+						let _target = [];
+						let index = text.indexOf(" ");
+						let type = text.slice(0, index);
+						text = text.slice(index + 1).trim();
+						if(!aa.body.hasOwnProperty(text)) {
+							return "invalid part name: " + text;
+						};
+						if(AAX.valid.hidelist.includes(type)) {
+							_target = aa.hidelist(text, type);
+						}
+						else {
+							index = type.indexOf("-");
+							if(index === -1) {
+								return "invalid target: " + _text;
+							}
+							else {
+								let plus = type.slice(0, index);
+								let minus = type.slice(index + 1);
+								if(!AAX.valid.hidelist.includes(plus) || !AAX.valid.hidelist.includes(minus)) {
+									return "invalid target: " + _text;
+								};
+								type = plus + "_minus_" + minus;
+								_target = aa.hidelist(text, type);
+							};
+						};
+						for(let i2 = 0; i2 < _target.length; i2++) {
+							let _i2 = _target[i2];
+							if(!target.includes(_i2)) {
+								target.push(_i2);
+							};
+						}
+					}
+					else {
+						return "invalid target: " + text + (unprefixed ? "\n\n(remember to add a prefix. \"" + AAX.valid.hidelist.join("\", \"") + "\", or . or .. as shorthand for \"part\" or \"branch\".)" : "");
+					};
+				}
+				return target;
+			};
+			for(i1 = 0; i1 < script.length; i1++) {
+				let line = script[i1].trim();
+				if(line) {
+					let colon = line.indexOf(":");
+					if(colon !== -1) {
+					// target change
+						while(line.slice(colon).startsWith("::") && colon !== -1) {
+						// account for double colons
+							colon = line.indexOf(":", colon + 2);
+						};
+						if(colon !== -1) {
+						// if colon === -1, that means there were double colons
+						// but no single colons.
+							let target = line.slice(0, colon).trim().replaceAll("::", ":");
+							line = line.slice(colon + 1);
+							if(target !== "rotate" && target !== "frame" && target !== "tween" && target !== "scene" && target !== "time") {
+							// convert it to a list of parts.
+								target = parttarget(target);
+								if(typeof target === "string") {
+								// error
+									end();
+									return target;
+								};
+							};
+							array.push({target, actions: []});
+						}
+					}
+					if(line) {
+					// after the target stuff, line might be empty.
+						if(!array.length) {
+							end();
+							return "the first meaningful line of the script doesn't specify a target. you need to specify a target for actions to be used.";
+						};
+						let actions = even_block_split(line, block_ranges(line, false, "[(", "])"), ",");
+						// split it up by comma
+						for(i2 = 0; i2 < actions.length; i2++) {
+							let temp = actions[i2].trim();
+							if(temp) {
+								array[array.length - 1].actions.push(temp);
+							}
+						}
+					}
+				};
+			}
+			let convertaxis = (axis) => (
+				(axis === "yz" || axis === "x") ? 0 :
+				(axis === "xz" || axis === "y") ? 1 :
+				(axis === "xy" || axis === "z") ? 2 :
+				axis
+			);
+			let convertpoint = function(input, no_rounding) {
+				if(!input.startsWith("[") || !input.endsWith("]")) {
+					return null;
+				};
+				let point = input.slice(1, -1).split(",");
+				for(let i1 = 0; i1 < point.length; i1++) {
+					let num = point[i1].trim();
+					num = readnumber(point[i1]) ?? 0;
+					num = no_rounding ? num : Math.trunc(num*2)/2;
+					point[i1] = num;
+				}
+				return point;
+			};
+			let removewords = function(action, words, num) {
+			// pretty much the same as words.slice(num).join(" "). it's just
+			// that i don't want there to be problems if part names have
+			// whitespace that's consecutive, or isn't a space. even if that's
+			// pretty unlikely.
+				action = action.trimStart();
+				for(let i1 = 0; i1 < num; i1++) {
+					if(!action.startsWith(words[i1])) {
+						console.log("this shouldn't happen");
+					};
+					action = action.slice(words[i1].length).trimStart();
+				}
+				return action;
+			};
+			let no_refresh = true;
+			// i'm not gonna go to super huge lengths for this, but i'll at
+			// least make sure this is true if there were no actions.
+			let localnaming = {};
+			for(i1 in aa.currpose) {
+				if(aa.currpose.hasOwnProperty(i1)) {
+					localnaming[i1] = ["", "", "", "", "", ""];
+					// [-xz, +xz, -yz, +yz, -xy, +xy] (an empty string means it
+					// has no name.)
+				}
+			}
+			// used for the local axis naming system.
+			for(i1 = 0; i1 < array.length; i1++) {
+				let target = array[i1].target;
+				//console.log("target: " + JSON.stringify(target));
+				let actions = array[i1].actions;
+				let localnames = [];
+				if(Array.isArray(target) && aa.control.rotate.type === "local") {
+				// an array of axis names applicable to the parts currently
+				// selected.
+					for(i2 = 0; i2 < target.length; i2++) {
+						localnaming[ target[i2] ].forEach(function(element) {
+							if(element && !localnames.includes(element)) {
+								localnames.push(element);
+							};
+						});
+					}
+				};
+				for(i2 = 0; i2 < actions.length; i2++) {
+					no_refresh = false;
+					let action = actions[i2];
+					//console.log("\t" + action);
+					//let words = trimunspecial(action).split(" ");
+					let words = block_word_split(action, odd_block_expand(action, block_ranges(action, false, "[(", "])")));
+					if(Array.isArray(target)) {
+						const tilt = words[0] === "tilt" && words.length >= 2;
+						// the second condition is because everything is written
+						// under the assumption that there's always at least one
+						// word.
+						if(tilt) {
+							words = words.slice(1);
+							action = words.join(" ");
+						};
+						let angle = words[0].startsWith("+") ? words[0].slice(1) : words[0];
+						angle = angle ? Number(angle) : NaN;
+						let axis = -1;
+						if(words.length >= 2) {
+							axis = convertaxis(words[1]);
+							axis = typeof axis === "string" ? (localnames.includes(axis) ? axis : -1) : axis;
+							// 0, 1, 2: it was written as xy, yz, xz, x, y, or z
+							// [string]: used a local axis name
+							// -1: it isn't an axis at all
+						};
+						let percent = words[0];
+						while(percent.endsWith("%")) {
+							percent = percent.slice(0, -1);
+						};
+						percent = words[0].length - percent.length;
+						// tilt, angle, and axis are only used in tilt/rotate.
+						// percent is only used in move/deform. but for logic
+						// reasons, they have to be created no matter what.
+						//
+						if(Number.isInteger(Math.round(angle)) && axis !== -1) {
+						// tilt/rotate
+							angle = posmod(angle*Math.PI/180, 2*Math.PI);
+							let ref = aa.control.rotate;
+							let type = ref.type;
+							let curl = ref.curl;
+							let allow = AAX.getdesc(aa.currpose);
+							for(i3 = 2; i3 < words.length; i3++) {
+							// apply temporary changes
+								if(words[i3] === "curl") {
+									ref.curl = true;
+								}
+								else if(words[i3] === "!curl") {
+									ref.curl = false;
+								}
+								else if(AAX.valid.rotate_type.includes(words[i3])) {
+									ref.type = words[i3];
+								}
+								else if((words[i3].startsWith("inc(") || words[i3].startsWith("exc(")) && words[i3].endsWith(")")) {
+									let parts = words[i3].slice(words[i3].indexOf("(") + 1, -")".length).trim().replaceAll("::", ":");
+									let is_exc = words[i3].startsWith("exc");
+									if(parts) {
+										parts = parts.split(",");
+										parts.forEach(function(element, index, array) {
+											array[index] = element.trim();
+										});
+										let temp = parts.find((element) => !aa.currpose.hasOwnProperty(element));
+										if(temp !== undefined) {
+											end();
+											return "invalid part name in an " + (is_exc ? "exc" : "inc") + "(): " + temp;
+										};
+										if(!is_exc) {
+											allow = [];
+										};
+										let branches = [];
+										parts.forEach(function(element) {
+											let branch = [element].concat(AAX.getdesc(aa.currpose, element));
+											branch.forEach(function(element) {
+												if(!branches.includes(element)) {
+													branches.push(element);
+												};
+											});
+										});
+										allow = is_exc ? allow.filter((element) => !branches.includes(element)) : structuredClone(branches);
+									}
+								};
+							}
+							let omit = AAX.getdesc(aa.currpose).filter((element) => !allow.includes(element));
+							//
+							let axis_num = -1;
+							if(typeof axis === "string") {
+								if(ref.type !== "local") {
+									console.log("this shouldn't happen");
+								};
+							}
+							else {
+								axis_num = axis;
+								if(axis_num === 1) {
+									// if it's xz rotation, invert it for the same
+									// reasons that happens in the rotate pose tool.
+									angle = posmod(-angle, 2*Math.PI);
+								};
+								axis = (ref.type === "custom" ? ref.basis : Basis.new())[axis_num];
+								axis = Angle.get(...axis);
+							};
+							//
+							if(tilt) {
+								if(ref.type === "local") {
+									target.forEach(function(element) {
+										let basis = Quat.basis(aa.currpose[element].orient);
+										let _axis = null;
+										let neg = false;
+										if(typeof axis === "string") {
+											axis_num = localnaming[element].indexOf(axis);
+											if(axis_num !== -1) {
+												neg = xor(neg, !(axis_num%2));
+												axis_num = Math.floor(axis_num/2);
+												_axis = basis[axis_num];
+												neg = xor(neg, axis_num === 1);
+												// if local axis names are used,
+												// it skips over the xz
+												// inversion from earlier, so it
+												// has to be done here too.
+											};
+										}
+										else {
+											_axis = basis[axis_num];
+										};
+										if(_axis) {
+											if(aa.currpose[element].mirror && axis_num === 0) {
+												// happens for the same reasons it
+												// happens in the pose tool.
+												_axis = Points.invert(_axis);
+											};
+											_axis = Angle.get(..._axis);
+											aa.posescript_dry([element], "tilt", {axis: _axis, angle: neg ? posmod(-angle, 2*Math.PI) : angle, omit});
+										};
+									});
+								}
+								else {
+									aa.posescript_dry(target, "tilt", {axis, angle, omit});
+								}
+							}
+							else {
+								for(i3 = 0; i3 < target.length; i3++) {
+									let name = target[i3];
+									let _axis = axis;
+									let neg = false;
+									if(ref.type === "local") {
+										let basis = Quat.basis(aa.currpose[name].orient);
+										if(typeof axis === "string") {
+											axis_num = localnaming[name].indexOf(axis);
+											if(axis_num === -1) {
+												_axis = null;
+											}
+											else {
+												neg = xor(neg, !(axis_num%2));
+												axis_num = Math.floor(axis_num/2);
+												_axis = basis[axis_num];
+												neg = xor(neg, axis_num === 1);
+												// if local axis names are used,
+												// it skips over the xz
+												// inversion from earlier, so it
+												// has to be done here too.
+											};
+										}
+										else {
+											_axis = basis[axis_num];
+										};
+										if(_axis) {
+											if(aa.currpose[name].mirror && axis_num === 0) {
+												_axis = Points.invert(_axis);
+											};
+											_axis = Angle.get(..._axis);
+										};
+									};
+									if(_axis) {
+										let _angle = neg ? posmod(-angle, 2*Math.PI) : angle;
+										let rotatecoor = aa.rotatecoor(name, _axis, _angle);
+										for(i4 in rotatecoor) {
+											if(rotatecoor.hasOwnProperty(i4) && !omit.includes(i4)) {
+												let part = aa.currpose[i4];
+												part.x = rotatecoor[i4][0];
+												part.y = rotatecoor[i4][1];
+												part.z = rotatecoor[i4][2];
+											}
+										}
+										aa.posescript_dry([name].concat(AAX.getdesc(aa.body, name)), "tilt", {axis: _axis, angle: _angle, omit});
+									};
+								}
+							}
+							//
+							ref.type = type;
+							ref.curl = curl;
+							// reverse changes
+						}
+						else if(words[0].charAt(0) === "[" && words[0].charAt( words[0].length - 1 - percent ) === "]") {
+						// move/deform
+							let input = percent ? words[0].slice(0, -percent) : words[0];
+							words = words.slice(1);
+							let point = convertpoint(input, true);
+							if(point.length !== 3) {
+								end();
+								return "a move or deform action should have 3 coordinates, not " + point.length + ".";
+							};
+							input = input.slice(1, -1).split(",");
+							let move_axis = -1;
+							let move_neg = false;
+							for(i3 = 0; i3 < input.length; i3++) {
+								let value = input[i3].trim();
+								if(value === "+" || value === "-") {
+									if(move_axis !== -1) {
+										end();
+										return "a move action should leave only one axis ambiguous, not multiple.";
+									};
+									move_axis = i3;
+									move_neg = value === "-";
+									value = 0;
+								}
+							}
+							const rel = move_axis !== -1 ? words.includes("rel") : !words.includes("abs");
+							// move is absolute by default, deform is relative
+							// by default
+							function finishpoint(partname) {
+							// - if percent is being used, multiply by the part
+							//   length
+							// - if it's relative, add the current coordinates
+							// - snap to a proper .0 or .5
+								let _point = structuredClone(point);
+								let relcoor = aa.currpose[partname].relcoor;
+								if(percent) {
+									_point = Points.multiply(_point, aa.hypot(partname, move_axis !== -1 && words.includes("currlength")));
+								};
+								if(rel) {
+									_point = Points.add(_point, relcoor);
+								};
+								_point = (
+									percent === 1
+									?
+									Points.add(Points.trunc(Points.subtract(_point, relcoor)), relcoor)
+									:
+									Points.divide(Points.trunc(Points.multiply(_point, 2)), 2)
+								);
+								return _point;
+							};
+							//
+							let args = {};
+							if(move_axis !== -1) {
+								let axis1 = posmod(move_axis + 1, 3);
+								let axis2 = posmod(move_axis + 2, 3);
+								let axis3 = move_axis;
+								for(i3 = 0; i3 < target.length; i3++) {
+									let _i3 = target[i3];
+									let part = aa.currpose[_i3];
+									let _point = finishpoint(_i3);
+									if(part.parent === "standpoint") {
+									// move doesn't make sense for stems.
+									// there's no reason to keep a part's
+									// distance from standpoint consistent.
+										aa.posescript_dry([_i3], "deform", _point);
+									}
+									else {
+										let temp = aa.movecoor(
+											_point[axis1],
+											_point[axis2],
+											aa.hypot(_i3, words.includes("currlength")),
+											part.rel_oddness[axis3]
+										);
+										if(move_neg) {
+											temp[2] *= -1;
+										};
+										_point[axis1] = temp[0];
+										_point[axis2] = temp[1];
+										_point[axis3] = temp[2];
+										aa.posescript_dry([_i3], "deform", Points.apply(_point));
+									}
+								}
+							}
+							else {
+								const disjointed = words.includes("disjointed");
+								for(i3 = 0; i3 < target.length; i3++) {
+									let _i3 = target[i3];
+									let _point = Points.subtract(finishpoint(_i3), aa.currpose[_i3].relcoor);
+									if(!disjointed || !target.includes(aa.currpose[_i3].parent)) {
+										aa.posescript_dry([_i3], "deform", Points.apply(_point, {rel: true}));
+									}
+									_point = Points.invert(_point);
+									if(disjointed) {
+									// apply an opposite change to all children.
+										AAX.getchildren(aa.currpose, _i3).forEach(function(element) {
+											if(!target.includes(element)) {
+												aa.posescript_dry([element], "deform", Points.apply(_point, {rel: true}));
+											};
+										});
+									};
+								}
+								// why the conditionals are so wonky for
+								// disjointed:
+								// - let's say you're moving the torso
+								//   silhouette group...
+								// - all parts in that group should be moved.
+								// - all of those parts' children should be
+								//   moved the opposite way if they're not in
+								//   the group, right? to cancel it out.
+								// - except, the children should have that
+								//   cancel-out even if they're in the group, so
+								//   changes don't compound along a branch
+								// - if you stop here, the logic is simple, and
+								//   functional
+								// - but it's a little inefficient. for parts in
+								//   the group whose parents are also in the
+								//   group, they get moved, and that movement is
+								//   cancelled out. two operations, but the
+								//   result is no change at all. that's
+								//   wasteful.
+								// - granted, that waste would be too small to
+								//   care about if it wasn't for the setter
+								//   system. when coordinates change, caches get
+								//   cleared. shape images have to be
+								//   regenerated, sometimes.
+							};
+						}
+						else if(
+							words.length >= 2
+							&&
+							"0123".includes(words[0]) && words[0].length === 1
+							&&
+							words[1].startsWith("[") && words[1].endsWith("]")
+						) {
+						// perspective
+							let view = Number(words[0]);
+							let point = convertpoint(words[1]);
+							if(point.length !== 2) {
+								end();
+								return "a perspective action should have 2 coordinates, not " + point.length + ".";
+							};
+							words = words.slice(2);
+							aa.posescript_dry(target, "perspective", {view, x: point[0], y: point[1], rel: !words.includes("abs")});
+						}
+						else if(words.length >= 2 && (words[0] === "stretch" || words[0] === "widen")) {
+						// stretch, widen
+							let num = readnumber(words[1]);
+							if(num !== null) {
+								for(i3 = 0; i3 < target.length; i3++) {
+									aa.currpose[target[i3]][words[0]] = num;
+								}
+							}
+						}
+						else if(words[0] === "reset") {
+							aa.posescript_dry(
+								target, "reset",
+								{
+									omit_self: words.includes("desc") && !words.includes("branch"),
+									desc: words.includes("desc") || words.includes("branch"),
+									coor: words.includes("coor"),
+									orient: words.includes("orient")
+								}
+							);
+						}
+						else if(words.length >= 2 && words[0] === "mirror" && "xyz".includes(words[1]) && words[1].length === 1) {
+							aa.posescript_dry(target, "mirror", {axis: "xyz".indexOf(words[1])});
+						}
+						else if(action === "hide" || action === "show") {
+							for(i3 = 0; i3 < target.length; i3++) {
+								aa.currpose[target[i3]].hide = action === "hide";
+							}
+						};
+					}
+					else if(target === "rotate") {
+						if(AAX.valid.rotate_type.includes(action)) {
+							aa.control.rotate.type = action;
+						}
+						else if(action === "curl") {
+							aa.control.curl = true;
+						}
+						else if(action === "no curl") {
+							aa.control.curl = false;
+						}
+						else if(words.length >= 2 && words[0] === "invert") {
+							let axis = convertaxis(words[1]);
+							if(typeof axis === "number") {
+								aa.posescript_dry(target, "invert", {axis});
+							}
+							else {
+								return "invalid rotate invert action: " + action;
+							}
+						}
+						else if(words.length >= 3 && words[0] === "switch") {
+							let axis1 = convertaxis(words[1]);
+							let axis2 = convertaxis(words[2]);
+							if(typeof axis1 === "number" && typeof axis2 === "number") {
+								aa.posescript_dry(target, "switch", {axis1, axis2});
+							}
+							else {
+								return "invalid rotate switch action: " + action;
+							}
+						}
+						else if(
+							words.length >= 3
+							&&
+							words[1] === "="
+							&&
+							AAX.valid.rotate_axis_setters.includes(words[2])
+						) {
+							let axis = convertaxis(words[0]);
+							if(aa.control.rotate.type !== "custom") {
+								end();
+								return "you tried to change the custom axes despite currently using " + aa.control.rotate.type + " axes. this is likely a mistake. custom axes can only be used when custom axes are selected. (\"rotate: custom\")";
+							}
+							else if(typeof axis === "string") {
+								end();
+								return "invalid axis: " + axis;
+							};
+							let type = words[2];
+							let args = {axis};
+							action = removewords(action, words, 3);
+							if(type === "parent" || type === "child" || type === "local") {
+								action = action.replaceAll("::", ":");
+								if(aa.body.hasOwnProperty(action)) {
+									args.partname = action;
+								}
+								else {
+									end();
+									return type + "-type custom axis setting requires specifying a part name.";
+								};
+							}
+							else if(type === "written") {
+								if(action.startsWith("[") && action.endsWith("]")) {
+									args.input = action.slice(1, -1).trim();
+								}
+								else {
+									end();
+									return type + "-type custom axis setting requires inputting a three-coordinate point.";
+								};
+							};
+							aa.posescript_dry(target, type, args);
+						}
+						else if(
+							words.length >= 3
+							&&
+							words[0].includes("/")
+							&&
+							words[1] === "="
+						) {
+							if(aa.control.rotate.type !== "local") {
+								return "you tried to name the local axes despite currently using " + aa.control.rotate.type + " axes. this is likely a mistake. local axis names can only be used when local axes are selected. (\"rotate: local\")";
+							};
+							let name = words[0].split("/");
+							let _name = name[1];
+							name = name[0];
+							let old = structuredClone(localnaming);
+							for(i3 = 2; i3 < words.length; i3++) {
+								if(words[i3].startsWith("except(") && words[i3].endsWith(")")) {
+									let list = parttarget(words[i3].slice("except(".length, -")".length));
+									if(typeof list === "string") {
+										end();
+										return list;
+									}
+									else {
+										list.forEach(function(element, index, array) {
+											let part = element;
+											localnaming[part].forEach(function(element, index, array) {
+												if(element === name || element === _name) {
+													array[index] = old[part][index];
+												};
+											});
+										});
+									};
+								}
+								else {
+									let temp = words[i3].indexOf("(");
+									let valid = (words[i3].startsWith("-") || words[i3].startsWith("+")) && temp !== -1 && words[i3].endsWith(")");
+									if(valid) {
+										let neg = words[i3].startsWith("-");
+										let axis = convertaxis(words[i3].slice(1, temp));
+										valid = typeof axis !== "string";
+										if(valid) {
+											let num = 2*axis + (neg ? 0 : 1);
+											let _num = 2*axis + (neg ? 1 : 0);
+											let list = parttarget(words[i3].slice(temp + 1, -1));
+											if(typeof list === "string") {
+												end();
+												return list;
+											}
+											else {
+												list.forEach(function(element, index, array) {
+													localnaming[element][num] = name;
+													localnaming[element][_num] = _name;
+												});
+											};
+										};
+									};
+									if(!valid) {
+										end();
+										return "unsure what this word of a local axis naming means: " + words[i3] + ". it must be a plus or minus, followed by a true axis name, (xy, yz, xz, x, y, or z) followed by a set of parentheses showing which parts it's applied to.";
+									};
+								};
+							}
+						}
+						else {
+							end();
+							return "unsure what this " + target + " action means: " + action;
+						};
+					}
+					else if(target === "frame") {
+						let move = words[0] === "move" && (words[1] === "up" || words[1] === "down");
+						if(
+							words[0] === "prev" || words[0] === "next"
+							||
+							words[0] === "blank" || words[0] === "duplicate"
+							||
+							words[0] === "delete"
+							||
+							move
+						) {
+							let num = Number(words[1 + move] ?? "");
+							num = (Number.isInteger(num) && num > 0) ? num : 1;
+							for(i3 = 0; i3 < num; i3++) {
+								aa.posescript_dry(target, words.slice(0, 1 + move).join(" "));
+							}
+						}
+						else {
+							aa.posescript_dry(target, "jump", {input: action});
+							// if it isn't a number, nothing will happen.
+						};
+					}
+					else if(target === "tween") {
+						let ref = aa.control.inbetween;
+						function easechange(type) {
+						// changes easeA and easeB. returns true if type was
+						// valid, false if it wasn't.
+							if(type === "in") {
+								ref.easeA = false;
+								ref.easeB = false;
+							}
+							else if(type === "out") {
+								ref.easeA = true;
+								ref.easeB = true;
+							}
+							else if(type === "in-out") {
+								ref.easeA = false;
+								ref.easeB = true;
+							}
+							else if(type === "out-in") {
+								ref.easeA = true;
+								ref.easeB = false;
+							}
+							else {
+								return false;
+							};
+							return true;
+						};
+						if(words.length >= 2 && words[0] === "curve") {
+							aa.posescript_dry(target, "curve", {input: words[1]});
+						}
+						else if(words.length >= 2 && words[0] === "ease") {
+							easechange(words[1]);
+						}
+						else if(words[0] === "create" || words[0] === "apply") {
+							let num = ref.number;
+							let easeA = ref.easeA;
+							let easeB = ref.easeB;
+							let values = null;
+							for(i3 = 1; i3 < words.length; i3++) {
+							// apply temporary changes, or look for custom values
+								if(words[i3].startsWith("[") && words[i3].endsWith("]")) {
+									values = words[i3].slice(1, -1).trim();
+									if(values) {
+										values = values.split(",");
+										values.forEach(function(element, index, array) {
+											array[index] = readnumber(element) ?? 0;
+										});
+									};
+								}
+								else {
+									let bool = aa.posescript_dry(target, "number", {input: words[i3]});
+									if(!bool) {
+										bool = easechange(words[i3]);
+									};
+								}
+							}
+							aa.posescript_dry(target, words[0], values ? {values} : null);
+							// create/apply
+							ref.number = num;
+							ref.easeA = easeA;
+							ref.easeB = easeB;
+							// reverse temporary changes
+						}
+						else {
+							aa.posescript_dry(target, "number", {input: action});
+							// maybe it's a number. if not, no big deal.
+						};
+					}
+					else if(target === "scene") {
+						let stems = AAX.getchildren(aa.currpose, "standpoint");
+						if(words[0].startsWith("[") && words[0].endsWith("]")) {
+						// shift
+							let point = convertpoint(words[0]);
+							if(point.length !== 3) {
+								end();
+								return "a scene shift action should have 3 coordinates, not " + point.length + ".";
+							};
+							aa.posescript_dry(stems, "deform", Points.apply(point, {rel: true}));
+						}
+						else if(words[0] === "rotate" && words.length >= 3) {
+							/*
+							let axis = convertaxis(words[1]);
+							//
+							let fulcrum = null;
+							if(words.length >= 4 && words[3].startsWith("[") && words[3].endsWith("]")) {
+								let point = words[3].slice(1, -1).split(",");
+								fulcrum = [];
+								if(point.length >= 3) {
+									for(i1 = 0; i1 < 3; i1++) {
+										let num = Number(point[i1]);
+										fulcrum[i1] = (isNaN(num) || num === Infinity || num === -Infinity) ? 0 : num;
+									}
+								}
+								fulcrum = Math.hypot(...fulcrum) ? fulcrum : null;
+							}
+							if(fulcrum) {
+								aa.posescript_dry(stems, "deform", Points.apply(Points.invert(fulcrum)));
+								aa.posescript_dry(stems, "rotate", {axis, angle});
+								aa.posescript_dry(stems, "deform", Points.apply(fulcrum));
+							}
+							else {
+								aa.posescript_dry(stems, "rotate", {axis, angle});
+							};
+							//*/
+						}
+						else if(words.length >= 2 && words[0] === "mirror" && "xyz".includes(words[1]) && words[1].length === 1) {
+							let axis = "xyz".indexOf(words[1]);
+							let num = 0;
+							if(words.length >= 3) {
+								let name = removewords(action, words, 2).replaceAll("::", ":");
+								if(aa.currpose.hasOwnProperty(name)) {
+									num = aa.currpose[ name ].abscoor[axis];
+								}
+								else {
+									num = Number(words[2]);
+									num = Number.isInteger(Math.round(num)) ? num : 0;
+								};
+							};
+							for(i1 = 0; i1 < stems.length; i1++) {
+								let part = aa.currpose[ stems[i1] ];
+								let coor = part["xyz"[axis]];
+								coor -= num;
+								coor *= -1;
+								coor += num;
+								part["xyz"[axis]] = coor;
+							}
+							aa.posescript_dry(stems, "mirror", {axis});
+						};
+					}
+					else if(target === "time") {
+						if(words[0] === "clear") {
+							let num = aa.frames.length;
+							for(i3 = 0; i3 < num; i3++) {
+								aa.posescript_dry("frame", "delete");
+							}
+						}
+						else if(words[0].startsWith("hide") || words[0].startsWith("show")) {
+							let value = words[0].startsWith("hide");
+							let list = words[0].slice((value ? "hide" : "show").length);
+							list = parttarget(
+								(list.startsWith("(") && list.endsWith(")"))
+								?
+								list.slice("(".length, -")".length)
+								:
+								"all"
+							);
+							aa.frames.forEach(function(element) {
+								list.forEach(function(_element) {
+									element[_element].hide = value;
+								});
+							});
+						}
+						else if(words[0] === "correct" && words[1] === "ap") {
+							let unlooping = words.includes("unlooping");
+							aa.frames.forEach(function(pose, index, frames) {
+								if(unlooping && (index === 0 || index === frames.length - 1)) {
+									return;
+								};
+								for(let part in pose) {
+									if(pose.hasOwnProperty(part)) {
+										let prev = frames[posmod(index - 1, frames.length)][part];
+										let next = frames[posmod(index + 1, frames.length)][part];
+										for(let view = 0; view < 4; view++) {
+											let valid = true;
+											let propertyname = "perspective_coor_" + view;
+											for(let i1 = 0; i1 < 3 && valid; i1++) {
+												let ref = i1 === 0 ? prev : i1 === 1 ? next : pose[part];
+												let auto = ref.getwithoutredirects(propertyname);
+												auto = (auto === "default" ? ref.getwithoutredirects(propertyname, false, true) : auto) === "auto";
+												valid = valid && auto;
+											}
+											// only proceed if all three use
+											// autoperspective.
+											if(valid) {
+												let prevcoor = prev[propertyname];
+												let nextcoor = next[propertyname];
+												let currcoor = pose[part][propertyname];
+												let newcoor = null;
+												let pre = {
+													prev: aa.coortocanvas(prev.abscoor, view, true),
+													next: aa.coortocanvas(next.abscoor, view, true),
+													curr: aa.coortocanvas(pose[part].abscoor, view, true),
+												};
+												for(let axis = 0; axis < 2; axis++) {
+													if(
+														prevcoor[axis] === nextcoor[axis]
+														&&
+														Math.abs(prevcoor[axis] - currcoor[axis]) === 1
+														&&
+														pre.curr[axis] === pre.prev[axis]
+														&&
+														pre.curr[axis] === pre.next[axis]
+													) {
+														newcoor ??= structuredClone(currcoor);
+														newcoor[axis] = prevcoor[axis];
+													};
+												}
+												if(newcoor) {
+													pose[part][propertyname] = newcoor;
+												};
+											}
+										}
+									};
+								}
+							});
+						};
+					}
+					else {
+						console.log("this shouldn't happen");
+					};
+				}
+			}
+			end();
+			return no_refresh ? "no refresh" : "";
+		}
 	};
 	//aa.initialize();
 	//
@@ -6311,21 +8061,11 @@
 			string += `\n<br><canvas id="bm_ui_canvas"></canvas>`;
 			string += `<br><button id="bm_applychanges">apply changes</button>`;
 			string += `<br><textarea id="bm_bodytext" cols=48></textarea>`;
-			//string += ``;
-			for(i1 = 0; i1 < 2; i1++) {
-				let id = "bm_" + (i1 ? "extra" : "image") + "_text";
-				string += `\n<dialog id="` + id + `" autofocus>`;
-				string += `\nenter new text to define the `;
-				if(i1) {
-					string += `extra parameters. (check the bodytext section of the armature artist manual for a full list of commands you can write here, and what they do.)`;
-					string += `\n<ul>`;
-					string += `\n\t<li>`;
-					string += `\n\tdon't put "symmetry()" commands here. use the symmetry button instead.`;
-					string += `\n\t</li>`;
-					string += `\n</ul>`;
-				}
-				else {
-					string += `shape.`;
+			for(i1 = 0; i1 < 3; i1++) {
+				let id = "bm_" + (i1 === 0 ? "image_text" : i1 === 1 ? "extra_text" : "fatscript");
+				string += `\n<dialog id="` + id + `" style=\"width: 40em;\" autofocus>`;
+				if(i1 === 0) {
+					string += `\nenter new text to define the shape and images.`;
 					string += `\n<br>templates:`;
 					string += `\n<ul>`;
 					for(i2 in AAX.Shape.templates) {
@@ -6334,12 +8074,46 @@
 						}
 					}
 					string += `\n</ul>`;
+				}
+				else if(i1 === 1) {
+					string += `\nenter new text to define the extra parameters. (check the bodytext section of the armature artist manual for a full list of commands you can write here, and what they do.)`;
+					string += `\n<ul>`;
+					string += `\n\t<li>`;
+					string += `\n\tdon't put "symmetry()" commands here. use the symmetry button instead.`;
+					string += `\n\t</li>`;
+					string += `\n</ul>`;
+				}
+				else if(i1 === 2) {
+					string += `\nlets you do more complex expansions, on tons of parts at once. it's named "fatscript" because it's mostly useful for distributing fat throughout a body.`;
+					string += `\n<details class=\"text\"><summary>syntax</summary>`;
+					string += arraytoul([
+						"the structure of one line of script is [part name (leave out symmetry prefixes)] + \": \" + [number or fraction] + \" \" + [direction letters]. for example, \"r_hip: 1/2 rdf\" will expand the right, bottom, and front side of r_hip by 1/2.",
+						"this applies to the part and all its descendants, unless a descendant has a line of its own.",
+						"if a number is written with * at the beginning, it will be multiplied by whatever expansion factor it already had. (so, \"*1/2\" means \"half of whatever the ancestor(s) already set it as\".)",
+						"the direction letters are l for left, r for right, u for up, d for down, b for back, f for front.",
+						"if there's multiple letters in the same direction, the effect will be multiplied. for example, \"1 lrddbf\" means it'll expand by 1 in every direction except up, and it'll expand by 2 down.",
+						"use // to write comments.",
+						"spaces at the beginning of lines are ignored, so you can use that to show what's a descendant of what, if you want."
+					]);
+					string += `</details>`;
 				};
-				string += `\n<br><textarea id="` + id + `_input" cols=48></textarea>`,
-				string += `\n<br><button id="` + id + `_enter">enter</button>`,
-				string += `\n<button id="` + id + `_close">close</button>`,
+				string += `\n<br><textarea id="` + id + `_input" cols=48></textarea>`;
+				if(i1 === 2) {
+					string += `\n<br><label>factor: <input type="number" id="` + id + `_factor" style="width: 3em" step=1 value=1></label>`;
+					string += `\n<br><label>floor: <input type="checkbox" id="` + id + `_floor" checked></label>`;
+				};
+				string += `\n<br><button id="` + id + `_enter">enter</button>`;
+				if(i1 === 2) {
+					string += `\n<button id="` + id + `_undo">undo</button>`;
+					string += `\n<button id="` + id + `_redo">redo</button>`;
+					// fat distribution requires some trial and error. (desktop
+					// users can use the keyboard to undo/redo, but mobile users
+					// can't.)
+				};
+				string += `\n<button id="` + id + `_close">close</button>`;
 				string += `\n</dialog>`;
 			}
+			//string += ``;
 			document.getElementById("bm_div").innerHTML = string;
 			bm.writecoordinates(null);
 			for(i1 = 0; i1 < 2; i1++) {
@@ -6360,7 +8134,7 @@
 					};
 					// like mouse events, except they work for phones and
 					// drawing tablets.
-					canvas.style["touch-action"] = "none";
+					canvas.style["touch-action"] = "pinch-zoom";
 					// this keeps it from sliding around when you're using a
 					// phone.
 					AAX.dragndrop(canvas, bm.readfile);
@@ -6386,53 +8160,87 @@
 					let text = "\n" + AAX.Shape.templates[i1];
 					document.getElementById("bm_image_text_template_" + i1).onclick = function() {
 						let input = document.getElementById("bm_image_text_input");
-						let temp = [
-							input.selectionStart,
-							input.selectionEnd
-						];
-						if(temp[1] < temp[0]) {
-							temp = [temp[1], temp[0]];
-						}
-						input.value = input.value.slice(0, temp[0]) + text + input.value.slice(temp[1]);
-						input.selectionStart = temp[0] + text.length;
-						input.selectionEnd = input.selectionStart;
+						let start = input.selectionStart;
+						let end = input.selectionEnd;
+						let trimend = input.value.trimEnd().length;
+						let _text = (trimend ? "\n|\n" : "") + text;
+						input.value = input.slice(0, trimend) + _text + input.slice(trimend);
+						input.selectionStart = start + (start >= trimend ? _text.length : 0);
+						input.selectionEnd = end + (end >= trimend ? _text.length : 0);
 					};
 				}
 			}
-			for(i1 = 0; i1 < 2; i1++) {
-				let _i1 = (i1 ? "extra" : "image") + "_text";
+			for(i1 = 0; i1 < 3; i1++) {
+				let _i1 = (i1 === 0 ? "image_text" : i1 === 1 ? "extra_text" : "fatscript");
 				let id = "bm_" + _i1;
-				document.getElementById(id + "_close").onclick = function(e) {
-					document.getElementById(id + "_input").value = "";
-					document.getElementById(id).close();
-				};
-				document.getElementById(id + "_enter").onclick = function(e) {
-					let old_text = bm.control.bodydata_part[_i1];
-					let new_text = document.getElementById(id + "_input").value.trim();
-					if(_i1 === "extra_text") {
-						let commands = AAX.body_read.extra_commands(new_text);
-						let temp = new_text.length;
-						new_text = bm.remove_symmetry(new_text, commands);
-						// slice out symmetry() commands
-						if(new_text.length < temp) {
-						// alert the user
-							alert("do not use symmetry() commands. use the symmetry button instead.");
+				document.getElementById(id + "_input").onkeydown = textarea_autosize;
+				if(i1 === 2) {
+					document.getElementById(id + "_close").onclick = function(e) {
+						document.getElementById(id).close();
+					};
+					document.getElementById(id + "_enter").onclick = function(e) {
+						let script = document.getElementById(id + "_input").value;
+						let factor = readnumber(document.getElementById(id + "_factor").value);
+						if(script.trim() && factor) {
+							let error = bm.fatscript(script, factor, document.getElementById(id + "_floor").checked);
+							if(error) {
+								alert(error);
+							}
+							else {
+								bm.refresh();
+								//document.getElementById(id).close();
+							};
 						};
-					}
-					bm.control.bodydata_part[_i1] = new_text;
-					let bodytext = bm.form_bodytext();
-					let body = AAX.Body.new(bodytext);
-					if(typeof body === "string") {
-						alert("invalid " + _i1 + ". (" + body + ")");
-						bm.control.bodydata_part[_i1] = old_text;
-					}
-					else {
-						bm.refresh(null, bodytext, body);
-					}
-					document.getElementById(id + "_input").value = "";
-					document.getElementById(id).close();
+					};
+					document.getElementById(id + "_undo").onclick = function(e) { bm.states.undo() };
+					document.getElementById(id + "_redo").onclick = function(e) { bm.states.redo() };
+				}
+				else {
+					document.getElementById(id + "_close").onclick = function(e) {
+						document.getElementById(id + "_input").value = "";
+						document.getElementById(id).close();
+					};
+					document.getElementById(id + "_enter").onclick = function(e) {
+						let old_text = bm.control.bodydata_part[_i1];
+						let new_text = document.getElementById(id + "_input").value.trim();
+						if(_i1 === "extra_text") {
+							let commands = AAX.body_read.extra_commands(new_text);
+							let temp = new_text.length;
+							new_text = bm.remove_symmetry(new_text, commands);
+							// slice out symmetry() commands
+							if(new_text.length < temp) {
+								// alert the user
+								alert("do not use symmetry() commands. use the symmetry button instead.");
+							};
+						}
+						bm.control.bodydata_part[_i1] = new_text;
+						let bodytext = bm.form_bodytext();
+						let body = AAX.Body.new(bodytext);
+						if(typeof body === "string") {
+							alert("invalid " + _i1 + ". (" + body + ")");
+							bm.control.bodydata_part[_i1] = old_text;
+						}
+						else {
+							bm.refresh(null, bodytext, body);
+						}
+						document.getElementById(id + "_input").value = "";
+						document.getElementById(id).close();
+					};
 				};
 			}
+			/*
+			document.getElementById("bm_fatscript_input").value = [
+				"torso: 1 lr",
+				" shoulder: 1 lrddbf",
+				"  elbow: *1/2 ldb",
+				"   hand: *1/2 ldb",
+				" neckbase: 0",
+				"hip: 1 ldf",
+				" knee: *1/2 ldf",
+				"  ankle: *1/2 luf",
+				"   toe: *1/2 lluubf"
+			].join("\n");
+			//*/
 			document.getElementById("bm_applychanges").onclick = function() { bm.bodytext_change(); };
 			bm.ui.create();
 			bm.ui_ctx.font = AAX.ui.font;
@@ -6732,14 +8540,11 @@
 				}
 				else {
 					name = (prompt("enter a name for the new part.") ?? "").trim();
-					if(name === "standpoint") {
-						alert("\"standpoint\" is a reserved word.");
+					let error = AAX.body_read.validname(name);
+					if(error) {
+						alert(error);
 						name = "";
-					}
-					else if(name in AAX.Body.prototype) {
-						alert("\"" + name + "\" is an invalid part name for technical reasons.");
-						name = "";
-					}
+					};
 				};
 				if(name) {
 					if(name in bm.body && !(name in bm.bodydata)) {
@@ -7260,7 +9065,8 @@
 							["column", "", "d", 4, 1],
 							["expand", "number", "r", 2],
 							["expand", "directions", "d", 4],
-							["expand", "branch", "d", 1]
+							["expand", "branch", "d", 1],
+							["expand", "fatscript", "d", 1]
 						],
 					},
 					/*
@@ -7276,8 +9082,8 @@
 					//*/
 					{
 						prefix: "template",
-						direction: "r",
-						adjust: -2,
+						direction: "d",
+						adjust: -1,
 						actions: [
 							["column", temp1, "d", 7, 1]
 						],
@@ -7877,73 +9683,49 @@
 					no_refresh = true;
 					let num = bm.control.expand_number;
 					const letters = "lrudbf";
-					for(i0 = 0; i0 < (num ? parts.length : 0); i0++) {
+					for(i0 = 0; num && i0 < parts.length; i0++) {
 						let _part = bm.bodydata[parts[i0]];
 						let points = structuredClone(bm.body[bm.body_name(parts[i0])].shape.points);
 						let bounds = AAX.Shape.bounds(points);
 						if(bounds) {
 						// expansion is both movement and scaling of the shape
 						// points.
-							let _bounds = structuredClone(bounds);
 							for(i1 = 0; i1 < letters.length; i1++) {
 								let _i1 = i1;
 								if((_i1 === 0 || _i1 === 1) && bm.control.symmetry === 2) {
+								// the use of bm.control.symmetry sounds wrong,
+								// but keep in mind all bodydata parts are
+								// unmirrored; it isn't being inverted because
+								// the part currently being edited is mirrored,
+								// it's inverted because the user has an
+								// inverted part selected; therefore, what would
+								// make that part expand right is actually left
+								// expansion on the shape the mirrored shape is
+								// derived from.
+								// - i hate this kind of xor-y logic. the values
+								//   are stupid simple, but there's so many
+								//   variations of the same thing that it's hard
+								//   to keep track of where and how they're
+								//   applied.
 									_i1 = Number(!_i1);
 								};
 								_i1 = letters[_i1];
 								if(bm.control.expand[_i1]) {
 									no_refresh = false;
-									_bounds[_i1] += (i1%2 ? 1 : -1)*num;
+									bounds[_i1] += (i1%2 ? 1 : -1)*num;
 								}
 							}
-							// get the old box with AAX.Shape.bounds, modify it to get the new box
+							// get the old box with AAX.Shape.bounds, modify it
+							// to get the new box
 							if(!no_refresh) {
-								let center = [];
-								let _center = [];
-								let multiply = [];
-								let mirror = [];
-								for(i1 = 0; i1 < 3; i1++) {
-									let neg = letters[2*i1];
-									let pos = letters[2*i1 + 1];
-									center[i1] = (bounds[neg] + bounds[pos])/2;
-									_center[i1] = (_bounds[neg] + _bounds[pos])/2;
-									// find the centers of both boxes
-									let temp = bounds[pos] - bounds[neg];
-									multiply[i1] = temp ? (_bounds[pos] - _bounds[neg])/temp : 1;
-									// get multipliers by dividing whatever by
-									// whatever
-									mirror[i1] = multiply[i1] < 0;
-								}
-								if(!mirror.includes(false)) {
-									mirror = [false, false, false];
-								}
-								let all_same = multiply[0] === multiply[1] && multiply[1] === multiply[2];
-								for(i1 = 0; i1 < points.length; i1++) {
-									for(i2 = 0; i2 < points[i1].length; i2++) {
-										let point = points[i1][i2];
-										if(point.length > 3 && !all_same) {
-											// if all the multipliers aren't the same,
-											// fill all missing dimensions.
-											point[4] ??= point[3];
-											point[5] ??= point[3];
-										};
-										for(i3 = 0; i3 < 3; i3++) {
-											point[i3] = (point[i3] - center[i3])*multiply[i3] + _center[i3];
-											if(3 + i3 < point.length) {
-												point[3 + i3] *= Math.abs(multiply[i3]);
-											}
-										}
-										// for each point, subtract old box's
-										// center, scale, add new box's center
-										if(point.length >= 7) {
-											point[6] = Quat.mirror.multi(point[6], ...mirror);
-										}
-									}
-								}
-							}
-							bm.replaceshape(_part, {points});
+								bm.replaceshape(_part, {points: AAX.Shape.expand(points, bounds)});
+							};
 						};
 					}
+				}
+				else if(prefix === "expand" && suffix === "fatscript") {
+					document.getElementById("bm_fatscript").showModal();
+					no_refresh = true;
 				}
 				else if(button === "delete") {
 					if(bm.disable_delete()) {
@@ -8239,6 +10021,100 @@
 				bm.bodytext_change(reader.result);
 			};
 			reader.readAsText(file);
+		},
+		fatscript: function(script, factor, floor) {
+			let i1 = 0;
+			let i2 = 0;
+			let i3 = 0;
+			script = script.split("\n");
+			for(i1 = 0; i1 < script.length; i1++) {
+				let line = script[i1].trim();
+				let temp = line.indexOf("//");
+				line = temp === -1 ? line : line.slice(0, temp);
+				if(line) {
+					script[i1] = line;
+				}
+				else {
+					script.splice(i1, 1);
+					i1--;
+				};
+			}
+			let data = {};
+			for(i1 in bm.bodydata) {
+				if(bm.bodydata.hasOwnProperty(i1)) {
+					data[i1] = {
+						factor: 0,
+						l: 1, r: 1,
+						u: 1, d: 1,
+						b: 1, f: 1,
+					};
+				}
+			};
+			const dir = "lrudbf";
+			for(i1 = 0; i1 < script.length; i1++) {
+				let line = script[i1];
+				let temp = line.indexOf(":");
+				if(temp === -1) {
+					return "unsure what this line means: " + script[i1];
+				};
+				let name = line.slice(0, temp);
+				if(!bm.bodydata.hasOwnProperty(name)) {
+					return "invalid part name: " + name;
+				};
+				line = line.slice(temp + 1).trim();
+				let multiply = line.startsWith("*");
+				line = multiply ? line.slice(1) : line;
+				line = trimunspecial(line).split(" ");
+				if(line.length >= 1) {
+					let _factor = readnumber(line[0]);
+					if(_factor === null) {
+						return "invalid number/fraction: " + line[0];
+					};
+					data[name].factor = (multiply ? data[name].factor : 1)*_factor;
+					if(line.length >= 2) {
+						let bool = false;
+						for(i2 = 0; i2 < dir.length; i2++) {
+							data[name][dir[i2]] = 0;
+						}
+						for(i2 = 0; i2 < line[1].length; i2++) {
+							let _i2 = line[1][i2];
+							if(dir.includes(_i2)) {
+								data[name][_i2]++;
+							};
+						}
+					}
+					let desc = AAX.getdesc(bm.bodydata, name);
+					for(i2 = 0; i2 < desc.length; i2++) {
+						let _i2 = desc[i2];
+						let __factor = data[_i2].factor;
+						data[_i2] = structuredClone(data[name]);
+						if(multiply) {
+							data[_i2].factor = __factor*_factor;
+						};
+					}
+				}
+			}
+			for(i1 in bm.bodydata) {
+				if(bm.bodydata.hasOwnProperty(i1) && data[i1].factor) {
+					let points = structuredClone(bm.body[bm.body_name(i1)].shape.points);
+					let bounds = AAX.Shape.bounds(points);
+					if(bounds) {
+						let bool = false;
+						for(i2 = 0; i2 < dir.length; i2++) {
+							let num = factor*data[i1].factor*data[i1][dir[i2]];
+							num = floor ? Math.floor(roundspecial(num)) : num;
+							bool = bool || num;
+							bounds[dir[i2]] += (i2%2 ? 1 : -1)*num;
+						}
+						// get the old box with AAX.Shape.bounds, modify it
+						// to get the new box
+						if(bool) {
+							bm.replaceshape(bm.bodydata[i1], {points: AAX.Shape.expand(points, bounds)});
+						};
+					};
+				}
+			};
+			return "";
 		},
 	};
 	//bm.initialize();
@@ -8543,94 +10419,105 @@
 					this.html[name] = list[i1];
 				}
 			}
-			this.ctx = this.html.canvas.getContext("2d");
-			let _this = this;
-			this.html.render.onclick = function() {
-				let paper = new Paper();
-				paper.w = _this.w;
-				paper.h = _this.h;
-				paper.viewer.vp_x = _this.vp_x;
-				paper.viewer.vp_y = _this.vp_y;
-				// - viewer
-				// - w, h
-				// - bg
-				// - fineness
-				// - light
-				//   - x, y, z
-				//   - light_value, dark_value
-				// - sheets
-				const head_front = [
-					[0, -11],
-					[8, -10],
-					[12, -2],
-					[12, 5],
-					[8, 12],
-					[3, 16],
-					[0, 17],
-					[-3, 16],
-					[-8, 12],
-					[-12, 5],
-					[-12, -2],
-					[-8, -10]
-				];
-				const head_right = [
-					[0, -11],
-					[8, -7],
-					[12, -1],
-					[5, 14],
-					[-8, 17],
-					[-12, 11],
-					[-12, -1],
-					[-8, -7]
-				];
-				for(let i1 = 0; i1 < 6; i1++) {
-				// create a cube. left, right, up, down, back, front.
-					let w = paper.w;
-					let h = (i1 === 2 || i1 === 3) ? paper.w : paper.h;
-					paper.sheets[i1] = new Paper.Sheet(w, h);
-					// - color
-					// - x, y, z
-					// - center
-					//   - x, y
-					// - quat
-					// - shapes
-					// - neighbors
-					let ref = paper.sheets[i1];
-					ref.color = "red orange yellow green blue purple".split(" ")[i1];
-					ref.x = ((i1 === 1 || i1 === 5) ? 1 : -1)*w/2;
-					ref.y = (i1 === 3 ? 1 : -1)*h/2;
-					ref.z = ((i1 === 0 || i1 === 2 || i1 === 5) ? 1 : -1)*w/2;
-					// the position should be the upper left corner of the
-					// rectangle, so...
-					// - l: l u f
-					// - r: r u b
-					// - u: l u f
-					// - d: l d b
-					// - b: l u b
-					// - f: r u f
-					ref.quat = (
+			if(false) {
+				this.gl = this.html.canvas.getContext("webgl2");
+				if(!this.gl) {
+					console.log("this shouldn't happen");
+				};
+				let gl = this.gl;
+				gl.clearColor(0, 0, 0, 1);
+				gl.clear(gl.COLOR_BUFFER_BIT);
+			}
+			else {
+				this.ctx = this.html.canvas.getContext("2d");
+				let _this = this;
+				this.html.render.onclick = function() {
+					let paper = new Paper();
+					paper.w = _this.w;
+					paper.h = _this.h;
+					paper.viewer.vp_x = _this.vp_x;
+					paper.viewer.vp_y = _this.vp_y;
+					// - viewer
+					// - w, h
+					// - bg
+					// - fineness
+					// - light
+					//   - x, y, z
+					//   - light_value, dark_value
+					// - sheets
+					const head_front = [
+						[0, -11],
+						[8, -10],
+						[12, -2],
+						[12, 5],
+						[8, 12],
+						[3, 16],
+						[0, 17],
+						[-3, 16],
+						[-8, 12],
+						[-12, 5],
+						[-12, -2],
+						[-8, -10]
+					];
+					const head_right = [
+						[0, -11],
+						[8, -7],
+						[12, -1],
+						[5, 14],
+						[-8, 17],
+						[-12, 11],
+						[-12, -1],
+						[-8, -7]
+					];
+					for(let i1 = 0; i1 < 6; i1++) {
+						// create a cube. left, right, up, down, back, front.
+						let w = paper.w;
+						let h = (i1 === 2 || i1 === 3) ? paper.w : paper.h;
+						paper.sheets[i1] = new Paper.Sheet(w, h);
+						// - color
+						// - x, y, z
+						// - center
+						//   - x, y
+						// - quat
+						// - shapes
+						// - neighbors
+						let ref = paper.sheets[i1];
+						ref.color = "red orange yellow green blue purple".split(" ")[i1];
+						ref.x = ((i1 === 1 || i1 === 5) ? 1 : -1)*w/2;
+						ref.y = (i1 === 3 ? 1 : -1)*h/2;
+						ref.z = ((i1 === 0 || i1 === 2 || i1 === 5) ? 1 : -1)*w/2;
+						// the position should be the upper left corner of the
+						// rectangle, so...
+						// - l: l u f
+						// - r: r u b
+						// - u: l u f
+						// - d: l d b
+						// - b: l u b
+						// - f: r u f
+						ref.quat = (
 						i1 === 2 ? Quat.new("yz", -Math.PI/2) :
 						i1 === 3 ? Quat.new("yz", Math.PI/2) :
 						i1 === 4 ? Quat.new() :
 						Quat.new("xz", (i1 === 0 ? 3 : i1 === 1 ? 1 : i1 === 5 ? 2 : 0)*Math.PI/2)
-					);
-					let shape = structuredClone(head_right);
-					for(let i2 = 0; i2 < shape.length; i2++) {
-						shape[i2][0] += w/2;
-						shape[i2][1] += h/2;
-						shape[i1][0] *= 2;
-						shape[i1][1] *= 2;
+						);
+						let shape = structuredClone(head_right);
+						for(let i2 = 0; i2 < shape.length; i2++) {
+							shape[i2][0] += w/2;
+							shape[i2][1] += h/2;
+							shape[i1][0] *= 2;
+							shape[i1][1] *= 2;
+						}
+						//ref.shapes.push(new Paper.Shape("subtract", [shape]));
 					}
-					//ref.shapes.push(new Paper.Shape("subtract", [shape]));
+					//paper.viewer.disable = true;
+					paper.render(_this.ctx);
+				};
+				this.html.render.onclick();
+				this.html.canvas.onclick = function(e) {
+					_this.vp_x = Math.round(e.clientX - e.target.getBoundingClientRect().left) - _this.w/2;
+					_this.vp_y = Math.round(e.clientY - e.target.getBoundingClientRect().top) - _this.h/2;
+					_this.html.render.onclick();
 				}
-				//paper.viewer.disable = true;
-				paper.render(_this.ctx);
-			};
-			this.html.render.onclick();
-			this.html.canvas.onclick = function(e) {
-				_this.vp_x = Math.round(e.clientX - e.target.getBoundingClientRect().left) - _this.w/2;
-				_this.vp_y = Math.round(e.clientY - e.target.getBoundingClientRect().top) - _this.h/2;
-				_this.html.render.onclick();
 			}
 		},
 		w: 128,

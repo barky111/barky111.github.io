@@ -4,6 +4,7 @@
 	<script src="script/site.js"></script>
 	<script src="script/barky_strings.js"></script>
 	<script src="script/barky_graphics.js"></script>
+	<script src="script/frac.js"></script>
 	<script>
 		document.write(head);
 		//document.write(header);
@@ -2040,7 +2041,7 @@
 				pointstemp[2] = points[faces[i1].indexes[0]];
 				// break the face up into triangles by connecting every side
 				// to the first point
-				currangle = Plane.frompoints(pointstemp).line().angle;
+				currangle = Plane.frompoints(...pointstemp).line().angle;
 				currangle = Angle.correct(currangle);
 				pointstemp[3] = [];
 				pointstemp[3][0] = (pointstemp[0][0] + pointstemp[1][0] + pointstemp[2][0])/3;
@@ -4017,7 +4018,7 @@
 			// - center must be specified, yes. technically it could maybe figure
 			//   this out on its own but that'd be slower for where i'm using this
 			//   function.
-				let angle = Plane.frompoints(tri).line().angle;
+				let angle = Plane.frompoints(...tri).line().angle;
 				let anglenum = Angle.numbers(angle);
 				let average = [
 					(tri[0][0] + tri[1][0] + tri[2][0])/3,
@@ -4238,7 +4239,7 @@
 						if(texture || shader) {
 						// run the pixel-by-pixel logic only if there's
 						// texturing or pixel-by-pixel lighting.
-							let planetemp = Plane.frompoints([tri[0], tri[1], tri[2]]);
+							let planetemp = Plane.frompoints(tri[0], tri[1], tri[2]);
 							// used in screeninverse
 							_2dPoly.execute(tri2d, true, function(x, y) {
 								let coor = screeninverse(viewer, x, y, false, planetemp);
@@ -4491,11 +4492,11 @@
 									_order[i2],
 									_order[i3]
 								];
-								let plane = Plane.frompoints([
+								let plane = Plane.frompoints(
 									points[ newtri[0] ],
 									points[ newtri[1] ],
 									points[ newtri[2] ]
-								]);
+								);
 								let sign = null;
 								for(i4 = 0; i4 < points.length; i4++) {
 									let _sign = Math.sign(roundspecial(plane.pointtotal(points[i4])));
@@ -6070,7 +6071,7 @@
 		}
 		else if(tri[0].length === 3 && tri[1].length === 3 && tri[2].length === 3 && (inverse || point.length === 3)) {
 			mode = "3d";
-			_point = Plane.frompoints(tri).movetoplane(point);
+			_point = Plane.frompoints(...tri).movetoplane(point);
 		}
 		else {
 			console.log("inconsistent coordinate array lengths. (or maybe it was nullish or something.)");
@@ -11904,11 +11905,11 @@
 				for(let i1 = 0; i1 < leg.length - 1; i1++) {
 					let prev = leg[i1];
 					let next = leg[i1 + 1];
-					let axis = Plane.frompoints([
+					let axis = Plane.frompoints(
 						[0, 0, 0],
 						prev,
 						next
-					]).line().angle;
+					).line().angle;
 					let magnitude = Angle.compare(
 						Angle.get(...prev),
 						Angle.get(...next)
@@ -15040,7 +15041,7 @@
 	document.getElementById("draw_canvas").addEventListener("pointermove", draw.mousemove);
 	document.getElementById("draw_canvas").addEventListener("pointerup", draw.mouseup);
 	document.getElementById("draw_canvas").addEventListener("pointerleave", draw.mouseup);
-	document.getElementById("draw_canvas").style["touch-action"] = "none";
+	document.getElementById("draw_canvas").style["touch-action"] = "pinch-zoom";
 	// drawing tablet compatibility, (probably) phone compatibility.
 	// - pointer events are a more broad event that can apply to tablets and
 	//   touch. apparently mouse events are incompatible. (they can still
@@ -15160,7 +15161,7 @@
 				ctx.canvas.addEventListener("pointermove", app.mousemove);
 				ctx.canvas.addEventListener("pointerup", app.mouseup);
 				ctx.canvas.addEventListener("pointerleave", app.mouseup);
-				ctx.canvas.style["touch-action"] = "none";
+				ctx.canvas.style["touch-action"] = "pinch-zoom";
 				// event listeners compatible with drawing tablets and phones.
 			};
 			this.resetstyle();
@@ -16593,7 +16594,7 @@
 				if(sa.ctx.hasOwnProperty(i1)) {
 					let canvas = document.getElementById("sa_" + i1);
 					canvas.style["image-rendering"] = "crisp-edges";
-					canvas.style["touch-action"] = "none";
+					canvas.style["touch-action"] = "pinch-zoom";
 					canvas.hidden = true;
 					sa.ctx[i1] = canvas.getContext("2d");
 				}
@@ -17351,7 +17352,7 @@
 			this.div.innerHTML = `<canvas width=` + this.w + ` height=` + this.h + `></canvas>`;
 			let canvas = div.querySelector("canvas");
 			canvas.style["image-rendering"] = "crisp-edges";
-			canvas.style["touch-action"] = "none";
+			canvas.style["touch-action"] = "pinch-zoom";
 			this.ctx = canvas.getContext("2d");
 			canvas.onpointerdown = this.mousedown;
 			canvas.onpointermove = this.mousemove;
@@ -17412,10 +17413,10 @@
 					let canvas = document.getElementById(i1 ? "bgm_draw_ui" : "bgm_draw");
 					canvas.style["image-rendering"] = "crisp-edges";
 					// no antialiasing
-					canvas.style["touch-action"] = "none";
+					canvas.style["touch-action"] = "pinch-zoom";
 					// this keeps it from sliding around when you're using a phone.
 					this[i1 ? "ctx_ui" : "ctx"] = canvas.getContext("2d");
-					this[i1 ? "ctx_ui" : "ctx"].font = "6px 'thick 4x4'";
+					this[i1 ? "ctx_ui" : "ctx"].font = "16px 'barkyfont'";
 					for(i2 = 0; i2 < array.length; i2++) {
 						let type = array[i2];
 						let name = (i1 ? "ui_" : "") + "mouse" + type;
@@ -17486,7 +17487,7 @@
 				ctx.canvas.width = dim[0] + 1;
 				ctx.canvas.height = dim[1] + 1;
 				ctx.clearRect(0, 0, ...dim);
-				ctx.font = "6px 'thick 4x4'";
+				ctx.font = "16px 'barkyfont'";
 				ctx.textBaseline = "middle";
 				for(i1 in this.ui) {
 					if(this.ui.hasOwnProperty(i1)) {
@@ -17902,7 +17903,7 @@
 			let canvas = document.getElementById("fpt_canvas");
 			fpt.ctx = canvas.getContext("2d");
 			canvas.style["image-rendering"] = "crisp-edges";
-			canvas.style["touch-action"] = "none";
+			canvas.style["touch-action"] = "pinch-zoom";
 			canvas.onpointerdown = fpt.mousedown;
 			canvas.onpointermove = fpt.mousemove;
 			canvas.onpointerup = fpt.mouseup;
@@ -18921,7 +18922,7 @@
 		initialize: function() {
 			let html = [
 				"used to generate character palettes.",
-				"<br><br>process:",
+				"<details><summary>process:</summary>",
 				arraytoul([
 					"picks a random number of main colors, 1-5",
 					"picks a color scheme rule (ex: complimentary, analogous, triadic, etc)",
@@ -18936,7 +18937,32 @@
 						"it's fine to have lots of contrast, but \"colorful\" palettes can look weirdly boring if it feels random. the color scheme rules help avoid that."
 					]
 				]),
-				"<button name=\"generate\">generate</button>",
+				"</details>",
+				/*
+				"<br><label>pattern: <select name=\"pattern\">",
+				"\t" + [
+					"<option value=\"random\" selected>random</option>",
+					"<hr>",
+					"<option value=\"1-0\">monochromatic</option>",
+					"<hr>",
+					"<option value=\"2-0\">analogous (2)</option>",
+					"<option value=\"2-1\">complimentary</option>",
+					"<option value=\"2-2\">side complimentary</option>",
+					"<hr>",
+					"<option value=\"3-0\">analogous (3)</option>",
+					"<option value=\"3-1\">triadic</option>",
+					"<option value=\"3-2\">split complimentary</option>",
+					"<hr>",
+					"<option value=\"4-0\">analogous (4)</option>",
+					"<option value=\"4-1\">square</option>",
+					"<option value=\"4-2\">rectangle</option>",
+					"<hr>",
+					"<option value=\"5-0\">analogous (5)</option>",
+					"<option value=\"5-1\">pentagonal</option>"
+				].join("\n\t"),
+				"</select></label>",
+				//*/
+				"<br><button name=\"generate\">generate</button>",
 				"<br><canvas></canvas>",
 				"<br><textarea name=\"palette text\" cols=23></textarea>",
 				"<br><button name=\"save\">save</button>"
@@ -18978,7 +19004,9 @@
 			let i3 = 0;
 			//
 			let main = [];
-			let length = Number(weightedselect([0, 2, 4, 4, 2, 1]));
+			//let length = Number(weightedselect([0, 2, 4, 4, 2, 1]));
+			//let length = Number(weightedselect([0, 2, 4, 3, 2, 1]));
+			let length = Number(weightedselect([0, 3, 4, 3, 1, 1]));
 			// pick how big the palette is, between 1 and 5 colors
 			//console.log(length);
 			let neutral = Color.named.neutral;
@@ -19132,6 +19160,9 @@
 	};
 	pg.initialize();
 	//
+	document.write(`<div name="hider" id="hider_geotoys">\n<div id="gt_div"></div>\n</div>`);
+	let gt = new ToyPlayer(document.getElementById("gt_div"));
+	//
 	let tips = {
 		"drawing app": [
 			"the smear and spray brushes can be used to make a different texture if you tap repeatedly instead of making full strokes.",
@@ -19167,7 +19198,7 @@
 		for(i1 = 0; i1 < divs.length; i1++) {
 			divs[i1].hidden = true;
 			let name = hider_id_to_name(divs[i1].id);
-			if(!["face tool", "fighting game tester", "interactive animation", "procanim", "background maker"].includes(name)) {
+			if(!["face tool", "fighting game tester", "interactive animation", "procanim", "background maker", "geotoys"].includes(name)) {
 				html += `<option value="` + divs[i1].id + `"` + (name === "pixel art" ? ` selected` : ``) + `>` + name + `</option>`;
 			};
 		}
