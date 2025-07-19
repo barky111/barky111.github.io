@@ -17416,7 +17416,7 @@
 					canvas.style["touch-action"] = "pinch-zoom";
 					// this keeps it from sliding around when you're using a phone.
 					this[i1 ? "ctx_ui" : "ctx"] = canvas.getContext("2d");
-					this[i1 ? "ctx_ui" : "ctx"].font = "16px 'barkyfont'";
+					this[i1 ? "ctx_ui" : "ctx"].font = "6px 'barkyfont'";
 					for(i2 = 0; i2 < array.length; i2++) {
 						let type = array[i2];
 						let name = (i1 ? "ui_" : "") + "mouse" + type;
@@ -17487,7 +17487,7 @@
 				ctx.canvas.width = dim[0] + 1;
 				ctx.canvas.height = dim[1] + 1;
 				ctx.clearRect(0, 0, ...dim);
-				ctx.font = "16px 'barkyfont'";
+				ctx.font = "6px 'barkyfont'";
 				ctx.textBaseline = "middle";
 				for(i1 in this.ui) {
 					if(this.ui.hasOwnProperty(i1)) {
