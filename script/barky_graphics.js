@@ -8798,7 +8798,8 @@ knee:
         depress: 1/8,
         // how many seconds to depress buttons for when they're clicked
         font: "6px 'barkyfont'",
-        margin: [2, 1 + 1],
+        baseline: "alphabetic",
+        margin: [2, 1 + 2],
         // adjustments to where text goes relative to the center-left of the
         // button
         lineheight: 8,
@@ -17583,7 +17584,7 @@ class PixelArt {
             ctx.textBaseline = "alphabetic";
             ctx.font = "6px 'barkyfont'";
             ctx.fillStyle = _this.forecolor;
-            ctx.fillText(_this.html.text_text.value.toLowerCase(), click[0], click[1] + 6);
+            ctx.fillText(_this.html.text_text.value, click[0], click[1] + 5);
         }
         else if(_this.tool === "ramp") {
             let start = _this.color_input(_this.html.ramp_start.value) || _this.forecolor;
