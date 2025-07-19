@@ -1809,6 +1809,10 @@
 				let ctx = aa.ctx.ui;
 				ctx.canvas.width = w;
 				ctx.canvas.height = h;
+				ctx.font = AAX.ui.font;
+				ctx.textBaseline = "middle";
+				// these get reset if the canvas dimensions change. fuck if i know
+				// why. ask mozilla.
 				let color = aa.color.buttons;
 				//ctx.fillStyle = color[1];
 				//ctx.fillRect(0, 0, w, h);
@@ -8243,10 +8247,6 @@ rotate:
 			//*/
 			document.getElementById("bm_applychanges").onclick = function() { bm.bodytext_change(); };
 			bm.ui.create();
-			bm.ui_ctx.font = AAX.ui.font;
-			bm.ui_ctx.textBaseline = "middle";
-			// these get reset if the canvas dimensions change. fuck if i know
-			// why. ask mozilla.
 			bm.refresh("states");
 		},
 		refresh: function(skip, bodytext, body) {
@@ -9213,6 +9213,8 @@ rotate:
 				let i3 = 0;
 				let ctx = bm.ui_ctx;
 				ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
+				ctx.font = AAX.ui.font;
+				ctx.textBaseline = "middle";
 				let part = bm.control.bodydata_part;
 				for(let button in bm.ui.buttons) {
 					if(bm.ui.buttons.hasOwnProperty(button)) {
@@ -10589,14 +10591,17 @@ rotate:
 	//   ui refresh, since the page/canvas loads faster than the font. this
 	//   triggers a ui refresh after the page fully loads.
 		if(userfocus === "aa") {
-			let skip = structuredClone(AAX.valid.refresh);
-			skip.splice(skip.indexOf("ui"), 1);
-			aa.refresh(skip);
+			aa.ui.draw();
+			aa.pa.ui.draw();
+			//let skip = structuredClone(AAX.valid.refresh);
+			//skip.splice(skip.indexOf("ui"), 1);
+			//aa.refresh(skip);
 		}
 		else if(userfocus === "bm") {
-			let skip = structuredClone(bm.valid.refresh);
-			skip.splice(skip.indexOf("ui"), 1);
-			bm.refresh(skip);
+			bm.ui.draw();
+			//let skip = structuredClone(bm.valid.refresh);
+			//skip.splice(skip.indexOf("ui"), 1);
+			//bm.refresh(skip);
 		};
 	}, false);
 	</script>
