@@ -1,4 +1,4 @@
-const offline = false;
+const offline = true;
 const offline_url = "file:///C:/My Stuff/programming";
 // edit these to create an online/offline version.
 const info = {

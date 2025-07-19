@@ -717,15 +717,18 @@ function addspheroids(points, fineness) {
         fineness = Math.round(Math.abs(fineness));
     };
     const circle = [];
-    for(i1 = 0; i1 < fineness; i1++) {
+    for(i1 = 0; i1 < 4*fineness; i1++) {
         circle.push([
-            Math.cos(2*Math.PI*i1/fineness),
-            Math.sin(2*Math.PI*i1/fineness)
+            Math.cos(2*Math.PI*i1/(4*fineness)),
+            Math.sin(2*Math.PI*i1/(4*fineness))
         ]);
     }
     const sphere = fineness === 0 ? null : perfectsphere(fineness);
     function make_spheroid(array) {
     // array should be [x, y, z, w, h, d, orient]
+        let i1 = 0;
+        let i2 = 0;
+        let i3 = 0;
         array[2] ??= 0;
         if(array.length < 4) {
             return structuredClone(array);
@@ -750,15 +753,15 @@ function addspheroids(points, fineness) {
             let checker = (x, y, z) => (within.hasOwnProperty(x) && within[x].hasOwnProperty(y) && within[x][y].includes(z));
             // checks if a point exists in within.
             let inverse = orient ? Quat.invert(orient) : null;
-            for(let i1 = 0; i1 <= Math.floor(w); i1++) {
-                for(let i2 = 0; i2 <= Math.floor(h); i2++) {
-                    for(let i3 = 0; i3 <= Math.floor(d); i3++) {
+            for(i1 = 0; i1 <= Math.floor(w); i1++) {
+                for(i2 = 0; i2 <= Math.floor(h); i2++) {
+                    for(i3 = 0; i3 <= Math.floor(d); i3++) {
                         let num = [i1, i2, i3];
                         if(orient) {
                             num = Quat.apply(inverse, [i1, i2, i3]);
                         };
                         if(roundspecial(Math.hypot(2*num[0]/w, 2*num[1]/h, 2*num[2]/d)) <= 1) {
-                            for(let i4 = 0; i4 < 2**3; i4++) {
+                            for(i4 = 0; i4 < 2**3; i4++) {
                                 let coor = [i1, i2, i3];
                                 if(Math.floor((i4%(2**3))/(2**2))) {
                                     coor[0] *= -1;
@@ -784,11 +787,11 @@ function addspheroids(points, fineness) {
             }
             // add every single valid position.
             let shape = [];
-            for(let i1 in within) {
+            for(i1 in within) {
                 if(within.hasOwnProperty(i1)) {
-                    for(let i2 in within[i1]) {
+                    for(i2 in within[i1]) {
                         if(within[i1].hasOwnProperty(i2)) {
-                            for(let i3 = 0; i3 < within[i1][i2].length; i3++) {
+                            for(i3 = 0; i3 < within[i1][i2].length; i3++) {
                                 let x = Number(i1);
                                 let y = Number(i2);
                                 let z = within[i1][i2][i3];
@@ -822,17 +825,64 @@ function addspheroids(points, fineness) {
         }
         else {
             let shape = [];
-            for(let i1 = 0; i1 < sphere.length; i1++) {
-                shape.push([
-                    sphere[i1][0]*w/2,
-                    sphere[i1][1]*h/2,
-                    sphere[i1][2]*d/2
-                ]);
+            if(w && h && d) {
+                for(i1 = 0; i1 < sphere.length; i1++) {
+                    shape.push([
+                        sphere[i1][0]*w/2,
+                        sphere[i1][1]*h/2,
+                        sphere[i1][2]*d/2
+                    ]);
+                }
+                // scale it
             }
-            // scale it
+            else if(!w && !h && !d) {
+                shape.push([0, 0, 0]);
+            }
+            else if(w && h) {
+                for(i1 = 0; i1 < circle.length; i1++) {
+                    shape.push([
+                        circle[i1][0]*w/2,
+                        circle[i1][1]*h/2,
+                        0
+                    ]);
+                }
+            }
+            else if(w && d) {
+                for(i1 = 0; i1 < circle.length; i1++) {
+                    shape.push([
+                        circle[i1][0]*w/2,
+                        0,
+                        circle[i1][1]*d/2
+                    ]);
+                }
+            }
+            else if(h && d) {
+                for(i1 = 0; i1 < circle.length; i1++) {
+                    shape.push([
+                        0,
+                        circle[i1][0]*h/2,
+                        circle[i1][1]*d/2
+                    ]);
+                }
+            }
+            else if(w) {
+                shape.push([-w/2, 0, 0]);
+                shape.push([w/2, 0, 0]);
+            }
+            else if(h) {
+                shape.push([-h/2, 0, 0]);
+                shape.push([h/2, 0, 0]);
+            }
+            else if(d) {
+                shape.push([-d/2, 0, 0]);
+                shape.push([d/2, 0, 0]);
+            }
+            else {
+                console.log("this shouldn't happen");
+            };
             shape = orient ? Quat.orient(orient, shape) : shape;
             // orient the points of the sphere, relative to its center
-            for(let i1 = 0; i1 < sphere.length; i1++) {
+            for(i1 = 0; i1 < sphere.length; i1++) {
                 shape[i1] = [
                     Math.trunc(offset[0] + shape[i1][0]),
                     Math.trunc(offset[1] + shape[i1][1]),
@@ -1390,8 +1440,8 @@ Gainsboro DCDCDC
         ctx.canvas.width = w;
         ctx.canvas.height = h;
         ctx.clearRect(0, 0, w, h);
-        ctx.font = "6px 'thick 4x4'";
-        ctx.textBaseline = "middle";
+        ctx.font = "16px 'barkyfont'";
+        ctx.textBaseline = "alphabetic";
         for(let i1 = 0; i1 < palette.length; i1++) {
             let color = palette[i1].toLowerCase();
             let format = Color.format(color);
@@ -1415,7 +1465,8 @@ Gainsboro DCDCDC
                 light = Points.floor(Points.divide(light, 8));
                 light = Points.subtract([255, 255, 255], light);
                 //*/
-                let coor = [x*cell_w + 2, (y + (reverse ? -1 : 1)/2)*cell_h + 1];
+                let coor = [x*cell_w + 2, (y + (reverse ? -1 : 1)/2)*cell_h + 2];
+                color = color.toUpperCase();
                 ctx.fillStyle = "black";
                 //ctx.fillStyle = "rgb(" + dark.join(", ") + ")";
                 ctx.fillText(color, coor[0] + 1, coor[1]);
@@ -1660,13 +1711,15 @@ const Raster = {
         };
         return __this;
     },
-    addrowcol: function(_this, w, l, r, u, d) {
+    addrowcol: function(_this, w, l, r, u, d, value) {
     // adds or removes blank rows/columns.
+    // - value: what value to fill the rows/columns with. 0 by default.
         let i1 = 0;
         l = typeof l === "number" ? Math.trunc(l) : 0;
         r = typeof r === "number" ? Math.trunc(r) : 0;
         u = typeof u === "number" ? Math.trunc(u) : 0;
         d = typeof d === "number" ? Math.trunc(d) : 0;
+        value = typeof value === "undefined" ? 0 : value;
         function arrayrepeat(value, number) {
             let i1 = 0;
             let array = [];
@@ -1684,13 +1737,13 @@ const Raster = {
         if(l || r) {
             for(i1 = 0; i1 < __this.length; i1 += l + w + r) {
                 if(l > 0) {
-                    __this = __this.slice(0, i1).concat( arrayrepeat(0, l) ).concat( __this.slice(i1) );
+                    __this = __this.slice(0, i1).concat( arrayrepeat(value, l) ).concat( __this.slice(i1) );
                 }
                 else if(l < 0) {
                     __this = __this.slice(0, i1).concat( __this.slice(i1 - l) );
                 };
                 if(r > 0) {
-                    __this = __this.slice(0, i1 + l + w).concat( arrayrepeat(0, r) ).concat( __this.slice(i1 + l + w) );
+                    __this = __this.slice(0, i1 + l + w).concat( arrayrepeat(value, r) ).concat( __this.slice(i1 + l + w) );
                 }
                 else if(r < 0) {
                     __this = __this.slice(0, i1 + l + w).concat( __this.slice(i1 + l + w - r) );
@@ -1699,13 +1752,13 @@ const Raster = {
             w += l + r;
         };
         if(u > 0) {
-            __this = arrayrepeat(0, u*w).concat(__this);
+            __this = arrayrepeat(value, u*w).concat(__this);
         }
         else if(u < 0) {
             __this = __this.slice(-u*w);
         };
         if(d > 0) {
-            __this = __this.concat(arrayrepeat(0, d*w));
+            __this = __this.concat(arrayrepeat(value, d*w));
         }
         else if(d < 0) {
             __this = __this.slice(0, d*w);
@@ -1772,7 +1825,6 @@ const Raster = {
         return array;
     },
     xmirror: (_this, w) => Raster.mirror(_this, w, "x"),
-    // by x i mean screen x. you know, z if it's the right view...
     ymirror: (_this, w) => Raster.mirror(_this, w, "y"),
     move: function(_this, w, x_move, y_move) {
         let i1 = 0;
@@ -1794,45 +1846,57 @@ const Raster = {
         }
         return __this;
     },
-    outline: function(_this, w, diagonals) {
+    outline: function(_this, w, diagonals, outer) {
     // returns a matching array of booleans for whether each pixel is an outline
     // or not. pixels count as outlines if they aren't falsy and have at least
     // one falsy cardinal neighbor. used in fill and the aa silhouette creation.
     // - diagonals: if true, pixels count as outline if they have *any* empty
     //   neighbors.
+    // - outer: if true, pixels count as outline if they're empty pixels
+    //   adjacent to filled pixels, rather than the other way around.
         let i1 = 0;
         let array = [];
         const h = Math.ceil(_this.length/w);
         for(i1 = 0; i1 < _this.length; i1++) {
             let _x = i1%w;
             let _y = Math.floor(i1/w);
+            let l = _x === 0 ? false : !!_this[i1 - 1];
+            let r = _x === (w - 1) ? false : !!_this[i1 + 1];
+            let u = _y === 0 ? false : !!_this[i1 - w];
+            let d = _y === (h - 1) ? false : !!_this[i1 + w];
+            let ul = (_x === 0 || _y === 0) ? false : !!_this[i1 - w - 1];
+            let ur = (_x === (w - 1) || _y === 0) ? false : !!_this[i1 - w + 1];
+            let dl = (_x === 0 || _y === (h - 1)) ? false : !!_this[i1 + w - 1];
+            let dr = (_x === (w - 1) || _y === (h - 1)) ? false : !!_this[i1 + w + 1];
+            let edge = _x === 0 || _x === (w - 1) || _y === 0 || _y === (h - 1);
             array[i1] = !!(
-                _this[i1]
-                &&
+                outer
+                ?
                 (
-                    [0, w - 1].includes(_x)
-                    ||
-                    [0, h - 1].includes(_y)
-                    // edge of the image
-                    ||
+                    !_this[i1]
+                    &&
                     (
-                        (
-                            !_this[i1 - 1] || !_this[i1 + 1]
-                            ||
-                            !_this[i1 - w] || !_this[i1 + w]
-                        )
-                        // empty cardinal neighbor
+                        l || r || u || d
                         ||
                         (
                             diagonals
                             &&
-                            (
-                                !_this[i1 - w - 1] || !_this[i1 - w + 1]
-                                ||
-                                !_this[i1 + w - 1] || !_this[i1 + w + 1]
-                            )
+                            (ul || ur || dl || dr)
                         )
-                        // empty diagonal neighbor, and diagonals is on
+                    )
+                )
+                :
+                (
+                    _this[i1]
+                    &&
+                    (
+                        !l || !r || !u || !d
+                        ||
+                        (
+                            diagonals
+                            &&
+                            (!ul || !ur || !dl || !dr)
+                        )
                     )
                 )
             );
@@ -1928,18 +1992,14 @@ const Raster = {
         //console.log("Raster.rotate() took " + (new Date().valueOf() - starttime)/1000 + " seconds.");
         return __this;
     },
-    totext: function(_this, w) {
+    totext: function(raster, w) {
         let text = "";
-        for(i1 = 0; i1 < _this.length; i1++) {
+        for(let i1 = 0; i1 < raster.length; i1++) {
             if(i1 !== 0 && i1%w === 0) {
-                text += String.fromCharCode(10);
+                text += "\n";
             };
-            if(_this[i1] === "fill") {
-                text += "%";
-            }
-            else {
-                text += "-%*"[Number(_this[i1])];
-            };
+            let num = Number(raster[i1]);
+            text += "-%*"[Number.isInteger(num) ? Math.max(0, Math.min(num, 2)) : 0];
         };
         return text;
     },
@@ -1979,9 +2039,9 @@ const Raster = {
             rect.y + Math.floor(index/rect.w)
         ];
     },
-    findcoor: (_this, rect, x, y) => (
+    findcoor: (raster, rect, x, y) => (
         (x < Rect.l(rect) || x >= Rect.r(rect) || y < Rect.u(rect) || y >= Rect.d(rect)) ? null :
-        _this[rect.w*(y - rect.y) + (x - rect.x)]
+        raster[rect.w*(y - rect.y) + (x - rect.x)]
     ),
     _2dPoly: function(_this, rect, multiple) {
     // converts a raster into a series of points forming a closed shape
@@ -2133,13 +2193,13 @@ const Raster = {
         }
         return shapes;
     },
-    rewrite: function(_this, code) {
+    rewrite: function(raster, code) {
     // used for simple changes like setting all 2 values to 1.
-        let __this = [];
-        for(let i1 = 0; i1 < _this.length; i1++) {
-            __this[i1] = code(_this[i1]);
+        let _raster = [];
+        for(let i1 = 0; i1 < raster.length; i1++) {
+            _raster[i1] = code(raster[i1]);
         }
-        return __this;
+        return _raster;
     },
     dimrect: function(w, h) {
     // converts a w and h number into a full rectangle.
@@ -2201,7 +2261,8 @@ const Raster = {
                     ref[i3] = roundspecial(ref[i3]);
                 }
             }
-            let shape = _2dPoly.convexed( addspheroids(_points[i1], fineness) );
+            //let shape = _2dPoly.convexed( addspheroids(_points[i1], fineness) );
+            let shape = PointSet2.convex(PointSet.convert(addspheroids(_points[i1], fineness), 2));
             if(false) {
             // keep around the spheroid points so that they can be marked. (that
             // looks ugly, but it can be useful for debugging.)
@@ -2220,12 +2281,17 @@ const Raster = {
                 let index = Rect.getindex(rect, ..._points[i1][i2].slice(0, 2));
                 if(index === -1) {
                 // out of bounds
-                    console.log("this shouldn't happen (out of bounds Raster.from3d vertex.)");
+                    if(_points[i1].length > 1) {
+                    // if there's only one point in the group, it's just out of
+                    // bounds because the rectangle dimensions are zero or
+                    // something.
+                        console.log("this shouldn't happen (out of bounds Raster.from3d vertex.)");
+                    };
                 }
                 else if(_points[i1][i2].length < 4) {
                 // skip if it's a spheroid.
                     raster[index] = 2;
-                }
+                };
                 //
                 /*
                 let coor = [
@@ -2327,6 +2393,19 @@ const Raster = {
                 };
             }
         }
+    },
+    doublerow: (raster, w, row) => raster.slice(0, w*(row + 1)).concat( raster.slice(w*row, w*(row + 1)) ).concat( raster.slice(w*(row + 1)) ),
+    // doubles a row, so there's an adjacent row that's identical.
+    doublecol: function(raster, w, col) {
+    // doubles a column.
+        const h = Math.ceil(raster.length/w);
+        let _raster = structuredClone(raster);
+        for(let i1 = 0; i1 < h; i1++) {
+            let index = (w + 1)*i1 + col;
+            // +1 because doubling the column increases the width.
+            _raster.splice(index, 0, structuredClone(_raster[index]));
+        };
+        return _raster;
     },
 };
 class Trace extends Array {
@@ -2664,7 +2743,8 @@ let Points = {
     // - useful in math i hate.
     // - one of its properties is that if the dot product is zero but the
     //   hypotenuses of the vectors aren't, the vectors are perpendicular.
-    zero: (point) => !Math.hypot(...point),
+    length: (point) => Math.hypot(...point),
+    zero: (point) => !Points.length(point),
     normalized: (point) => Points.zero(point) ? [0, 0, 0] : Points.divide(point, Math.hypot(...point)),
     parallel: function(point1, point2) {
         if(Points.zero(point1) || Points.zero(point2)) {
@@ -2784,7 +2864,503 @@ let Point2 = {
     // - inverse rotate so the angle aligns with 0
     // - multiply x
     // - rotate back
+    angle: (point1, point2) => get2dangle(...Points.subtract(point2, point1), true),
 }
+let PointSet = {
+// operation for groups of points. (can be 3d or 2d.)
+    prev: (points, index) => points[posmod(index - 1, points.length)],
+    next: (points, index) => points[posmod(index + 1, points.length)],
+    centroid: (points) => Points.centroid(points),
+    convert: function(points, dimension) {
+    // converts 2d point sets to 3d, or vice versa.
+        let _points = structuredClone(points);
+        for(let i1 = 0; i1 < _points.length; i1++) {
+            while(_points[i1].length < dimension) {
+                _points[i1].push(0);
+            };
+            if(_points[i1].length > dimension) {
+                _points[i1] = _points[i1].slice(0, dimension);
+            };
+        }
+        return _points;
+    },
+    sort: function(points) {
+    // sorts by the lowest x, and if points have equal x, the lowest y, and if
+    // they have equal x and y, the lowest z, etc.
+        if(!points.length) {
+            return [];
+        };
+        let dimension = points[0].length;
+        for(let i1 = 1; i1 < points.length; i1++) {
+            if(points[i1].length !== dimension) {
+                console.log("invalid input.");
+                return;
+            };
+        }
+        function sort(points, axis) {
+            axis ??= 0;
+            let _points = structuredClone(points);
+            _points.sort((a, b) => a[axis] - b[axis]);
+            for(let i1 = 0; axis + 1 < dimension && i1 < _points.length; i1++) {
+                let num = _points[i1][axis];
+                let end = i1;
+                while(end < _points.length && _points[end][axis] === num) {
+                    end++;
+                };
+                if(end - i1 > 1) {
+                    let slice = sort(_points.slice(i1, end), axis + 1);
+                    for(let i2 = 0; i2 < slice.length; i2++) {
+                        _points[i1 + i2] = structuredClone(slice[i2]);
+                    }
+                };
+                i1 = end - 1;
+            }
+            return _points;
+        };
+        return sort(points);
+    },
+    spline: function(points, num) {
+        num = Math.max(0, Math.min(num, 1));
+        if(points.length === 0) {
+            console.log("this shouldn't happen");
+            return [0, 0];
+        }
+        else if(points.length === 1) {
+            return structuredClone(points[0]);
+        };
+        let point1 = PointSet.spline(points.slice(0, -1), num);
+        let point2 = PointSet.spline(points.slice(1), num);
+        return Points.add(Points.multiply(point1, 1 - num), Points.multiply(point2, num));
+    },
+};
+let PointSet2 = {
+// operations for groups of 2d points. usually, treating them like a closed
+// shape.
+    prevangle: (points, index) => Point2.angle(PointSet.prev(points, index), points[index]),
+    // angle from the previous point to the given point
+    nextangle: (points, index) => Point2.angle(points[index], PointSet.next(points, index)),
+    // angle from the given point to the next point
+    turn: function(points, index) {
+        let prev = PointSet2.prevangle(points, index);
+        let next = PointSet2.nextangle(points, index);
+        let turn = posmod(next - prev, 2*Math.PI);
+        return turn > Math.PI ? (turn - 2*Math.PI) : turn;
+    },
+    simplifylist: function(points) {
+    // returns an array of indexes for what points to splice out. (points that
+    // are identical to a neighbor, or fall perfectly on the line between their
+    // neighbors. splicing these out won't affect the shape at all.)
+        let list = [];
+        for(let i1 = 0; i1 < points.length; i1++) {
+            if(
+                Points.zero(Points.subtract(PointSet.next(points, i1), points[i1]))
+                ||
+                PointSet2.prevangle(points, i1) === PointSet2.nextangle(points, i1)
+            ) {
+                list.push(i1);
+            }
+        }
+        return list;
+    },
+    simplify: function(points) {
+        let list = PointSet2.simplifylist(points);
+        let _points = structuredClone(points);
+        return _points.filter((element, index) => !list.includes(index));
+    },
+    clockwise: function(points) {
+        let _points = PointSet2.simplify(points);
+        if(_points.length < 3) {
+            return true;
+        };
+        let total = 0;
+        for(let i1 = 0; i1 < _points.length; i1++) {
+            let turn = PointSet2.turn(_points, i1);
+            total += turn > Math.PI ? (turn - 2*Math.PI) : turn === Math.PI ? 0 : turn;
+        }
+        return total >= 0;
+    },
+    convexorder: function(points) {
+    // returns an array of indexes to connect to make the .convex shape.
+        if(points.length < 3) {
+            let order = [];
+            while(order.length < points.length) {
+                order.push(order.length);
+            };
+            return order;
+        };
+        let centroid = PointSet.centroid(points);
+        let order = -1;
+        let dist = 0;
+        let angle = 0;
+        points.forEach(function(element, index) {
+            let diff = Points.subtract(element, centroid);
+            let _dist = Points.length(diff);
+            if(_dist > dist) {
+                order = index;
+                dist = _dist;
+                angle = get2dangle(...diff, true);
+            };
+        });
+        if(order === -1) {
+            console.log("this shouldn't happen");
+        };
+        order = [order];
+        // start with the point furthest from the center.
+        angle = posmod(angle + Math.PI/2, 2*Math.PI);
+        // from there, cast a ray out. start with the angle from the center to
+        // the given point, and turn 90 degrees clockwise.
+        let done = false;
+        while(!done) {
+        // after that, points are added by choosing whichever point the ray can
+        // hit with the lowest clockwise turn. add that point, and cast the ray
+        // out from there, with the new angle being the angle of the last
+        // segment.
+            let last = points[order[order.length - 1]];
+            //*
+            let oob = [];
+            points.forEach(function(element, index) {
+                let _angle = Points.subtract(element, last);
+                if(!Points.zero(_angle)) {
+                    _angle = posmod(get2dangle(..._angle, true) - angle, 2*Math.PI) - Math.PI;
+                    _angle /= 2*Math.PI;
+                    if(_angle > 0 && roundspecial(_angle)) {
+                        oob.push(index + " (" + _angle + ")");
+                    };
+                };
+            });
+            if(oob.length) {
+                console.log("this shouldn't happen");
+            }
+            //*/
+            //
+            let best_index = -1;
+            let best_turn = 0;
+            let best_dist = 0;
+            let best_angle = 0;
+            points.forEach(function(element, index) {
+                if((!order.includes(index) || (index === order[0] && order.length > 1))) {
+                    let diff = Points.subtract(element, last);
+                    let dist = Points.length(diff);
+                    let _angle = get2dangle(...diff, true);
+                    let turn = posmod(_angle - angle, 2*Math.PI);
+                    if(best_index === -1 || turn < best_turn || (!roundspecial(turn - best_turn) && dist > best_dist)) {
+                        best_index = index;
+                        best_turn = turn;
+                        best_dist = dist;
+                        best_angle = _angle;
+                    };
+                };
+            });
+            done = true;
+            if(best_index === -1) {
+                console.log("this shouldn't happen");
+            }
+            else if(order.length >= points.length) {
+                console.log("this shouldn't happen");
+                console.log(structuredClone(points));
+                console.log(order);
+            }
+            else if(best_index !== order[0]) {
+                order.push(best_index);
+                angle = best_angle;
+                done = false;
+            };
+            // - no valid candidates: that should be impossible.
+            // - order is bigger than how many points there are: also
+            //   impossible, and most definitely in some batshit hell-loop.
+            // - the best choice is the first point: that means the shape is
+            //   complete. nice.
+            // - otherwise: continue until one of these happens.
+        };
+        return order;
+    },
+    convex: function(points) {
+    // returns the smallest convex shape that would contain all the given
+    // points.
+    // - always returns a clockwise shape.
+        let _points = [];
+        let order = PointSet2.convexorder(points);
+        for(let i1 = 0; i1 < order.length; i1++) {
+            _points.push(structuredClone(points[order[i1]]));
+        }
+        return _points;
+    },
+    rect: function(points) {
+    // returns the smallest rectangle that contains all points.
+        if(!points.length) {
+            return null;
+        }
+        let l = points[0][0];
+        let r = points[0][0];
+        let u = points[0][1];
+        let d = points[0][1];
+        for(let i1 = 1; i1 < points.length; i1++) {
+            l = Math.min(l, points[i1][0]);
+            r = Math.max(r, points[i1][0]);
+            u = Math.min(u, points[i1][1]);
+            d = Math.max(d, points[i1][1]);
+        }
+        return Rect.fromedges(l, r, u, d);
+    },
+};
+let RasterRect = {
+// pseudoclass for {x, y, w, h, raster} objects.
+// - x, y, w, and h are always integers. w and h are always positive. (not even
+//   zero is allowed. where possible, null will be returned instead.)
+// - raster is an array of values for every pixel of said rectangle.
+    shape: function(points, include_edge) {
+    // enter a series of 2d points representing a closed shape. it can be
+    // concave.
+        let master = PointSet2.simplify(points);
+        if(master.length < 3) {
+            return null;
+        };
+        if(!PointSet2.clockwise(master)) {
+            master.reverse();
+        };
+        function pointsfromindexes(indexes) {
+            let _points = [];
+            for(let i1 = 0; i1 < indexes.length; i1++) {
+                _points.push(master[indexes[i1]]);
+            }
+            return _points;
+        };
+        function getshape(start, numofpoints, include_edge) {
+        // returns a RasterRect of a shape. it recurses, calling itself on
+        // cavities so it can subtract them.
+        // - start: index of master to start at
+        // - numofpoints: how many points there are. shapes are always
+        //   consecutive points within master.
+        // - if numofpoints is negative, it'll count backwards. this is
+        //   important. start and numofpoints' values must always be such that
+        //   when it creates a list of indexes from them, connecting those
+        //   points in order will draw the shape in a clockwise direction, not
+        //   counterclockwise.
+            let i1 = 0;
+            let i2 = 0;
+            let indexes = [];
+            let neg = numofpoints < 0;
+            numofpoints = Math.abs(numofpoints);
+            for(i1 = 0; i1 < numofpoints; i1++) {
+                indexes.push(start + (neg ? -1 : 1)*i1);
+            };
+            // indexes within master
+            let points = pointsfromindexes(indexes);
+            let shape = Rect.round_out(PointSet2.rect(points));
+            shape.w++;
+            shape.h++;
+            // add one so that the right column and bottom row aren't cut off.
+            let turns = [];
+            let concave = false;
+            for(i1 = 0; i1 < points.length; i1++) {
+                turns[i1] = PointSet2.turn(points, i1);
+                concave = concave || turns[i1] < 0;
+            }
+            let _indexes = indexes;
+            let _points = points;
+            let cavities = [];
+            if(concave) {
+                _indexes = PointSet2.convexorder(points);
+                _indexes.forEach(function(element, index, array) {
+                    array[index] = indexes[element];
+                });
+                // convert them from indexes of the indexes array to indexes of
+                // master
+                _points = pointsfromindexes(_indexes);
+                let omitted = structuredClone(indexes).filter((element) => !_indexes.includes(element));
+                let shift = 0;
+                while(posmod(omitted[posmod(shift - 1, omitted.length)] + 1, master.length) === omitted[posmod(shift, omitted.length)]) {
+                    shift--;
+                }
+                // if omitted[0] is part of a consecutive series but isn't the
+                // first, tick backward until you find the first of that series.
+                for(i1 = 0; i1 < omitted.length; i1++) {
+                    let _i1 = posmod(shift + i1, omitted.length);
+                    // apply shift
+                    let first = _i1;
+                    let length = i1;
+                    while(omitted[posmod(_i1 + 1, omitted.length)] === posmod(omitted[_i1] + 1, master.length)) {
+                        i1++;
+                        _i1 = posmod(shift + i1, omitted.length);
+                    }
+                    length = i1 - length;
+                    let last = _i1;
+                    // check if it's part of a consecutive series, and measure
+                    // the length if so.
+                    let start = posmod(omitted[first] - 1, master.length);
+                    let end = posmod(omitted[last] + 1, master.length);
+                    length += 2;
+                    // convert from indexes of the omitted array to indexes of
+                    // master. and remember, a cavity starts and ends at points
+                    // that weren't omitted, that are adjacent to points that
+                    // were.
+                    cavities.push(neg ? {start: start, numofpoints: length} : {start: end, numofpoints: -length});
+                    // if a shape is clockwise, the cavity will be
+                    // counterclockwise. so, make sure the order of the cavity's
+                    // indexes are the opposite direction as the order of the
+                    // shape's indexes.
+                }
+            };
+            let center = PointSet.centroid(_points);
+            shape.raster = [];
+            for(i1 = 0; i1 < shape.w*shape.h; i1++) {
+                shape.raster.push(true);
+            };
+            for(i1 = 0; i1 < _points.length - Number(Math.abs(numofpoints) !== master.length); i1++) {
+                let line = SL.new(..._points[i1], ...PointSet.next(_points, i1), center);
+                let check = SL.check(line, ...center, shape.x, shape.y, shape.w, shape.h);
+                for(i2 = 0; check && i2 < check.length; i2++) {
+                    shape.raster[i2] = shape.raster[i2] && (check[i2] === 1 || (check[i2] === 0 && include_edge));
+                };
+            }
+            // that weird Number() equation is for the open side of cavities.
+            // - whether it's the whole shape, a cavity, a cavity of a cavity,
+            //   etc, shapes are always a consecutive set of points within
+            //   master.
+            // - that means they always represent an edge within master.
+            // - EXCEPT the line between the first and last point of a cavity.
+            cavities.forEach(function(element) {
+                let cavity = getshape(element.start, element.numofpoints, !include_edge);
+                shape = RasterRect.subtract(shape, cavity);
+            });
+            return shape;
+        };
+        return getshape(0, master.length, include_edge);
+        // find cavities
+        // - check for weirdness
+    },
+    add: function(shape1, shape2, complex) {
+    // adds two RasterRects together.
+    // - complex: if true, it'll copy values instead of just using true for the
+    //   value, and empty space will be null.
+    //   - if both shape1 and shape2 have a truthy value for a coordinate, it'll
+    //     use shape2's value.
+    // - returns null if empty.
+        if(!shape1 && !shape2) {
+            return null;
+        }
+        else if(!shape1) {
+            return structuredClone(shape2);
+        }
+        else if(!shape2) {
+            return structuredClone(shape1);
+        };
+        let shape = Rect.contain(shape1, shape2);
+        shape.raster = [];
+        let empty = true;
+        for(let i1 = 0; i1 < shape.w*shape.h; i1++) {
+            let coor = Rect.getcoor(shape, i1);
+            if(coor) {
+                if(complex) {
+                    let index2 = Rect.getindex(shape2, ...coor);
+                    if(index2 !== -1 && shape2.raster[index2]) {
+                        shape.raster[i1] = structuredClone(shape2.raster[index2]);
+                        empty = false;
+                    }
+                    else {
+                        let index1 = Rect.getindex(shape1, ...coor);
+                        if(index1 !== -1 && shape1.raster[index1]) {
+                            shape.raster[i1] = structuredClone(shape1.raster[index1]);
+                            empty = false;
+                        }
+                        else {
+                            shape.raster[i1] = null;
+                        };
+                    };
+                }
+                else {
+                    shape.raster[i1] = (
+                        (shape1.raster[Rect.getindex(shape1, ...coor)] ?? null)
+                        ||
+                        (shape2.raster[Rect.getindex(shape2, ...coor)] ?? null)
+                    );
+                    empty = empty && !shape.raster[i1];
+                };
+            }
+            else {
+                shape.raster[i1] = complex ? null : false;
+                console.log("this shouldn't happen");
+            }
+        }
+        return empty ? null : shape;
+    },
+    subtract: function(shape1, shape2, complex) {
+    // subtracts shape2 from shape1.
+    // - complex: if true, values will be erased by replacing them with null,
+    //   rather than with false.
+    // - returns null if empty.
+    // - automatically crops rectangles to be the smallest they can be while
+    //   fitting all truthy values.
+        if(!shape1) {
+            return null;
+        };
+        let shape = structuredClone(shape1);
+        let empty = true;
+        let l = null;
+        let r = null;
+        let u = null;
+        let d = null;
+        for(let i1 = 0; i1 < shape.w*shape.h; i1++) {
+            let coor = Rect.getcoor(shape, i1);
+            if(coor) {
+                if(shape1.raster[i1]) {
+                    if(shape2 && (shape2.raster[Rect.getindex(shape, ...coor)] ?? null)) {
+                        shape.raster[i1] = complex ? null : false;
+                    }
+                    else if(empty) {
+                        empty = false;
+                        l = coor[0];
+                        r = coor[0] + 1;
+                        r = coor[1];
+                        d = coor[1] + 1;
+                    }
+                    else {
+                        l = Math.min(l, coor[0]);
+                        r = Math.max(r, coor[0] + 1);
+                        u = Math.min(u, coor[1]);
+                        d = Math.max(d, coor[1] + 1);
+                    }
+                }
+            }
+            else {
+                console.log("this shouldn't happen");
+            };
+        }
+        if(empty) {
+            return null;
+        };
+        let _shape = Rect.fromedges(l, r, u, d);
+        _shape.raster = [];
+        for(let i1 = 0; i1 < _shape.w*_shape.h; i1++) {
+            let index = Rect.convertindex(_shape, shape, i1);
+            if(index === -1) {
+                console.log("this shouldn't happen");
+                _shape.raster[i1] = complex ? null : false;
+            }
+            else {
+                _shape.raster[i1] = structuredClone(shape.raster[index]);
+            }
+        }
+        return _shape;
+    },
+    draw: function(shape, ctx) {
+        if(!shape) {
+            return;
+        };
+        for(let i1 = 0; i1 < shape.raster.length; i1++) {
+            if(shape.raster[i1]) {
+                let coor = Rect.getcoor(shape, i1);
+                if(coor) {
+                    ctx.fillRect(...coor, 1, 1);
+                }
+                else {
+                    console.log("this shouldn't happen");
+                };
+            }
+        }
+    },
+};
+//
 class Viewer {
 // a class for applying perspective.
 // - range: the number of pixels from a point 0 degrees from the vanishing
@@ -3459,18 +4035,18 @@ class Plane {
     // that point is on.
         return new Plane(this.x, this.y, this.z, -(this.x*point[0] + this.y*point[1] + this.z*point[2]));
     }
-    static frompoints(points/*[[x, y, z], [x, y, z], [x, y, z]]*/) {
+    static frompoints(point1, point2, point3) {
     // creates a plane from the three points specified.
         let dA = {
-            x: points[1][0] - points[0][0],
-            y: points[1][1] - points[0][1],
-            z: points[1][2] - points[0][2],
+            x: point2[0] - point1[0],
+            y: point2[1] - point1[1],
+            z: point2[2] - point1[2],
         };
         // distances from point 0 to point 1
         let dB = {
-            x: points[2][0] - points[0][0],
-            y: points[2][1] - points[0][1],
-            z: points[2][2] - points[0][2],
+            x: point3[0] - point1[0],
+            y: point3[1] - point1[1],
+            z: point3[2] - point1[2],
         };
         // distances from point 0 to point 2
         let temp = [
@@ -3503,7 +4079,7 @@ class Plane {
         // - ie this makes a line that's perpendicular to the 0-1 and 0-2
         //   lines, and using angle numbers as plane numbers creates a plane
         //   perpendicular to that line.
-        let offset = -(xmod*points[0][0] + ymod*points[0][1] + zmod*points[0][2]);
+        let offset = -(xmod*point1[0] + ymod*point1[1] + zmod*point1[2]);
         // the equation in standard form is
         // xmod*x + ymod*y + zmod*z + offset = 0
         return new Plane(xmod, ymod, zmod, offset);
@@ -4036,7 +4612,7 @@ let Quat = {
             x: w*_x + x*_w + y*_z - z*_y,
             y: w*_y + y*_w + z*_x - x*_z,
             z: w*_z + z*_w + x*_y - y*_x,
-            flip: invertboolean(_this.flip, quat.flip),
+            flip: xor(_this.flip, quat.flip),
         };
     },
     multiply: (_this, quat) => Quat.local_multiply(_this, Quat.local_multiply(quat, Quat.invert(_this))),
@@ -4115,19 +4691,21 @@ let Quat = {
     },
     magnitude: (_this) => 2*Math.acos(_this.w),
     axis: (_this) => Quat.axis_magnitude(_this).axis,
+    zero: (_this) => !Quat.magnitude(_this),
     axis_magnitude: function(_this) {
         let magnitude = Quat.magnitude(_this);
         let axis = Math.sin(magnitude);
-        if(axis && (_this.x || _this.y || _this.z)) {
-            axis = Angle.get(
+        axis = (
+            (axis && (_this.x || _this.y || _this.z))
+            ?
+            Angle.get(
                 _this.x/axis,
                 _this.y/axis,
                 _this.z/axis
-            );
-        }
-        else {
-            axis = null;
-        };
+            )
+            :
+            null
+        );
         return {axis, magnitude};
     },
     multiply_num: function(_this, num) {
@@ -4166,23 +4744,30 @@ let Quat = {
     //   arbitrarily at .5. ...that isn't exactly ideal, but flip isn't a very
     //   animatable property to begin with. just bear in mind that flip to !flip
     //   transitions will look kind of stupid.
-        let dot = Quat.dot(quat1, quat2);
-        let quat = structuredClone(dot < 0 ? Quat.invert(quat2) : quat2);
+        let _quat1 = Quat.normalized(quat1);
+        let _quat2 = Quat.normalized(quat2);
+        let dot = Quat.dot(_quat1, _quat2);
+        let num1 = 1 - num;
+        let num2 = num;
+        if(dot < 0) {
+            _quat2.w *= -1;
+            _quat2.x *= -1;
+            _quat2.y *= -1;
+            _quat2.z *= -1;
+        };
         dot = Math.abs(dot);
-        let scale1 = 1 - num;
-        let scale2 = num;
-        if(1 - dot > 0) {
+        if(1 - dot > epsilon()) {
             let temp1 = Math.acos(dot);
             let temp2 = Math.sin(temp1);
-            scale1 = Math.sin(scale1*temp1)/temp2;
-            scale2 = Math.sin(scale2*temp1)/temp2;
+            num1 = Math.sin(num1*temp1)/temp2;
+            num2 = Math.sin(num2*temp1)/temp2;
         };
         return {
-            w: scale1*quat1.w + scale2*quat.w,
-            x: scale1*quat1.x + scale2*quat.x,
-            y: scale1*quat1.y + scale2*quat.y,
-            z: scale1*quat1.z + scale2*quat.z,
-            flip: (num < .5 ? quat1 : quat2).flip,
+            w: num1*_quat1.w + num2*_quat2.w,
+            x: num1*_quat1.x + num2*_quat2.x,
+            y: num1*_quat1.y + num2*_quat2.y,
+            z: num1*_quat1.z + num2*_quat2.z,
+            flip: (num < .5 ? _quat1 : _quat2).flip,
         };
     },
     rand: () => Quat.new(Angle.rand(), 2*Math.PI*Math.random()),
@@ -4594,7 +5179,7 @@ const AAX = {
         // - concave: if true, the convexing will happen before the part's main
         //   image and the bone are added.
         shape: "",
-        orient: "pose_getset",
+        orient: "no_default",
         mirror: "body_exclusive",
         stretch: "pose_getset",
         widen: "pose_getset",
@@ -4674,7 +5259,39 @@ const AAX = {
     body_read: {
     // an object of functions used in Body.new and body maker.
         comment_char: "//",
-        uncomment: (text) => uncomment(text, AAX.body_read.comment_char, "\n", true),
+        uncomment: (text) => uncomment(text, AAX.body_read.comment_char, "\n", true, true),
+        validname: (name) => (
+            name.trim() !== name ? "whitespace at the beginning or end of a part name isn't allowed." :
+            // .trim is used a lot in text interpretation processes.
+            name.includes("\n") ? "part names cannot have line breaks." :
+            // multi-line part names are not accounted for, on account of it
+            // being dumb as hell
+            name.includes(",") ? "part names cannot have commas." :
+            // posescript uses commas to split up actions, and actions can have
+            // part names in them.
+            // - it uses commas for combining part selections, too.
+            (name.includes("[") || name.includes("]")) ? "part names cannot have brackets." :
+            // posescript uses brackets for coordinates. putting brackets in
+            // part names could mess with the word split process, since a set of
+            // brackets counts as a single word.
+            (name.includes("(") || name.includes(")")) ? "part names cannot have parentheses." :
+            // posescript uses parentheses for some things, like the omit
+            // addendum of rotate.
+            name.includes("//") ? "part names cannot have \"//\"." :
+            // used for comments in body interpretation and posescript.
+            name.includes(":") ? "part names cannot have colons." :
+            // used in bodytext extra text and posescript part-targeting.
+            !name ? "part names cannot be blank." :
+            name === "standpoint" ? "\"standpoint\" is a reserved word." :
+            // used in parenting to indicate having no parent at all.
+            (name in AAX.Body.prototype) ? "\"" + name + "\" is an invalid part name for technical reasons." :
+            // matches an object/Body method/property. (ex: making a part called
+            // "hasOwnProperty" will cover up the hasOwnProperty method and make
+            // it unusable)
+            ""
+        ),
+        // if the inputted name isn't allowed, it'll return a string explaining
+        // why. otherwise, it'll return an empty string.
         family: function(text) {
         // reads a family-defining text field and converts it to an object of
         // {parent, x, y, z} objects.
@@ -4697,15 +5314,10 @@ const AAX = {
                     let num = line.length - line.trimStart().length;
                     lowest = Math.min(lowest, num);
                     let name = line.slice(num, index);
-                    if(name === "standpoint") {
-    					return "invalid input. \"standpoint\" is a reserved word.";
-    				}
-    				else if(name in AAX.Body.prototype) {
-    				// matches an object/Body method/property. (ex: making a part
-                    // called "hasOwnProperty" will cover up the hasOwnProperty
-                    // method and make it unusable)
-    					return "invalid input. \"" + name + "\" is an invalid part name for technical reasons.";
-    				}
+                    let error = AAX.body_read.validname(name);
+                    if(error) {
+                        return "invalid input. " + error;
+                    };
                     array.push({
                         name,
                         num,
@@ -4778,31 +5390,84 @@ const AAX = {
             return obj;
         },
         extra_split: function(text) {
+            let i1 = 0;
+            let i2 = 0;
+            //
+            let comments = comment_finder(text, AAX.body_read.comment_char, "\n", true, true);
+            let _text = "";
+            for(let i1 = 0; i1 <= comments.length; i1 += 2) {
+                _text += string_block(text, comments, i1);
+            };
+            // uncomment it, but save where the comments were
+            let ranges = block_ranges(_text, false, "(", ")");
+            let colons = [];
+            for(i1 = 0; i1 <= ranges.length; i1 += 2) {
+                let start = block_start(_text, ranges, i1);
+                let block = string_block(_text, ranges, i1);
+                let place = block.indexOf(":");
+                while(place !== -1) {
+                    colons.push(start + place);
+                    place = block.indexOf(":", place + 1);
+                }
+            };
+            // find all colons that are outside parentheses
+            /*
+            let log = _text;
+            for(i1 = 0; i1 < colons.length; i1++) {
+                let index = colons[i1] + 2*i1;
+                log = log.slice(0, index) + "[" + log[index] + "]" + log.slice(index + 1);
+            }
+            console.log(log);
+            // log
+            //*/
+            for(i1 = 1; i1 <= comments.length; i1 += 2) {
+                let start = block_start(text, comments, i1);
+                let end = block_end(text, comments, i1);
+                for(i2 = 0; i2 < colons.length; i2++) {
+                    if(colons[i2] >= start) {
+                        colons[i2] += end - start;
+                    }
+                }
+            }
+            // adjust colon indexes to account for the comments that were
+            // removed
+            /*
+            log = text;
+            for(i1 = 0; i1 < colons.length; i1++) {
+                let index = colons[i1] + 2*i1;
+                log = log.slice(0, index) + "[" + log[index] + "]" + log.slice(index + 1);
+            }
+            console.log(log);
+            // log
+            //*/
             text = text.split("\n");
+            let place = 0;
+            let colons_index = 0;
             let name = "";
             let obj = {};
-            for(let i1 = 0; i1 < text.length; i1++) {
-                let line = AAX.body_read.uncomment(text[i1]).trim();
-                let _line = text[i1];
-                let namechange = line.includes(":");
+            for(i1 = 0; i1 < text.length; i1++) {
+                let line = text[i1];
+                let colon = colons_index < colons.length ? colons[colons_index] : -1;
+                const namechange = colon !== -1 && colon < place + line.length;
+                if(colon !== -1 && colon < place) {
+                    console.log("this shouldn't happen");
+                };
                 if(namechange) {
-                // name change
-                    let index = line.indexOf(":");
-                    name = line.slice(0, index).trim();
-                    line = line.slice(index + 1).trim();
-                    _line = _line.slice(_line.indexOf(":") + 1);
-                    // _line exists because i need an unaltered copy of the
-                    // line, but i also need to slice out the name/colon if
-                    // it's gonna be added to extra_text. how annoying.
-                };
-                if(name && (!namechange || line)) {
-                // it's fine to keep in empty lines, so it stays mostly the
-                // same as the input. but if it's the line with the colon,
-                // no.
+                    name = line.slice(0, colon - place).trim();
                     obj[name] ??= "";
-                    obj[name] += (obj[name] ? "\n" : "") + _line.trim();
+                    line = line.slice(colon - place + 1);
                 };
+                if(!namechange || line) {
+                // don't add the post-colon text as a new line if it's empty.
+                    obj[name] += (obj[name] ? "\n" : "") + line.trim();
+                };
+                //
+                place += text[i1].length + 1;
+                while(colons_index < colons.length && colons[colons_index] < place) {
+                    colons_index++;
+                }
             }
+            // split
             return obj;
         },
         collect: function(text) {
@@ -5077,6 +5742,7 @@ const AAX = {
                         bone: 0,
                         concave: false,
                     };
+                    part.orient = Quat.new();
                     let commands = [];
                     if(part.extra_text) {
                         commands = AAX.body_read.extra_commands(part.extra_text);
@@ -5198,6 +5864,9 @@ const AAX = {
                                 prefix1: content[0],
                                 prefix2: content[1],
                             };
+                        }
+                        else if(ref.name === "tilt") {
+                            part.orient = AAX.strings.tilt(content);
                         };
                     }
                 }
@@ -5214,11 +5883,12 @@ const AAX = {
 					let order = [
 						"parent",
 						"x", "y", "z",
+						"orient",
 						"shape",
 						"image",
 						"perspective",
 						"hide",
-                        "silhouette"
+						"silhouette"
 					];
 					for(i2 = 0; i2 < order.length; i2++) {
 						part[ order[i2] ] = structuredClone( obj[i1][ order[i2] ] );
@@ -5448,7 +6118,7 @@ const AAX = {
                     body[name2].mirror = true;
                     // makes sure the part's orient starts as a Quat.mirror.x().
                     AAX.mirror(body, name2, "x");
-                    // coordinates, image, perspective
+                    // coordinates, image, perspective, orient
                 }
             }
             //
@@ -5500,7 +6170,7 @@ const AAX = {
    index_3:		0, -8, 0
     index_4:	0, -5, 0
  middle_1:		-1, -25, -3
-  middle_2:		0, -14, 0
+  middle_2:		0, -13, 0
    middle_3:	0, -8, 0
     middle_4:	0, -5, 0
  ring_1:		6, -23, -1
@@ -5566,10 +6236,13 @@ wrist:
 thumb_1:
     color1(4, 3)
     generation()
+    tilt(local, xy: 1/36, xz: -1/12)
 thumb_2:
     group(0b)
     generation(2)
-//thumb_3:
+    tilt(xz: -1/8)
+thumb_3:
+    tilt(xz: -1/8)
 //thumb_4:
 index_1:
     group(1a)
@@ -5691,9 +6364,7 @@ hand:
 hip:
 	symmetry()
 	group(2)
-    generation()
-knee:
-	generation(2)`,
+    generation()`,
 			standard:
 `pelvis: 0, -38, 0
  midsection: 0, -3, 3
@@ -5701,10 +6372,10 @@ knee:
   neckbase: 0, -9, -0.5
    headbase: 0, -6, 0
     head: 0, -12, 0
-  manubrium: 0, -5, 4.5
-   shoulder: -9, 5, -5
-    elbow: -2.5, 11.5, -1.5
-     hand: -2.5, 11.5, -1.5
+  manubrium: -1, -4, 4.5
+   shoulder: -8, 4, -6
+    elbow: -2.5, 11.5, -0.5
+     hand: -1.5, 11.5, 2.5
  hip: -5, 3, 2
   knee: -0.5, 16.5, -1.5
    ankle: -0.5, 15.5, -0.5
@@ -5845,7 +6516,8 @@ x // jaw fulcrum
 [ ankle ]
 0, 0, 0, 6
 [ toe ]
-0, 0, 0, 5, 2, 2
+0, 0, 0, 5, 1, 1
+2, 0, 2, 2
 ###
 midsection:
 	color1*(3)
@@ -5864,39 +6536,43 @@ head:
 	generation()
 	concave()
 manubrium:
+	symmetry()
 	generation()
 shoulder:
-	symmetry()
 	color1(3, 4)
 	group(1)
 	generation()
+elbow:
+	tilt(xz: 1/12)
 hand:
 	core(4)
 	concave()
+	tilt(yz: 1/24, xy: 1/36)
+    // align with the forearm angle, so it better represents
+    // pronation/supination
 hip:
 	symmetry()
 	color1(1, 2)
 knee:
-	group(2)
-	generation(2)`,
+	group(2)`,
 		}
-    },
-    Part: class {
-    // specifically, a part in aa.frames. body parts are not saved as this,
-    // and neither are states or aa.anims frames.
-    // - mostly the same as body, except there's two versions of every
-    //   property: one with an underscore at the beginning, and one without.
-    // - the _ versions represent the true value of the property. the non-_
-    //   are getters for what's actually used.
-    // - this is because most properties can be set as "default", meaning it
-    //   uses whatever value is in the body. for most poses, the only thing
-    //   that changes is the coordinates.
-    // - plus for some properties, like color and the perspective images,
-    //   there's already values that mean "go ask your mom". this gets
-    //   around those too.
-    // - properties that can't be edited per frame, like parent, don't have
-    //   _ versions.
-        constructor(tool, body, pose, name) {
+	},
+	Part: class {
+	// specifically, a part in aa.frames. body parts are not saved as this,
+	// and neither are states or aa.anims frames.
+	// - mostly the same as body, except there's two versions of every
+	//   property: one with an underscore at the beginning, and one without.
+	// - the _ versions represent the true value of the property. the non-_
+	//   are getters for what's actually used.
+	// - this is because most properties can be set as "default", meaning it
+	//   uses whatever value is in the body. for most poses, the only thing
+	//   that changes is the coordinates.
+	// - plus for some properties, like color and the perspective images,
+	//   there's already values that mean "go ask your mom". this gets
+	//   around those too.
+	// - properties that can't be edited per frame, like parent, don't have
+	//   _ versions.
+		constructor(tool, body, pose, name) {
             let i1 = 0;
             let loop = new Loop("AAX.Part constructor");
             if(
@@ -5921,7 +6597,6 @@ knee:
             this.name = name;
             this.cache = structuredClone(AAX.cache_init);
             // initialize pose_exclusive properties
-            this._orient = body[name].mirror ? Quat.mirror.x() : Quat.new();
             this._stretch = 1;
             this._widen = 1;
             // create the underscored values of pose_getset properties
@@ -6322,7 +6997,77 @@ knee:
                 this.widen = this.widen + num*(widen - this.widen);
             };
             if(Quat.valid(orient)) {
-                this.orient = Quat.normalized( Quat.slerp(this.orient, orient, num) );
+                let quat1 = Quat.normalized(this.orient);
+                let quat2 = Quat.normalized(orient);
+                this.orient = Quat.normalized( Quat.slerp(quat1, quat2, num) );
+                /*
+                let log = this.name === "head";
+                if(log) {
+                    console.log("-");
+                    console.log(quat1);
+                    console.log(quat2);
+                    console.log(Quat.axis_magnitude(quat1));
+                    console.log(Quat.axis_magnitude(quat2));
+                };
+                //
+                let temp = [
+                    Quat.zero(quat1) ? null : Quat.axis_magnitude(quat1),
+                    Quat.zero(quat2) ? null : Quat.axis_magnitude(quat2)
+                ];
+                if(temp[0] && temp[1]) {
+                    let axis = Angle.between(temp[0].axis, temp[1].axis, num);
+                    let magn = [
+                        posmod(temp[0].magnitude, 2*Math.PI),
+                        posmod(temp[1].magnitude, 2*Math.PI)
+                    ];
+                    let change = posmod(magn[1] - magn[0], 2*Math.PI);
+                    change -= change > Math.PI ? 2*Math.PI : 0;
+                    magn = posmod(magn[0] + num*change, 2*Math.PI);
+                    this.orient = Quat.new(axis, magn);
+                    if(log) {
+                        console.log(Quat.axis_magnitude(this.orient));
+                        console.log(magn);
+                        console.log("nyeh,");
+                    };
+                }
+                else if(temp[0] || temp[1]) {
+                    let _num = temp[0] ? 1 - num : num;
+                    temp = temp[0] || temp[1];
+                    let axis = temp.axis;
+                    let magn = posmod(temp.magnitude, 2*Math.PI);
+                    magn -= magn > Math.PI ? 2*Math.PI : 0;
+                    magn = posmod(_num*magn, 2*Math.PI);
+                    this.orient = Quat.new(axis, magn);
+                    if(log) {
+                        console.log(Quat.axis_magnitude(this.orient));
+                        console.log(magn);
+                    };
+                };
+                //*/
+                /*
+                let angle = Math.acos(Quat.dot(quat1, quat2));
+                //(q1*sin((1-t)*angle) + q2*sin(t*angle))/denom
+                //(quat1*Math.sin((1 - num)*angle) + quat2*Math.sin(num*angle))/Math.sin(angle)
+                this.orient = Quat.new();
+                for(let i1 = 0; i1 < 4; i1++) {
+                    let num1 = quat1["wxyz"[i1]];
+                    let num2 = quat2["wxyz"[i1]];
+                    this.orient["wxyz"[i1]] = (num1*Math.sin((1 - num)*angle) + num2*Math.sin(num*angle))/Math.sin(angle);
+                }
+                //*/
+                /*
+                let invert = (quat) => Quat.multiply_num(quat, -1);
+                let multiply = (quat1, quat2) => false ? Quat.multiply(quat1, quat2) : Quat.local_multiply(quat1, quat2);
+                let method = 0;
+                this.orient = (
+                    method === 0 ? multiply(quat1, Quat.multiply_num(multiply(invert(quat1), quat2), num)) :
+                    method === 1 ? multiply(quat2, Quat.multiply_num(multiply(invert(quat2), quat1), 1 - num)) :
+                    method === 2 ? multiply(Quat.multiply_num(multiply(quat1, invert(quat2)), 1 - num), quat2) :
+                    method === 3 ? multiply(Quat.multiply_num(multiply(quat2, invert(quat1)), num), quat1) :
+                    this.orient
+                );
+                //*/
+                //this.orient = Quat.normalized(this.orient);
             };
         }
         getwithoutredirects(property, placeandname, bodyref) {
@@ -6546,7 +7291,10 @@ knee:
                 // autocrop
                     let view = property.slice(property.lastIndexOf("_") + 1);
                     view = property.startsWith("perspective_") ? Number(view) : view;
-                    value = AAX.sq_raster.autocrop(value, AAX.l_dim(value.length, this.image_oddness(view))[0]);
+                    //value = AAX.sq_raster.autocrop(value, AAX.l_dim(value.length, this.image_oddness(view))[0]);
+                    console.log("= " + this.name + " =");
+                    value = AAX.sq_raster.autocrop(value, this.image_oddness(view));
+                    console.log(value);
                 }
                 let temp = this.getwithoutredirects(property, true);
                 temp[0][ temp[1] ] = value;
@@ -7143,7 +7891,7 @@ knee:
     //     you need to preserve.
         let i1 = 0;
         let i2 = 0;
-        let _poseobj = structuredClone(poseobj)
+        let _poseobj = structuredClone(poseobj);
         let order = AAX.getdesc(body);
         for(i1 = 0; i1 < order.length; i1++) {
             let _i1 = order[i1];
@@ -8049,8 +8797,8 @@ knee:
         // unit of measurement for buttons.
         depress: 1/8,
         // how many seconds to depress buttons for when they're clicked
-        font: "6px 'thick 4x4'",
-        margin: [2, 1],
+        font: "16px 'barkyfont'",
+        margin: [2, 1 - 5],
         // adjustments to where text goes relative to the center-left of the
         // button
         lineheight: 8,
@@ -8068,6 +8816,8 @@ knee:
             let styletemp = ctx.fillStyle;
             ctx.fillStyle = ctx.strokeStyle;
             let aligntemp = ctx.textAlign;
+            let baselinetemp = ctx.textBaseline;
+            //ctx.textBaseline = "middle";
             for(i1 = 0; i1 < 3; i1++) {
                 let text = i1 === 0 ? left : i1 === 1 ? center : i1 === 2 ? right : null;
                 ctx.textAlign = i1 === 0 ? "left" : i1 === 1 ? "center" : i1 === 2 ? "right" : "left";
@@ -8098,6 +8848,7 @@ knee:
             }
             ctx.fillStyle = styletemp;
             ctx.textAlign = aligntemp;
+            ctx.textBaseline = baselinetemp;
         },
         basis: function(ctx, x, y, r, basis) {
         // draws a basis.
@@ -8603,6 +9354,29 @@ knee:
             _point
         );
     },
+    coortext: function(point) {
+        let i1 = 0;
+        let text = point.slice(0, 3);
+        let align = [];
+        for(i1 = 0; i1 < text.length; i1++) {
+        // - convert numbers to strings
+        // - make sure there's a sign, unless it's zero
+        // - take note of how many characters in the decimal point is, for
+        //   alignment
+            text[i1] = " +".charAt(Math.sign(text[i1])) + text[i1];
+            let temp = text[i1].indexOf(".");
+            align[i1] = temp === -1 ? text[i1].length : temp;
+        }
+        let max = Math.max(...align, 3);
+        // i don't like that it looks all weird and jump transitioning from all
+        // single-digits to having at least one double-digit. technically it's
+        // inconsistent, but who cares.
+        for(i1 = 0; i1 < Math.min(point.length, 3); i1++) {
+            text[i1] = "xyz"[i1] + ":" + " ".repeat(max - align[i1]) + text[i1];
+            text[i1] = text[i1].replaceAll(" ", "&#160;").replaceAll(":", ": ");
+        }
+        return text;
+    },
     writecoordinates: function(div, text) {
     // used in armature artist and body maker to draw coordinates and/or node
     // names under the canvas.
@@ -8611,11 +9385,7 @@ knee:
     //   that the stuff after this won't be moving back and forth.
         if(Array.isArray(text)) {
             if(text.length === 3 && typeof text[0] === "number" && typeof text[1] === "number" && typeof text[2] === "number") {
-                text = [
-                    "x: " + text[0],
-                    "y: " + text[1],
-                    "z: " + text[2]
-                ];
+                text = AAX.coortext(text);
             };
             text = text.join("\n");
         }
@@ -9802,11 +10572,19 @@ knee:
                 return Quat.mirror.multi(quat, ..._invert);
             };
             let tilt = null;
+            let local = false;
+            // used to make rotations use local axes instead of true axes.
             for(let i1 = 0; i1 < string.length; i1++) {
                 string[i1] = string[i1].trim();
                 if(invert[i1] !== -1) {
                     tilt ??= Quat.new();
                     tilt = Quat.mirror["xyz"[ invert[i1] ]](tilt);
+                }
+                else if(string[i1] === "local") {
+                    local = true;
+                }
+                else if(string[i1] === "true") {
+                    local = false;
                 }
                 else {
                     let rotation = string[i1].split(":");
@@ -9816,7 +10594,13 @@ knee:
                         // can use fractions
                         if(["yz", "xz", "xy"].includes(axis) && angle) {
                             tilt ??= Quat.new();
-                            tilt = Quat.rotate(tilt, axis, 2*Math.PI*angle);
+                            tilt = (
+                                local
+                                ?
+                                Quat.local_rotate(tilt, axis, 2*Math.PI*angle)
+                                :
+                                Quat.rotate(tilt, axis, 2*Math.PI*angle)
+                            );
                         };
                     }
                 }
@@ -9917,6 +10701,7 @@ knee:
         px_export: "frame anim all_x all_y".split(" "),
         viewtype: ["multi4", "multi2", 0, 1, 2, 3],
         // used in draw_background and draw.
+        hidelist: "part branch group body all".split(" "),
     },
     cache_init: {
         oriented: null,
@@ -10082,6 +10867,8 @@ knee:
             ref[2] = structuredClone(temp);
         };
         // .perspective
+        part.orient = Quat.mirror[axis](part.orient);
+        // .orient
     },
     hypot: function(body, pose, partname, deform) {
     // used in places like aa pose tools.
@@ -10495,7 +11282,206 @@ knee:
                     }
                 }
             }
-            return (bounds.l === bounds.r || bounds.u === bounds.d || bounds.b === bounds.f) ? null : bounds;
+            return (bounds === null || bounds.l === bounds.r || bounds.u === bounds.d || bounds.b === bounds.f) ? null : bounds;
+        },
+        bisect: function(points, fineness, plane_pos, plane_quat) {
+        // returns the bisection of a shape.
+        // - plane_pos, plane_quat: this is used instead of a Plane... the plane
+        //   it uses is whatever plane could be made from [0, 0, 0] and the x
+        //   and y axes of plane_quat's basis, shifted so that plane_pos is on
+        //   it. (pos means "position" and quat means "quaternion".)
+        // - structure:
+        //   - plus: a version of the points that only has the points on the
+        //     positive side of the plane. (the direction that plane_quat's
+        //     positive z direction points.)
+        //   - minus: a version of the points that only has the points on the
+        //     negative side.
+        //   - zero: points that are in both halves, whether from already being
+        //     on the plane or being created on the spot to give the halves the
+        //     proper shape.
+        // - you can complete the shapes by copying the zero points to plus and
+        //   minus, and deleting zero.
+            let i0 = 0;
+            let i1 = 0;
+            let i2 = 0;
+            let _points = addspheroids(points, fineness);
+            let inv_quat = Quat.invert(plane_quat);
+            let temp = Quat.basis(plane_quat);
+            let proper_plane = Plane.frompoints(
+                plane_pos,
+                Points.add(plane_pos, temp[0]),
+                Points.add(plane_pos, temp[1])
+            );
+            let toplanespace = (point) => Quat.apply(inv_quat, Points.subtract(point, plane_pos));
+            let minus = [];
+            let zero = [];
+            let plus = [];
+            for(i0 = 0; i0 < _points.length; i0++) {
+            // since the logic is built on the shape being convex, do the
+            // process separately for each point group.
+                minus.push([]);
+                zero.push([]);
+                plus.push([]);
+                for(i1 = 0; i1 < _points[i0].length; i1++) {
+                    let point = _points[i0][i1];
+                    let sign = Math.sign(toplanespace(point)[2]);
+                    if(sign === -1) {
+                        minus[i0].push(structuredClone(point));
+                    }
+                    else if(sign === 0) {
+                        zero[i0].push(structuredClone(point));
+                    }
+                    else if(sign === 1) {
+                        plus[i0].push(structuredClone(point));
+                    };
+                }
+                // sort points by whether they're on the negative side of the
+                // plane, on the plane, or on the positive side of the plane.
+                for(i1 = 0; i1 < minus[i0].length; i1++) {
+                    for(i2 = 0; i2 < plus[i0].length; i2++) {
+                        zero[i0].push(Line.frompoints(minus[i0][i1], plus[i0][i2]).planeintersect(proper_plane));
+                    }
+                }
+                // for every pair of points on opposite sides of the plane, add
+                // the point where the line between those points intersects with
+                // the plane.
+                let _zero = [];
+                for(i1 = 0; i1 < zero[i0].length; i1++) {
+                    _zero[i1] = toplanespace(zero[i0][i1]);
+                }
+                _zero = PointSet.convert(_zero, 2);
+                _zero = PointSet2.convexorder(_zero);
+                for(i1 = zero[i0].length - 1; i1 >= 0; i1--) {
+                // iterate backwards so indexes don't get screwed up
+                    if(!_zero.includes(i1)) {
+                        zero[i0].splice(i1, 1);
+                    }
+                }
+                // use convexing to remove unnecessary interior points.
+            }
+            return {minus, zero, plus};
+        },
+        linear_slice: function(points, fineness, plane_pos, plane_quat, plane_num, plane_spacing) {
+        // - points: shape points
+        // - fineness: used in addspheroids
+        // - plane_pos: a point that's on the first slice's plane
+        // - plane_quat: the z axis of the basis is perpendicular to the basis,
+        //   and it's the direction the plane moves for further cuts.
+        // - plane_num: number of planes the shape is cut by. (the number of
+        //   slices is this +1.)
+        // - plane_spacing: spacing between cuts.
+            let _points = addspheroids(points, fineness);
+            let slices = [];
+            let basis = Quat.basis(plane_quat);
+            for(let i1 = 0; i1 < plane_num; i1++) {
+                slices[i1] = AAX.Shape.bisect(_points, fineness, Points.add(plane_pos, Points.multiply(basis[2], i1)), plane_quat);
+            }
+            let sectors = [];
+            for(let i1 = 0; i1 <= slices.length; i1++) {
+                sectors[i1] = structuredClone(i1 === slices.length ? slices[slices.length - 1].plus : slices[i1].minus);
+                if(i1 && i1 < slices.length) {
+                    sectors[i1] = sectors[i1].filter((point) => slices[i1 - 1].plus.some((_point) => compareobject(point, _point)));
+                };
+                if(i1) {
+                    for(let i2 = 0; i2 < slices[i1 - 1].zero.length; i2++) {
+                        sectors[i1][i2] = sectors[i1][i2].concat(structuredClone(slices[i1 - 1].zero[i2]));
+                    }
+                };
+                if(i1 < slices.length) {
+                    for(let i2 = 0; i2 < slices[i1].zero.length; i2++) {
+                        sectors[i1][i2] = sectors[i1][i2].concat(structuredClone(slices[i1].zero[i2]));
+                    }
+                };
+            }
+            return sectors;
+        },
+        radial_slice: function(points, fineness, plane_pos, plane_quat, plane_num) {
+        // cuts around the line, rather than along the line.
+            let _points = addspheroids(points, fineness);
+            let slices = [];
+            for(let i1 = 0; i1 < plane_num; i1++) {
+                let quat = Quat.local_rotate(plane_quat, "yz", Math.PI/2);
+                quat = Quat.local_rotate(plane_quat, "xz", -2*Math.PI*i1/plane_num);
+                slices[i1] = AAX.Shape.bisect(_points, fineness, plane_pos, quat);
+            }
+            let sectors = [];
+            for(let i1 = 0; i1 < slices.length; i1++) {
+                let prev = slices[i1];
+                let next = slices[posmod(i1 + 1, slices.length)];
+                sectors[i1] = structuredClone(prev.plus).filter((point) => next.minus.some((_point) => compareobject(point, _point)));
+                // if it's empty, try switching prev and next...
+                for(let i2 = 0; i2 < prev.zero.length; i2++) {
+                    sectors[i1][i2] = sectors[i1][i2].concat(structuredClone(prev.zero[i2]));
+                }
+                for(let i2 = 0; i2 < next.zero.length; i2++) {
+                    sectors[i1][i2] = sectors[i1][i2].concat(structuredClone(next.zero[i2]));
+                }
+            }
+            return sectors;
+        },
+        expand: function(points, bounds) {
+        // changes the bounds of the shape by moving points and resizing
+        // spheroids.
+            let _points = structuredClone(points);
+            let _bounds = AAX.Shape.bounds(_points);
+            if(!bounds) {
+                return [[[0, 0, 0]]]
+            }
+            else if(!_bounds || compareobject(_bounds, bounds)) {
+                console.log("meep");
+                return _points;
+            };
+            const letters = "lrudbf";
+            let _center = [];
+            let center = [];
+            let multiply = [];
+            let mirror = [];
+            for(let i1 = 0; i1 < 3; i1++) {
+                let neg = letters[2*i1];
+                let pos = letters[2*i1 + 1];
+                _center[i1] = (_bounds[neg] + _bounds[pos])/2;
+                center[i1] = (bounds[neg] + bounds[pos])/2;
+                // find the centers of both boxes
+                let temp = _bounds[pos] - _bounds[neg];
+                multiply[i1] = temp ? (bounds[pos] - bounds[neg])/temp : 1;
+                // get multipliers by dividing whatever by
+                // whatever
+                mirror[i1] = multiply[i1] < 0;
+            }
+            if(!mirror.includes(false)) {
+            // mirror is only used to know whether the quaternions should be
+            // mirrored. and, since spheroids are symmetrical in all three
+            // axes... mirroring the quaternion in all three axes would have the
+            // exact same effect as not mirroring it at all.
+                mirror = [false, false, false];
+            };
+            let all_same = multiply[0] === multiply[1] && multiply[1] === multiply[2];
+            // endless, FINITE. (copy that.)
+            // - ...these are just guilty gear lyrics, don't drive yourself
+            //   crazy trying to interpret it.
+            for(let i1 = 0; i1 < _points.length; i1++) {
+                for(let i2 = 0; i2 < _points[i1].length; i2++) {
+                    let point = _points[i1][i2];
+                    if(point.length > 3 && !all_same) {
+                    // if all the multipliers aren't the same, fill all missing
+                    // dimensions.
+                        point[4] ??= point[3];
+                        point[5] ??= point[3];
+                    };
+                    for(let i3 = 0; i3 < 3; i3++) {
+                        point[i3] = (point[i3] - _center[i3])*multiply[i3] + center[i3];
+                        if(3 + i3 < point.length) {
+                            point[3 + i3] *= Math.abs(multiply[i3]);
+                        }
+                    }
+                    // for each point, subtract old box's center, scale, add new
+                    // box's center
+                    if(point.length >= 7) {
+                        point[6] = Quat.mirror.multi(point[6], ...mirror);
+                    }
+                }
+            }
+            return _points;
         },
     },
     save: function(filename, text) {
@@ -12639,8 +13625,9 @@ class CellToy {
             "<label><input type=\"checkbox\" name=\"afterimages\" checked> afterimages</label>",
             "<br><button name=\"save image\">save image</button>",
             "<br><label>rules: <input type=\"text\" name=\"rules\" value=\"3 / 23\" style=\"width: 25em\"></label>",
-            "<label><input type=\"checkbox\" name=\"birth allowed\" checked> birth</label>",
+            "<br><label><input type=\"checkbox\" name=\"birth allowed\" checked> birth</label>",
             "<label><input type=\"checkbox\" name=\"death allowed\" checked> death</label>",
+            "<label><input type=\"checkbox\" name=\"invert\"> invert</label>",
             "<br><button name=\"pause\">play</button> <button name=\"advance\">advance</button>",
             "<br><button name=\"clear\">clear</button> <button name=\"save\">save</button> <button name=\"load\">load</button>",
             "<br><button name=\"noise\">noise</button> <label><input type=\"text\" name=\"noise level\" style=\"width: 6em\" value=\"1/2\"></label>",
@@ -12779,7 +13766,7 @@ class CellToy {
         this.html.scripting.value = [
             "center",
             "mirror y 0 -1",
-            "\t" + [
+            " " + [
                 "birth 2 1 -2 0",
                 "birth 1 1 -2 1",
                 "birth 2 1 -5 0",
@@ -12804,7 +13791,7 @@ class CellToy {
                 "birth 2 1",
                 "move 0 8",
                 "mirror x",
-                "\t" + [
+                " " + [
                     "move -2",
             		"birth",
             		"birth 1 1 -2",
@@ -12812,8 +13799,8 @@ class CellToy {
             		"move -3 4",
             		"birth 1 -4",
             		"birth 3 1"
-                ].join("\n\t\t")
-            ].join("\n\t")
+                ].join("\n  ")
+            ].join("\n ")
         ].join("\n");
         this.html.scripting.onkeydown = textarea_tab;
         let buttons = container.querySelectorAll("button");
@@ -12825,7 +13812,7 @@ class CellToy {
         this._h = 128;
         let canvas = this.html.canvas;
         this.ctx = canvas.getContext("2d");
-        canvas.style = "image-rendering: crisp-edges; touch-action: none";
+        canvas.style = "image-rendering: crisp-edges; touch-action: pinch-zoom";
         this._paused = true;
         //
         this.values = [];
@@ -13388,10 +14375,34 @@ class CellToy {
             }
             return coor;
         }
+        /*
         function subscript(script, index) {
             let _script = [];
             for(let i1 = index + 1; i1 < script.length && script[i1].startsWith("\t"); i1++) {
                 _script.push(script[i1].slice("\t".length));
+            }
+            return _script;
+        }
+        //*/
+        function subscript(script, index) {
+            let _script = [];
+            let parent = script[index].length - script[index].trimStart().length;
+            let lowest = null;
+            for(let i1 = index + 1; i1 < script.length; i1++) {
+                let indent = script[i1].length - script[i1].trimStart().length;
+                if(indent > parent) {
+                    if(lowest === null || indent < lowest) {
+                        lowest = indent;
+                    };
+                    _script.push(script[i1]);
+                }
+                else {
+                    i1 += script.length;
+                }
+            }
+            lowest ??= parent;
+            for(let i1 = 0; i1 < _script.length; i1++) {
+                _script[i1] = _script[i1].slice(lowest);
             }
             return _script;
         }
@@ -13507,6 +14518,7 @@ class CellToy {
         let h = this.h;
         const birth_allowed = this.html.birth_allowed.checked;
         const death_allowed = this.html.death_allowed.checked;
+        const invert = this.html.invert.checked;
         for(let i1 = 0; i1 < values.length; i1++) {
             let x = i1%w;
             let y = Math.floor(i1/w);
@@ -13514,18 +14526,20 @@ class CellToy {
             for(let i2 = 0; i2 < 8; i2++) {
                 let _x = x + Number(posmod(i2 - 7, 8) < 3) - Number(posmod(i2 - 3, 8) < 3);
                 let _y = y + Number(posmod(i2 - 1, 8) < 3) - Number(posmod(i2 - 5, 8) < 3);
-                if(values[posmod(_y, h)*w + posmod(_x, w)]) {
+                if(invertboolean(values[posmod(_y, h)*w + posmod(_x, w)], invert)) {
                     index += 2**i2;
                 };
             }
             // refer to the comments under get_rules for how birth/survive
             // indexes work.
+            let birth = this.birth.every[index];
+            let survive = this.survive.every[index];
             _values.push(
                 values[i1]
                 ?
-                ((this.survive.every[index] || !death_allowed) ? values[i1] : 0)
+                (((invert ? !birth : survive) || !death_allowed) ? values[i1] : 0)
                 :
-                ((this.birth.every[index] && birth_allowed) ? 1 : 0)
+                (((invert ? !survive : birth) && birth_allowed) ? 1 : 0)
             );
             // - if it's alive, make it dead if it fails to survive.
             // - if it's dead, make it alive if there's a birth
@@ -14706,9 +15720,9 @@ class PixelArt {
             "backcolor is used for erasing, and treated like transparency for things like copy and pasting.",
             "palette",
             [
-                "the colorful image to the left of the viewport is the palette.",
+                "all the colors you can draw with are stored in the palette, the image to the left of the viewport.",
                 "with the buttons to the left of it, you can add colors, delete colors, set forecolor/backcolor as them, etc.",
-                "click a color on the palette to select it.",
+                "click a color on the palette to select it, so that's the color the color buttons affect.",
                 "click the color you already have selected to set it as the forecolor.",
                 "the \"save palette\" button saves the palette as an image. both the file name and the image show the color codes of the palette's colors, so you can load the palette later by copying the file name and entering it into the \"add colors\" button."
             ],
@@ -14733,8 +15747,8 @@ class PixelArt {
                 "by making a selection and clicking the \"set as grid\" button, you can set that selection as the new grid.",
                 "the grid is not shown visually. it's only used in certain tools and buttons.",
                 [
-                    "grid select tool",
-                    "shift by grid buttons",
+                    "\"grid select\" tool",
+                    "\"shift by grid\" buttons",
                     "the move and paste tools' \"snap to grid\" checkbox"
                 ],
                 "it's useful for avoiding small inaccuracies, like when you're trying to select animation frames."
@@ -14751,15 +15765,16 @@ class PixelArt {
                 "to use this tool, you have to select something. select the first frame of your animation.",
                 "the second frame should be a rectangle of equal dimensions to the right of it, the third frame is another rectangle to the right of that, etc.",
                 "unless \"vertical\" is on. then it moves down instead of right.",
+                "\"wrap\" is how many frames there are in a row before it moves on to the next row. (or, if vertical is on, how many frames in a column before it goes to the next column.) if wrap is 0, it assumes all the frames are in one row.",
                 "while this tool is selected, the viewport is used to show the animation. clicking the viewport will pause or play it.",
                 "number of frames, fps, and loop are all pretty obvious.",
-                "\"wrap\" is how many frames there are in a row before it moves on to the next row. (or, if vertical is on, how many frames in a column before it goes to the next column.) if wrap is 0, it assumes all the frames are in one row.",
                 "the arrow buttons move to the previous or next frame."
             ],
             "misc",
             [
                 "there's a few buttons that explain themselves in the prompts they give you.",
-                "the color picker can be held down. while it's held, you can see how it'll change the forecolor/backcolor or the palette, but that change is only finalized when you release it. this way, if you're trying to get the color of something really small, you can be more precise by carefully moving your click until you see the color you want."
+                "the color picker can be held down. while it's held, you can see how it'll change the forecolor/backcolor or the palette, but that change is only finalized when you release it. this way, if you're trying to get the color of something really small, you can be more precise by carefully moving your click until you see the color you want.",
+                "the \"spread diagonally\" checkbox of the bucket fill tool is useful for coloring outlines."
             ]
         ]);
         let dither_menu = [];
@@ -14797,6 +15812,12 @@ class PixelArt {
             "<br class=\"anim\"><label><input type=\"number\" name=\"anim fps\" style=\"width: 3em\" value=12 step=1 min=1> frames per second</label>",
             "<br class=\"anim\"><button name=\"anim prev\">&#160;&#60;&#160;</button>",
             "<button name=\"anim next\">&#160;&#62;&#160;</button>",
+            "<label>script:",
+            "<br class=\"fx\"><textarea name=\"fx script\" style=\"width: 100%\"></textarea>",
+            "</label>",
+            "<br class=\"fx\"><button name=\"fx execute\">execute</button>",
+            "<br class=\"fx\"><label><input type=\"number\" name=\"fx scale\" style=\"width: 3em\" value=1> scale</label>",
+            "<br class=\"fx\"><label><input type=\"text\" name=\"fx offset\" style=\"width: 9em\" value=\"0, 0\"> offset</label>",
             "<label><input type=\"checkbox\" name=\"paste snap\"> snap to grid</label>",
         ];
         // tool settings elements
@@ -14808,7 +15829,7 @@ class PixelArt {
         ].join("\n");
         let tool_area = [];
         if(!verticalscreen) {
-            tool_area.push("\t" + tool_settings.replaceAll("\n", "\n\t"));
+            tool_area.push(tool_settings.replaceAll("\n", "\n\t"));
         };
         for(i1 = 0; i1 < PixelArt.valid.tools.length; i1++) {
             let _i1 = PixelArt.valid.tools[i1];
@@ -14821,7 +15842,8 @@ class PixelArt {
                 _i1.startsWith("select ") ? _i1.replace("select ", "") :
                 _i1
             );
-            let line = "<label" + (_i1 === "select scale" ? " hidden" : "") + "><input type=\"radio\" name=\"" + this.prefix + "_tool\" value=\"" + _i1 + "\"" + ((_i1.startsWith("select ") || _i1 === "paste") ? " disabled" : "") + "> " + __i1 + "</label>";
+            let hidden = _i1 === "select scale" || _i1 === "fx";
+            let line = "<label" + (hidden ? " hidden" : "") + "><input type=\"radio\" name=\"" + this.prefix + "_tool\" value=\"" + _i1 + "\"" + ((_i1.startsWith("select ") || _i1 === "paste") ? " disabled" : "") + "> " + __i1 + "</label>";
             if(_i1 === "colorpick") {
                 line += " <button name=\"colorpick type\">" + PixelArt.valid.colorpick_type[0] + "</button>";
             }
@@ -14829,7 +15851,7 @@ class PixelArt {
                 line += " <button name=\"deselect\" disabled>deselect</button>";
             };
             // these are too important to hide away in the box.
-            if((verticalscreen ? i1 : true) && _i1 !== "rectangle" && _i1 !== "ellipse" && _i1 !== "select scale") {
+            if((verticalscreen ? i1 : true) && _i1 !== "rectangle" && _i1 !== "ellipse" && !hidden) {
                 line = "<br>" + line;
             };
             tool_area.push(line);
@@ -14870,7 +15892,8 @@ class PixelArt {
                     " rotate"
                 ),
                 "<button name=\"color replace\">replace color</button>",
-                "<button name=\"color add\">add colors to palette</button>"
+                "<button name=\"color add\">add colors to palette</button>",
+                "<button name=\"outline\">add outline</button> <label><input type=\"checkbox\" name=\"outline diagonals\"> diagonals</label>"
             ].join("\n\t<br>") + "</ul>"
         ].join("\n");
         // include actions too
@@ -14902,7 +15925,7 @@ class PixelArt {
             // - center the canvas (no idea how it takes three properties to do
             //   that, but whatever.)
             // - add a dashed border
-            "<canvas name=\"frame\" style=\"image-rendering: crisp-edges; touch-action: none; width: 100%; height: 100%\"></canvas>",
+            "<canvas name=\"frame\" style=\"image-rendering: crisp-edges; touch-action: pinch-zoom; width: 100%; height: 100%\"></canvas>",
             // frame canvas
             // - no anti-aliasing
             // - touching it on mobile shouldn't drag around the page
@@ -14961,19 +15984,22 @@ class PixelArt {
             for(let i1 = 0; i1 < list.length; i1++) {
                 let ref = list[i1];
                 let type = ref.tagName.toLowerCase();
+                //console.log(ref);
                 let name = (
                     ref.name
                     ??
                     (
                         "name" in ref.attributes ? ref.attributes.name.value :
+                        ("name" in ref && ref.name) ? ref.name :
                         type === "button" ? ref.innerHTML :
                         ""
                     )
                 );
                 name = name.replaceAll(" ", "_");
                 if(name) {
+                    //console.log(name);
                     _this.html[name] = list[i1];
-                }
+                };
                 addtohtml(list[i1]);
             }
         }
@@ -15352,6 +16378,15 @@ class PixelArt {
         // happens in the setter.
         // - wrap and vertical change where the frames are, so they're a
         //   different story.
+        textarea_autosize(this.html.fx_script);
+        this.html.fx_script.onkeydown = textarea_autosize;
+        this.html.fx_execute.onclick = function(e) {
+            let scale = readnumber(_this.html.fx_scale.value) ?? 1;
+            if(!scale) {
+                return;
+            };
+            let offset = _this.fx_offset;
+        };
         //
         this.html.frame_x.oninput = function(e) { _this.refresh("states") };
         this.html.frame_y.oninput = function(e) { _this.refresh("states") };
@@ -15363,6 +16398,9 @@ class PixelArt {
         this.html.frame_x.onchange = function(e) { document.documentElement.focus() };
         this.html.frame_y.onchange = function(e) { document.documentElement.focus() };
         this.html.frame_size.onchange = function(e) { document.documentElement.focus() };
+        this.html.frame_x.style["touch-action"] = "pinch-zoom";
+        this.html.frame_y.style["touch-action"] = "pinch-zoom";
+        this.html.frame_size.style["touch-action"] = "pinch-zoom";
         // for some awful reason, when a slider is the activeElement, it's
         // impossible to do anything with the keyboard except change the value
         // of that slider with the arrow keys. so unless i focus on something
@@ -15372,6 +16410,8 @@ class PixelArt {
         //   sacrifice functionality. (wasd, and q and e.)
         // - use onchange, not onfocus. unfocusing during the click makes it so
         //   you can't drag the slider.
+        // - and the touch-action thing is because without that, on mobile,
+        //   sliders can't really be slid. just changed.
         //this.html.frame_y.parentElement.style.width = this.html.frame_y.getBoundingClientRect().width + "px";
         // even this doesn't work.
         this.html.undo.onclick = function(e) { _this.states.undo() };
@@ -15623,6 +16663,36 @@ class PixelArt {
                 }
             };
             _this.refresh_palette();
+        };
+        this.html.outline.onclick = function(e) {
+            let rect = Rect.new(0, 0, w, h);
+            rect = _this.select ? Rect.overlap(_this.select, rect) : rect;
+            let imagedata = _this.ctx.getImageData(rect.x, rect.y, rect.w, rect.h);
+            let raster = [];
+            for(let i1 = 0; i1 < rect.w*rect.h; i1++) {
+                let color = "#";
+                for(let i2 = 0; i2 < 4; i2++) {
+                    let num = imagedata.data[4*i1 + i2];
+                    if(i2 !== 3 || num !== 255) {
+                        color += numtohex(num, 2);
+                    }
+                }
+                raster.push(imagedata.data[4*i1 + 3] && color !== _this.backcolor);
+            }
+            let outline = Raster.outline(raster, rect.w, _this.html.outline_diagonals.checked, true);
+            _this.ctx.fillStyle = _this.forecolor;
+            for(let i1 = 0; i1 < rect.w*rect.h; i1++) {
+                let coor = Rect.getcoor(rect, i1);
+                if(coor) {
+                    if(outline[i1]) {
+                        _this.ctx.fillRect(...coor, 1, 1);
+                    };
+                }
+                else {
+                    console.log("this shouldn't happen");
+                };
+            }
+            _this.refresh();
         };
         //
         this.select_interval = setInterval(function() {
@@ -15876,6 +16946,7 @@ class PixelArt {
             "select move",
             "select scale",
             "anim",
+            "fx",
             "paste"
             //  pen (radius)
             //  eraser (radius)
@@ -16117,6 +17188,26 @@ class PixelArt {
             this.anim_interval = null;
         }
     }
+    get fx_offset() {
+        let offset = readpoint(this.html.fx_offset.value);
+        return [
+            offset[0] ?? 0,
+            offset[1] ?? 0,
+            offset[2] ?? 0
+        ];
+    }
+    set fx_offset(value) {
+        if(!Points.valid(value)) {
+            return;
+        };
+        let offset = [
+            value[0] ?? 0,
+            value[1] ?? 0,
+            value[2] ?? 0
+        ];
+        offset = offset[2] ? offset : offset.slice(0, 2);
+        this.html.fx_offset.value = offset.join(", ");
+    }
     get forecolor() {
         return this._forecolor;
     }
@@ -16158,18 +17249,19 @@ class PixelArt {
             list[i1].disabled = !select;
         };
         document.getElementsByName(this.prefix + "_tool").forEach(function(element) {
-            if(element.value.startsWith("select ") || element.value === "anim") {
+            if(element.value.startsWith("select ") || element.value === "anim" || element.value === "fx") {
                 element.disabled = !select;
             };
         });
         this.select_border = select ? Rect.border(select) : [];
-        if(!select && (this.tool.startsWith("select ") || this.tool === "anim")) {
+        if(!select && (this.tool.startsWith("select ") || this.tool === "anim" || this.tool === "fx")) {
         // anim requires a selection.
             this.tool = PixelArt.valid.tools[0];
         };
         if(this.tool === "anim" && prev && (!select || prev.w !== select.w || prev.h !== select.h)) {
             this.anim_select_change();
         };
+        this.fx_offset = [0, 0, 0];
     }
     get grid() {
     // a rectangle, used in various tools and buttons.
@@ -16196,10 +17288,11 @@ class PixelArt {
     mousedown(e, _this) {
         let i1 = 0;
         _this ??= this;
-        if(_this.select && !Rect.overlap(_this.select, _this.frame_rect) && !_this.tool.startsWith("select") && _this.tool !== "colorpick" && _this.tool !== "anim" && _this.tool !== "paste") {
+        if(_this.select && !Rect.overlap(_this.select, _this.frame_rect) && !_this.tool.startsWith("select") && _this.tool !== "colorpick" && _this.tool !== "anim" && _this.tool !== "fx" && _this.tool !== "paste") {
             alert("click the deselect button first. (you have a selection, but it's offscreen. you can't edit anything outside a selection until you deselect.)");
             return;
         };
+        let click = _this.clickxy(e);
         if(_this.tool.startsWith("select ") && !_this.select) {
         // select tools are disabled when there's nothing selected, but that
         // doesn't prevent the user from using them anyway. (like if you
@@ -16211,7 +17304,6 @@ class PixelArt {
         // is made, it guarantees mousemove/mouseup exit early too.
             _this.anim_playing = !_this.anim_playing;
         };
-        let click = _this.clickxy(e);
         _this.stroke = {
             path: [structuredClone(click)],
             // coordinates of each point in the mouse's movement
@@ -16219,7 +17311,7 @@ class PixelArt {
             // image to use to reset the graphics. (usually, this is identical
             // to _this.states.current.image.)
         };
-        if(_this.tool === "paste" || _this.tool === "colorpick" || _this.tool === "text" || _this.tool === "ramp") {
+        if(_this.tool === "paste" || _this.tool === "colorpick" || _this.tool === "text" || _this.tool === "ramp" || _this.tool === "fx") {
         // for these tools, everything happens in mousemove/mouseup.
             _this.mousemove(e, _this);
             return;
@@ -16488,10 +17580,10 @@ class PixelArt {
             }
         }
         else if(_this.tool === "text") {
-            ctx.textBaseline = "middle";
-            ctx.font = "6px 'thick 4x4'";
+            ctx.textBaseline = "alphabetic";
+            ctx.font = "16px 'barkyfont'";
             ctx.fillStyle = _this.forecolor;
-            ctx.fillText(_this.html.text_text.value.toLowerCase(), ...click);
+            ctx.fillText(_this.html.text_text.value.toLowerCase(), click[0], click[1] + 6);
         }
         else if(_this.tool === "ramp") {
             let start = _this.color_input(_this.html.ramp_start.value) || _this.forecolor;
@@ -16570,6 +17662,11 @@ class PixelArt {
             };
             paste(ctx, _this.copydata, ...click);
             _this.refresh(["graphics", "states"]);
+        }
+        else if(_this.tool === "fx") {
+            if(_this.select) {
+                _this.fx_offset = Points.subtract(click, Rect.center(_this.select));
+            };
         };
         //
         if(_this.tool === "line" || _this.tool === "rectangle" || _this.tool === "ellipse" || _this.tool === "text" || _this.tool === "ramp") {
@@ -16715,6 +17812,289 @@ class PixelArt {
         }
     }
 }
+class Toy {
+// objects that ToyPlayer uses.
+// - closed: if true, it'll connect the first and last point and fill the shape.
+// - makepoints: function. input the nodes, and it'll return a modified version
+//   for visualization. for example, for splines, it would make lots of points
+//   to form the splines' curves.
+    constructor(closed, makepoints) {
+        this.closed = !!closed;
+        this.makepoints = makepoints;
+        this.makepoints ??= function(nodes) {
+            return structuredClone(nodes);
+        };
+    }
+}
+class ToyPlayer {
+// a class for node-based interactive toys.
+// - or, equally often, to test functions that are difficult to test. to account
+//   for lots of different inputs, it's best to have something where i can
+//   easily play around with the input.
+// - but if this sounds horribly vague to you, picture it as something where you
+//   can customize a spline curve. you create and add points, shift them around,
+//   and look at how that changes the curve. toys tend to be stuff like that.
+// =
+// - w, h: canvas dimensions
+// - nodes: the points the drawing revolves around.
+//   - positions are relative to the center of the canvas, so [0, 0] would be at
+//     the center.
+// - colors
+//   - background: color of empty space
+//   - fill: color of colored closed shapes, if applicable
+//   - node: color of nodes.
+//   - stroke: color of the lines between nodes.
+//   =
+//   - this is also the order it usually draws in.
+// - node_r: the radius of the crosses or circles it draws for the nodes.
+//   (unselected nodes are drawn as crosses, the selected node is a hollow
+//   circle.)
+    constructor(container) {
+        let i1 = 0;
+        //
+        this.container = container;
+        this.nodes = [];
+        this.color = {
+            background: "black",
+            fill: "orange",
+            node: "green",
+            stroke: "white",
+        };
+        this.node_r = 4;
+        //
+        let string = [];
+        for(i1 in ToyPlayer.toys) {
+            if(ToyPlayer.toys.hasOwnProperty(i1)) {
+                string.push("<option value=\"" + i1 + "\">" + i1 + "</option>");
+            };
+        }
+        string = [
+            "<canvas></canvas>",
+            "<div name=\"coortext\" style=\font-size: 0.6em\"></div>",
+            "<label><select name=\"select\">",
+            "\t" + string.join("\n\t"),
+            "</select></label>",
+            "<br><button>add node</button>",
+            "<br><button>delete node</button>",
+        ].join("\n");
+        this.container.innerHTML = string;
+        this.html = htmlrefobj(this.container);
+        //console.log(this.html);
+        //
+        let canvas = this.container.querySelector("canvas");
+        this.ctx = canvas.getContext("2d");
+        this.w = 256;
+        this.h = 256;
+        this.coortext();
+        //
+        this.toy_name = "spline";
+        this.nodes = [
+            [0, 0],
+            [.5, 0],
+            [.5, -.5]
+        ];
+        let temp = Math.min(this.w, this.h)/2;
+        for(i1 = 0; i1 < this.nodes.length; i1++) {
+            this.nodes[i1] = Points.floor(Points.multiply(this.nodes[i1], temp));
+        }
+        this.fill_image = null;
+        this.selected = 0;
+        //
+        let _this = this;
+        this.html["add node"].onclick = function(e) {
+            if(_this.nodes.length === 0) {
+                console.log("this shouldn't happen");
+                return;
+            }
+            else if(_this.nodes.length === 1) {
+                let pos = Points.add(_this.nodes[0], _this.center);
+                // make it relative to the upper left corner instead of the
+                // center
+                pos = Points.add(pos, _this.center);
+                pos = [
+                    posmod(pos[0], _this.w),
+                    posmod(pos[1], _this.h)
+                ];
+                // travel halfway across the canvas
+                pos = Points.subtract(pos, _this.center);
+                // make it relative to the center again
+                _this.nodes.push(pos);
+            }
+            else {
+                let pos = Points.add(_this.nodes[_this.selected], PointSet.next(_this.nodes, _this.selected));
+                pos = Points.trunc(Points.divide(pos, 2));
+                _this.nodes.splice(_this.selected + 1, 0, pos);
+            };
+            _this.selected++;
+            _this.draw(true);
+        };
+        this.html["delete node"].onclick = function(e) {
+            if(_this.nodes.length === 0) {
+                console.log("this shouldn't happen");
+                return;
+            }
+            else if(_this.nodes.length === 1) {
+                return;
+            };
+            _this.nodes.splice(_this.selected, 1);
+            if(_this.selected) {
+                _this.selected--;
+            };
+            _this.draw(true);
+        };
+        this.html.select.onchange = function(e) { _this.toy_name = e.target.value; _this.draw(true) };
+        //
+        this.stroke = null;
+        canvas.onmousedown = function(e) {
+            let click = Points.subtract(clickxy(e), _this.center);
+            _this.coortext(...click);
+            _this.stroke = {
+                nodeclicked: false,
+            };
+            for(let i1 = _this.nodes.length - 1; i1 >= 0 && !_this.stroke.nodeclicked; i1--) {
+            // search backwards, because it's probably more common to move later
+            // nodes than earlier nodes.
+                if(Points.length(Points.subtract(click, _this.nodes[i1])) <= _this.node_r) {
+                    _this.stroke.nodeclicked = true;
+                    _this.selected = i1;
+                };
+            }
+        };
+        function mousemove(e, finish) {
+            let click = Points.subtract(clickxy(e), _this.center);
+            _this.coortext(...click);
+            if(!_this.stroke || !_this.stroke.nodeclicked) {
+                return;
+            };
+            let restore = finish ? null : structuredClone(_this.nodes[_this.selected]);
+            _this.nodes[_this.selected] = structuredClone(click);
+            _this.draw(finish);
+            if(finish) {
+                _this.stroke = null;
+            }
+            else {
+                _this.nodes[_this.selected] = structuredClone(restore);
+            };
+        };
+        canvas.onmousemove = function(e) { mousemove(e, false) };
+        canvas.onmouseup = function(e) { mousemove(e, true) };
+        //
+        this.draw(true);
+    }
+    get w() {
+        return this.ctx.canvas.width;
+    }
+    set w(value) {
+        this.ctx.canvas.width = value;
+    }
+    get h() {
+        return this.ctx.canvas.height;
+    }
+    set h(value) {
+        this.ctx.canvas.height = value;
+    }
+    get center() {
+        return Points.floor(Points.divide([this.w, this.h], 2));
+    }
+    get toy() {
+        return ToyPlayer.toys[this.toy_name];
+    }
+    static toys = {
+        open: new Toy(false, null),
+        closed: new Toy(true, null),
+        spline: new Toy(false, function(nodes) {
+            if(nodes.length === 0) {
+                return [];
+            }
+            else if(nodes.length === 1) {
+                return structuredClone(nodes);
+            };
+            let points = [];
+            let fineness = 16;
+            let length = (nodes.length - 1)*fineness;
+            for(let i1 = 0; i1 <= length; i1++) {
+                points.push(PointSet.spline(nodes, i1/length));
+            }
+            return points;
+        }),
+        /*
+        arcs: new Toy(false, function(nodes) {
+            if(nodes.length < 3) {
+                return [];
+            };
+            let points = [];
+            for(let i1 = 0; i1 + 2 < nodes.length; i1 += 2) {
+                points.push(structuredClone(nodes[i1]));
+
+            }
+            points.push(structuredClone(nodes[nodes.length - 1 - !(nodes.length%2)]));
+        }),
+        //*/
+    }
+    draw(refill) {
+    // refreshes the visuals.
+    // - refill: if true and it's a closed shape, it'll recreate the fill image.
+    //   (this should be done on mouseup, but not mousemove. sorta intensive.)
+        let i1 = 0;
+        let nodes = this.nodes;
+        let toy = this.toy;
+        let points = toy.makepoints(nodes);
+        let dim = [this.w, this.h];
+        let center = this.center;
+        let ctx = this.ctx;
+        ctx.clearRect(0, 0, ...dim);
+        ctx.fillStyle = this.color.background;
+        ctx.fillRect(0, 0, ...dim);
+        ctx.fillStyle = this.color.node;
+        ctx.strokeStyle = this.color.node;
+        let r = this.node_r;
+        for(i1 = 0; i1 < nodes.length; i1++) {
+            let pos = Points.add(nodes[i1], center);
+            if(i1 === this.selected) {
+                circledraw(ctx, ...pos, r, false);
+            }
+            else {
+                ctx.fillRect(pos[0] - r, pos[1], 2*r + 1, 1);
+                ctx.fillRect(pos[0], pos[1] - r, 1, 2*r + 1);
+            }
+        }
+        if(toy.closed) {
+            ctx.fillStyle = this.color.fill;
+            if(refill) {
+                this.fill_image = RasterRect.shape(points, true);
+                this.fill_image.x += center[0];
+                this.fill_image.y += center[1];
+            };
+            RasterRect.draw(this.fill_image, ctx);
+        };
+        for(i1 = 0; i1 < points.length - Number(!toy.closed); i1++) {
+            ctx.strokeStyle = this.color.stroke;
+            linespecial(ctx, ...Points.add(points[i1], center), ...Points.add(PointSet.next(points, i1), center), center);
+        }
+    }
+    coortext(line1, line2) {
+        let numstring = (num) => (num > 0 ? "+" : "") + num;
+        let max = 0;
+        for(let i1 = 0; i1 < 4; i1++) {
+            let axis = Math.floor(i1/2);
+            let num = (i1%2 ? (axis ? this.h : this.w) : 0) - this.center[axis];
+            max = Math.max(max, numstring(num).length);
+        };
+        // maximum number of digits (i guess the sign isn't a digit, but shut up.)
+        let align = function(num) {
+            num = numstring(num);
+            return "&#160;".repeat(Math.max(0, max - num.length)) + num;
+        };
+        if(Number.isInteger(line1)) {
+            line1 = align(line1) + " x";
+        };
+        if(Number.isInteger(line2)) {
+            line2 = align(line2) + " y";
+        };
+        this.html.coortext.innerHTML = (line1 ?? "") + "<br>" + (line2 ?? "");
+    }
+}
+//
 function crosssection(points, quat, center) {
 // returns a _2dPoly cross section of the shape that would be made by convexing
 // the given 3d points.
@@ -17489,11 +18869,11 @@ class Paper {
         get plane() {
             let point = Points.convert(this);
             let basis = Quat.basis(this.quat);
-            return Plane.frompoints([
+            return Plane.frompoints(
                 point,
                 Points.add(point, Quat.apply(this.quat, [1, 0, 0])),
                 Points.add(point, Quat.apply(this.quat, [0, 1, 0]))
-            ]);
+            );
         }
         tosheetspace(point) {
         // converts a 3d coordinate to the coordinates within a sheet.
@@ -17830,6 +19210,511 @@ class Paper {
                     ctx.fillRect(...coor, 1, 1);
                 }
             }
+        }
+    }
+}
+class FloorPlan {
+// a class for making simple floor plans, with rectangular rooms. it uses a
+// script system.
+// - structure:
+//   - levels: array of FloorPlan.Level objects.
+// - structure of a Level:
+//   - x_grid, y_grid, areas
+//     - coordinates in FloorPlan use Frac, meaning they're stored as fractions.
+//       an array of a numerator and denominator.
+//     - but on top of that, there's a sort of unconventional grid system.
+//     - almost all actions in FloorPlan are extrusions or intrusions, to create
+//       new rooms, or alter existing rooms' shape.
+//     - even with just that, rooms and their walls can get very complex. but no
+//       matter how complex they get, they can be broken down into a lot of
+//       rectangles.
+//     - x_grid and y_grid are arrays of Fracs for every possible coordinate
+//       room boundaries can have. it's like a set of grid lines, except they
+//       aren't evenly spaced. they can be placed anywhere. every time a new
+//       corner is made, like the corners of a rectangular room, or the corners
+//       of an extrusion, those are added to x_grid and y_grid.
+//     - this divides space into a bunch of rectangles that we know for sure
+//       every room is made of one or more of.
+//     - areas is an array of strings for which rectangle sectors belong to
+//       which rooms. it's ordered from left to right, then top to bottom.
+//       areas[0] is which room the top left rectangle belongs to, areas[1] is
+//       the rectangle to the right of that, etc.
+//       - remember, the number of rectangles in a row is one LESS than the
+//         number of x_grid Fracs, and the same goes for the rectangles in a
+//         column and y_grid blah blah blah.
+//       - an empty string means it's empty space.
+//   - doors: an object storing where doors are.
+//     - structure:
+//       - [room names]
+//         - [array indexes]
+//           - side: name of the side (ex: "r", "d2", etc)
+//   - cache: stores data that's created entirely from the other properties,
+//     kept around to prevent redundant calculations.
+//     - structure:
+//       - indexrect
+//         - [room names] (values are room_indexrect returns)
+//       - raster
+//         - [room names] (values are room_raster returns)
+//       - sides
+//         - [room names] (values are room_sides returns)
+    static manual = [
+        "floor plans are written by starting from a rectangle and creating various extrusions or intrusions. for brevity's sake, they're called edits.",
+        "edits can move a whole wall or part of a wall, and they can create new rooms or just modify the shape of existing rooms.",
+        "it sounds limited, but as long as a building doesn't have circular rooms or anything similarly artsy, it can be made with this system.",
+        "relying on extrusions/intrusions also makes it so doors don't have to be placed manually.",
+        "to start a floor, you create a room from scratch by writing something like \"hall: d door 3 w 2 h 0 x 0 y\".",
+        [
+            "the direction of the door, the width and height, and the position of the center.",
+            "if position is omitted, it'll assume it's at [0, 0].",
+            "if height is omitted, it'll assume it's the same as width.",
+            "if the door direction is omitted, it'll assume there is no door.",
+            "if a room is created where there are already rooms, it'll only fill space that doesn't have a room.",
+            [
+                "unless you write \"replace\". that makes it cover space even if it has a room already."
+            ]
+        ],
+        "an edit consists of a line where you specify the name of the new room or the room you're modifying, and indented lines where you specify the details of the edit.",
+        [
+            "indentation can be done with spaces, not just tabs.",
+            "you can create multiple rooms at once by separating the names with slashes. (ex: \"bed 1 / bed 2\") the extrusion/intrusion will be split up evenly, the splits parallel to the extrusion/intrusion direction.",
+            "the first indented line describes which wall of which room is being moved, and the position and dimensions of that movement."
+            [
+                "for example, \"r(bed) 2/3 out 1/2 d\".",
+                "\"r(bed)\" means the <b>r</b>ight wall of the room called \"bed\".",
+                [
+                    "NOTE: it matters which side you refer to it with, because a door is placed between the new room and the room you referenced.",
+                    [
+                        "let's say the right wall of \"bed\" divides it from a room called \"hall\". meaning, \"r(bed)\" and \"l(hall)\" refer to the same wall.",
+                        "when a new room is made, there's two walls, right? there's the section of wall you used, and the version of it that moved. a rectangular room is made by joining that old wall and new wall.",
+                        "if you use a wall from bed, it'll make sure the new room has a door to bed. if you use a wall from hall, it'll make sure the new room has a door to hall.",
+                        "so it's like this.",
+                        [
+                            "if you intrude the right wall of bed, the new room will take some of bed's space, and the new wall will have a door.",
+                            "if you extrude the right wall of bed, the new room will take some of hall's space, and the old wall will have a door.",
+                            "if you intrude the left wall of hall, the new room will take some of hall's space, and the new wall will have a door.",
+                            "if you extrude the left wall of hall, the new room will take some of bed's space, and the old wall will have a door."
+                        ]
+                    ]
+                ],
+                "\"2/3 out\" means it's being pushed out 2/3 units.",
+                "\"1/2 d\" is means the section of wall being moved is only 1/2 units, and it's the 1/2 units at the top of the wall. (d is for <b>d</b>own.)",
+                "in some cases, this can all be much more concise.",
+                [
+                    "if you're modifying a room rather than creating one, you write just the direction letter, \"r\", since you can only move the walls of the room you're modifying.",
+                    "if \"d\" is omitted, it will use the section in the center of the given wall.",
+                    "if the second number is omitted, it'll assume you're moving the entire wall."
+                ]
+            ]
+        ],
+        "all coordinates can be written as fractions or mixed numbers.",
+        "editing complex rooms:",
+        [
+            "\"complex rooms\" is what i call rooms that aren't just rectangular \"simple rooms\". for example, maybe it's shaped like an L or something, or maybe intrusions have eaten away at the shape.",
+            "the trouble with complex rooms is that it's difficult to refer to its walls for edits. there's more than just left, right, up, and down.",
+            "l, r, u, and d can still be used. they refer to whatever walls are most exterior. picture the smallest rectangle that the shape fits in. l, r, u, and d refer to the walls that align with the sides of that rectangle.",
+            "there are instances where multiple walls qualify, however. for example, a C-shaped room. in those instances, you add a number.",
+            [
+                "r1 refers to the higher right wall. r2 refers to the lower. (for vertical walls, lower numbers mean higher walls. for horizontal walls, lower numbers mean walls closer to the left.)",
+                "this syntax is pretty rigid. if there's multiple right walls but you just type \"r\", it'll error, telling you that's wrong. if there's only one right wall but you type r1, it'll also error.",
+                "this only happens if there's multiple applicable walls, not just if the walls are incomplete. for example, the right side of an L-shaped room doesn't reach from the top of the room to the bottom, but referring to the right wall is still pretty unambiguous, so you use \"r\" like usual."
+            ],
+            "at the moment, there are no ways to refer to internal walls."
+        ],
+        "boring technical details (unimportant for the gist of how to use this, but important for understanding the limits of certain things.)",
+        [
+            "edits will fail if the area they cover overlaps with more than one existing room. (for this purpose, unused space counts as a \"room\".)",
+            "edits will fail if they bisect the room they're intruding in."
+        ]
+    ]
+    static validname(name) {
+    // returns an error string if the given string is invalid as a room name, an
+    // empty string if it's valid
+        return (
+            trimunspecial(name) !== name ? "name has whitespace besides spaces, or has consecutive spaces, or has spaces at the beginning or end." :
+            name.includes("/") ? "names cannot have slashes." :
+            ""
+        );
+    }
+    static Level = class {
+    // class for one floor of the building.
+        constructor() {
+            this.x_grid = [];
+            this.y_grid = [];
+            this.areas = [];
+            this.doors = {};
+            this.cache = {};
+        }
+        add_grid(frac, vertical) {
+            let i1 = 0;
+            let ref = this[(vertical ? "y" : "x") + "_grid"];
+            if(!ref.length) {
+                ref.push(structuredClone(frac));
+                return 0;
+            };
+            for(i1 = 0; i1 < ref.length; i1++) {
+                if(compareobject(frac, ref[i1])) {
+                    return i1;
+                };
+            };
+            const num = Frac.num(frac);
+            const w = this.x_grid.length - 1;
+            if(num < Frac.num(ref[0])) {
+                let temp = [0, 0, 0, 0];
+                temp[2*(!!vertical)] = 1;
+                this.areas = Raster.addrowcol(this.areas, w, ...temp, "");
+                ref.splice(0, 0, structuredClone(frac));
+                return 0;
+            }
+            else if(num > Frac.num(ref[ref.length - 1])) {
+                let temp = [0, 0, 0, 0];
+                temp[1 + 2*(!!vertical)] = 1;
+                this.areas = Raster.addrowcol(this.areas, w, ...temp, "");
+                ref.push(structuredClone(frac));
+                return ref.length - 1;
+            };
+            //
+            let place = -1;
+            while(place + 1 < ref.length && num > ref[place + 1]) {
+                place++;
+            }
+            // place is now which index of ref it comes after
+            if(place < 0 || place >= ref.length) {
+                console.log("this shouldn't happen");
+                return;
+            };
+            const h = this.y_grid.length - 1;
+            if(vertical) {
+                this.areas = Raster.doublerow(this.areas, w, place);
+            }
+            else {
+                this.areas = Raster.doublecol(this.areas, w, place);
+            }
+            // duplicate areas
+            ref.splice(place + 1, 0, structuredClone(frac));
+            return place + 1;
+        }
+        add_x_grid(frac) {
+            return this.add_grid(frac, false);
+        }
+        add_y_grid(frac) {
+            return this.add_grid(frac, true);
+        }
+        add_xy_grid(frac2) {
+            return [
+                this.add_grid(frac2.slice(0, 2), false),
+                this.add_grid(frac2.slice(2, 4), true)
+            ];
+        }
+        // adds coordinates to x_grid/y_grid and returns the index it's given.
+        static simplify_space(space) {
+        // input a {x_grid, y_grid, areas} object, and it'll get rid of excess rows
+        // and columns.
+        // - it can also have h_doors and v_doors.
+        // - NOTE: the object is edited directly, rather than returning a modified
+        //   version.
+        // - if there are rows/columns that are identical to adjacent rows/columns,
+        //   they'll be sliced out of all 5 arrays.
+
+        }
+        room_indexrect(name) {
+        // the edges of the rectangle this gives you represent what indexes of
+        // x_grid/y_grid give you the coordinates of the given room's outermost
+        // edges.
+            let rect = null;
+            for(let i1 = 0; i1 < this.areas.length; i1++) {
+                let x_index = i1%this.x_grid.length;
+                let y_index = Math.floor(i1/this.x_grid.length);
+                if(this.areas[i1] === name) {
+                    if(rect) {
+                        rect = Rect.reach(rect, x_index, y_index);
+                        rect = Rect.reach(rect, x_index + 1, y_index);
+                        rect = Rect.reach(rect, x_index, y_index + 1);
+                        rect = Rect.reach(rect, x_index + 1, y_index + 1);
+                    }
+                    else {
+                        rect = Rect.new(x_index, y_index, 1, 1);
+                    };
+                };
+            }
+            return rect;
+        }
+        room_raster(name, indexrect) {
+        // a raster for what areas within the indexrect are actually part of the
+        // room.
+        // - indexrect: this argument just saves time. if omitted, it'll figure it
+        //   out on its own.
+            indexrect ??= this.room_indexrect(roomname);
+            if(!indexrect) {
+                return [];
+            };
+            let raster = [];
+            for(let i1 = 0; i1 < indexrect.w*indexrect.h; i1++) {
+                let _i1 = Rect.convertindex(indexrect, Rect.new(0, 0, this.x_grid.length, this.y_grid.length), i1);
+                if(_i1 === -1) {
+                    console.log("this shouldn't happen");
+                };
+                raster.push(this.areas[_i1] === name);
+            }
+            return raster;
+        }
+        room_sides(name, indexrect, raster) {
+        // - returns an object of the sides the room has and what their names are.
+        // - structure:
+        //   - [side names]
+        //     - x_index: which index of x_grid it's on (the left edge of the side,
+        //       if it's a horizontal side.)
+        //     - y_index: same for y (the top edge of the side, if it's a vertical
+        //       side)
+        //     - length: number to add to the index to get the other end of the
+        //       side. (how many areas it's adjacent to, basically.)
+        //     - vertical: boolean.
+        // - indexrect, raster: these arguments only save time. if they're unfilled,
+        //   it'll figure it out on its own.
+            let i1 = 0;
+            let i2 = 0;
+            indexrect ??= this.room_indexrect(name);
+            raster ??= this.room_raster(name, indexrect);
+            if(!indexrect || !raster.length) {
+                if(indexrect || raster.length) {
+                    console.log("this shouldn't happen");
+                }
+                return {};
+            };
+            let array = [];
+            const w = indexrect.w;
+            const h = indexrect.h;
+            for(i1 = 0; i1 < raster.length; i1++) {
+                if(raster[i1] === name) {
+                    let col = i1%w;
+                    let row = Math.floor(i1/w);
+                    let _array = [];
+                    if(col === 0 ? true : !raster[i1 - 1]) {
+                        // left side
+                        _array.push({
+                            x_index: indexrect.x + col,
+                            y_index: indexrect.y + row,
+                            length: 1,
+                            vertical: false,
+                        });
+                    }
+                    else if(col === (w - 1) ? true : !raster[i1 + 1]) {
+                        // right side
+                        _array.push({
+                            x_index: indexrect.x + col + 1,
+                            y_index: indexrect.y + row,
+                            length: 1,
+                            vertical: false,
+                        });
+                    }
+                    else if(col === 0 ? true : !raster[i1 - w]) {
+                        // up side
+                        _array.push({
+                            x_index: indexrect.x + col,
+                            y_index: indexrect.y + row,
+                            length: 1,
+                            vertical: true,
+                        });
+                    }
+                    else if(col === (h - 1) ? true : !raster[i1 + w]) {
+                        // down side
+                        _array.push({
+                            x_index: indexrect.x + col,
+                            y_index: indexrect.y + row + 1,
+                            length: 1,
+                            vertical: true,
+                        });
+                    };
+                    for(i2 = 0; i2 < _array.length; i2++) {
+                        let _i2 = _array[i2];
+                        let find = array.find((element) => (
+                            element.vertical === _i2.vertical
+                            &&
+                            (element.x_index + !_i2.vertical*element.length) === _i2.x_index
+                            &&
+                            (element.y_index + _i2.vertical*element.length) === _i2.y_index
+                        ));
+                        if(find !== -1) {
+                            array[find].length += _i2.length;
+                        }
+                        else {
+                            array.push(structuredClone(_i2));
+                        };
+                    }
+                };
+            }
+            let sides = {};
+            let cycles = 0;
+            while(array.length) {
+                let l = null;
+                let r = null;
+                let u = null;
+                let d = null;
+                array.forEach(function(element) {
+                    if(element.vertical) {
+                        l = l === null ? element.x_index : Math.min(l, element.x_index);
+                        r = r === null ? element.x_index : Math.max(r, element.x_index);
+                    }
+                    else {
+                        u = u === null ? element.y_index : Math.min(u, element.y_index);
+                        d = d === null ? element.y_index : Math.max(d, element.y_index);
+                    };
+                });
+                // now, l/r/u/d are the x_index/y_index the sides on the edges of
+                // the shape should have.
+                let _sides = {l: [], r: [], u: [], d: []};
+                for(i1 = 0; i1 < array.length; i1++) {
+                    let _i1 = array[i1];
+                    let remove = false;
+                    if(_i1.vertical) {
+                        if(_i1.x_index === l) {
+                            _sides.l.push(structuredClone(_i1));
+                            remove = true;
+                        };
+                        if(_i1.x_index === r) {
+                            _sides.r.push(structuredClone(_i1));
+                            remove = true;
+                        };
+                    }
+                    else {
+                        if(_i1.y_index === u) {
+                            _sides.u.push(structuredClone(_i1));
+                            remove = true;
+                        };
+                        if(_i1.y_index === d) {
+                            _sides.d.push(structuredClone(_i1));
+                            remove = true;
+                        };
+                    };
+                    if(remove) {
+                        array.splice(i1, 1);
+                        i1--;
+                    };
+                };
+                for(i1 = 0; i1 < 4; i1++) {
+                    let _i1 = "lrud"[i1];
+                    let ref = _sides[_i1];
+                    if(ref.length === 1) {
+                        sides["*".repeat(cycles) + _i1] = structuredClone(ref[0]);
+                    }
+                    else if(_sides[_i1].length) {
+                        for(i2 = 0; i2 < ref.length; i2++) {
+                            sides["*".repeat(cycles) + _i1 + (i2 + 1)] = structuredClone(ref[i2]);
+                        }
+                    }
+                    else if(!cycles) {
+                        console.log("this shouldn't happen");
+                    };
+                }
+                cycles++;
+                if(cycles >= 1000) {
+                    console.log("this shouldn't happen");
+                    array = [];
+                }
+            }
+            return sides;
+        }
+        add_room(x, y, w, h, name) {
+        // returns a boolean for whether the new room was added successfully.
+        // - room creation fails if:
+        //   - it covers an existing room completely
+        //   - it bisects an existing room
+        //   - any existing doors are covered, partially or fully
+            let i1 = 0;
+            let i2 = 0;
+            if(!Frac.num(w) || !Frac.num(h) || FloorPlan.validname(name)) {
+            // dimensions are zero, invalid name
+                return false;
+            };
+            let old = new FloorPlan.Level();
+            for(i1 in this) {
+                if(this.hasOwnProperty(i1)) {
+                    old[i1] = structuredClone(this[i1]);
+                }
+            }
+            function reverse() {
+                for(let i1 in old) {
+                    if(old.hasOwnProperty(i1)) {
+                        this[i1] = structuredClone(old[i1]);
+                    }
+                }
+            }
+            // back up all data, so changes can be reversed
+            let indexrect = [
+                this.add_xy_grid([...x, ...y]),
+                this.add_xy_grid([...Frac.add(x, w), ...Frac.add(y, h)])
+            ];
+            indexrect = Rect.fromedges(
+                Math.min(indexrect[0][0], indexrect[1][0]),
+                Math.max(indexrect[0][0], indexrect[1][0]),
+                Math.min(indexrect[0][1], indexrect[1][1]),
+                Math.max(indexrect[0][1], indexrect[1][1])
+            );
+            this.cache.indexrect[name] = structuredClone(indexrect);
+            indexrect = this.cache.indexrect[name];
+            this.cache.raster[name] = [];
+            let replaced = [];
+            for(i1 = 0; i1 < indexrect.w*indexrect.h; i1++) {
+                let _i1 = Rect.convertindex(indexrect, Rect.new(0, 0, this.x_grid.length, this.y_grid.length), i1);
+                if(_i1 === -1) {
+                    console.log("this shouldn't happen");
+                };
+                if(this.areas[_i1] && !replaced.includes(this.areas[_i1])) {
+                    replaced.push(this.areas[_i1]);
+                };
+                this.areas[_i1] = name;
+                this.cache.raster[name].push(true);
+            }
+            for(i1 = 0; i1 < replaced.length; i1++) {
+                let _name = replaced[i1];
+                this.cache.indexrect[_name] = this.room_indexrect(_name);
+                if(!this.cache.indexrect[_name]) {
+                // the new room entirely covered and replaced this room.
+                    reverse();
+                    return false;
+                };
+                this.cache.raster[_name] = this.room_indexrect(_name, this.cache.indexrect[_name]);
+                let temp = this.cache.raster[_name].indexOf(true);
+                if(temp === -1) {
+                    console.log("this shouldn't happen");
+                    reverse();
+                    return false;
+                }
+                else {
+                    let raster = this.cache.raster[_name];
+                    let w = this.cache.indexrect[_name].w;
+                    if(!compareobject(raster, Raster.bucket(raster, w, temp%w, Math.floor(temp/w)))) {
+                    // the new room bisected this room. or trisected... or
+                    // something.
+                        reverse();
+                        return false;
+                    };
+                };
+                this.cache.sides[_name] = this.room_sides(_name, this.cache.indexrect[_name], this.cache.raster[_name]);
+                // the new room modified the shape of this room, so reevaluate
+                // the cache stuff.
+
+            }
+            // - it has to reevaluate the doors for the rooms it
+            //   modifies.
+            // - for every room it replaced space of...
+            //   - for every door that was on the room...
+            //     - check if it's inside the new room or on its borders, fully
+            //       or partially. if so, the new room is forbidden.
+            //       - make sure to account for doors on the wall that's being
+            //         extruded or intruded. it's fine if those get shortened.
+            //     - if not, make sure the name doesn't have to change.
+            //       - if the sides object, after reevaluating, no longer has a
+            //         side by that name or the side of that name is different,
+            //         (shorter versions are fine.) find the new name.
+            //       =
+            //       - remember to check the unmodified version.
+            //       - remember to check adjacent rooms. every door borders two
+            //         rooms, (or one room and void) but it can only be assigned
+            //         to one room.
+            this.cache.sides[name] = this.room_sides(name, this.cache.indexrect[name], this.cache.raster[name]);
+            // this is a weird place to put it, but there's no sense running
+            // that early when it might abort anyway.
+            return true;
         }
     }
 }

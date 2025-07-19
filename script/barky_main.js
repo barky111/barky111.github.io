@@ -16,11 +16,21 @@ function roundspecial(num, places, func) {
     func ??= "round";
     return Math[func](num*(10**(-places))) / 10**(-places);
 };
+function epsilon(factor) {
+    return 10**(-(factor ?? 10));
+};
 let invertboolean = (original, condition) => (condition ? !original : original);
 // i could do this by evaluating the boolean and using an if else but you
 // know what? that shit isn't elegant at all.
 // - by "condition" i mean the condition for the inversion. it should be
 //   another boolean.
+function xor(...booleans) {
+    let value = false;
+    booleans.forEach(function(element) {
+        value = element ? !value : value;
+    });
+    return value;
+};
 //
 function compareobject(object1, object2) {
 // deep comparison of two objects. (=== returns false unless one object is a
@@ -784,6 +794,17 @@ function readnumber(string) {
         null
     );
 }
+function readpoint(string) {
+// a variant of readnumber that reads a list of numbers instead. (the values
+// should be separated by commas, and there shouldn't be brackets or anything
+// around it.)
+    string = string.trim();
+    string = string ? string.split(",") : [];
+    for(let i1 = 0; i1 < string.length; i1++) {
+        string[i1] = readnumber(string[i1]);
+    }
+    return string;
+}
 function gethtmlsetting(element, caveats) {
 // simplifies some of the process of getting a html input and stuff like that.
     caveats ??= [];
@@ -932,23 +953,69 @@ function randexponent(factor, allownegative) {
 }
 
 
-function arraytoul(array, indent, details) {
+function arraytoul(array, indent, charcode) {
 // technically this is a string thing, but i use it too often. lets me avoid
 // loading the whole strings script.
+// - input an array that has nothing but strings or arrays that, themselves,
+//   have nothing but strings or arrays.
+// - you can also use integers to replace the bullet marker with a unicode
+//   character.
+//   - if you put 9734 before a string, that bullet will use a star.
+//   - if you put 9734 before an array, that array's bullets will use stars.
+//   - if you put 9734 in the charcode argument, all bullets will use stars.
+//   - nesting and all that is taken into account.
     let i1 = 0;
     indent ??= 0;
+    charcode = Number.isInteger(charcode) ? charcode : null;
+    let _charcode = charcode;
     let html = ``;
     html += `<ul>`;
     for(i1 = 0; i1 < array.length; i1++) {
-        html += (
-            typeof array[i1] === "string" ? `\n\t<li>\n\t\t` + array[i1].replaceAll(`\t`, ``).replaceAll(`\n`, ` `) + `\n\t</li>` :
-            Array.isArray(array[i1]) ? `\n\t` + arraytoul(array[i1], indent).replaceAll(`\n`, `\n\t`) :
-            ``
-        );
+        if(Number.isInteger(array[i1])) {
+            _charcode = array[i1];
+        }
+        else {
+            let style = _charcode === null ? `` : ` style='list-style-type: "` + String.fromCharCode(_charcode) + `"'`;
+            html += (
+                typeof array[i1] === "string" ? `\n\t<li` + style + `>\n\t\t` + array[i1].replaceAll(`\t`, ``).replaceAll(`\n`, ` `) + `\n\t</li>` :
+                Array.isArray(array[i1]) ? `\n\t` + arraytoul(array[i1], indent, _charcode).replaceAll(`\n`, `\n\t`) :
+                ``
+            );
+            _charcode = charcode;
+        }
     }
     html += `\n</ul>`;
     return html;
-}
+};
+function manualhtml(obj, title) {
+// used to make a manual that's an object of arraytouls, with each property
+// being a <details>.
+    let html = [];
+    for(let i1 in obj) {
+        if(obj.hasOwnProperty(i1)) {
+            if(Array.isArray(obj[i1])) {
+                html.push([
+                    "<details>",
+                    "<summary>" + i1 + "</summary>",
+                    arraytoul(obj[i1], 1),
+                    "</details>"
+                ].join("\n"));
+            }
+            else {
+                console.log("this shouldn't happen");
+            };
+        }
+    }
+    html = [
+        "<details class=\"text\">",
+        "<summary>" + title + "</summary>",
+        "<ul>",
+        "\t" + html.join("\n").replaceAll("\n", "\n\t"),
+        "</ul>",
+        "</details>"
+    ].join("\n");
+    return html;
+};
 
 class States extends Array {
 // a class for adding undo/redo functionality to a tool.
@@ -1042,7 +1109,7 @@ function textarea_autosize(textarea) {
     };
     //let start = this.selectionStart;
     //let end = this.selectionEnd;
-    textarea.rows = textarea.value.split("\n").length + 1;
+    textarea.rows = word_wrap(textarea.value, textarea.cols).split("\n").length + 1;
     //this.selectionStart = start;
     //this.selectionEnd = end;
 }
@@ -1609,7 +1676,25 @@ function htmldescendants(element) {
         desc = desc.concat(htmldescendants(list[i1]));
     }
     return desc;
-}
+};
+function htmlrefobj(container) {
+// returns an object of html references.
+    let refobj = {};
+    let desc = htmldescendants(container);
+    for(let i1 = 0; i1 < desc.length; i1++) {
+        let ref = desc[i1];
+        let name = (
+            ref.name ? ref.name :
+            "name" in ref.attributes ? ref.attributes.name.value :
+            ref.tagName.toLowerCase() === "button" ? ref.innerHTML :
+            ""
+        );
+        if(name) {
+            refobj[name] = ref;
+        };
+    }
+    return refobj;
+};
 
 
 

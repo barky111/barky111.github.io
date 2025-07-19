@@ -19,6 +19,11 @@
 		url("../font/thick_4x4.ttf") format("truetype");
 }
 @font-face {
+	font-family: "barkyfont";
+	src: local("barkyfont"),
+		url("../font/barkyfont.ttf") format("truetype");
+}
+@font-face {
 	font-family: "trixietext";
 	src: local("trixietext"),
 		url("../font/trixie text.ttf") format("truetype");
@@ -66,6 +71,9 @@ td {
 }
 label {
 	user-select: none;
+}
+pre {
+	user-select: text;
 }
 /*
  * part of the point of a label is to make radio buttons and things easier to

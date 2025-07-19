@@ -1072,28 +1072,16 @@ class Bullets extends Array {
     //   without the context of the parent, it won't know what date it
     //   used to be associated with. use branch instead if you want it
     //   to be smarter.
-        if(!Number.isInteger(index1)) {
-        // Infinity or NaN could lead to infinite loops
-            console.log("invalid index1: " + index1);
-            return;
-        };
-        if(!Number.isInteger(index2)) {
-        // Infinity or NaN could lead to infinite loops
-            console.log("invalid index2: " + index2);
-            return;
-        };
-        index1 = Number(index1);
-        index2 = Number(index2);
-        let slice = Bullets.new(this);
         let length = this.length;
-        index1 = !isNaN(index1) ? index1 : 0;
-        index2 = !isNaN(index2) ? index2 : length;
+        index1 = Number.isInteger(index1) ? index1 : 0;
+        index2 = Number.isInteger(index2) ? index2 : length;
         if(index1 < 0) {
             index1 += length;
         };
         if(index2 < 0) {
             index2 += length;
         };
+        let slice = Bullets.new(this);
         let place = 0;
         for (let i1 = index1; i1 < index2; i1++) {
             slice[i1 - index1] = structuredClone(this[i1]);
@@ -2762,33 +2750,51 @@ let quote = {
         return output;
     },
 };
-function uncomment(string, start, end, keepend) {
-// removes comments.
+function comment_finder(string, start, end, keepend, no_quotes, escapable_quotes) {
+// returns an array of the starts and ends of comments.
     start ??= "//";
     end ??= "\n";
     keepend ??= end === "\n";
-    let code = function(string, inquotes) {
-        if(inquotes) {
-            return string;
-        };
-        for(let i1 = 0; i1 < string.length; i1++) {
-            if(string.slice(i1).startsWith(start)) {
-                // slice out the comment
-                let temp = [];
-                temp[0] = i1 + start.length;
-                // index to start looking for the end of the comment
-                temp[1] = string.slice(temp[0]).indexOf(end);
-                temp = temp[1] === -1 ? string.length : temp[0] + temp[1] + !keepend*end.length;
-                // end of the comment
-                string = string.slice(0, i1) + string.slice(temp);
-                i1--;
-                // make sure the next iteration starts at the content after
-                // the comment
-            }
+    let ranges = no_quotes ? [] : block_ranges(string, escapable_quotes);
+    let comments = [];
+    for(let i1 = 0; i1 <= ranges.length; i1 += 2) {
+        let block = string_block(string, ranges, i1);
+        let place = -2;
+        while(place !== -1) {
+            place = block.indexOf(
+                comments.length%2 ? end : start,
+                place < 0 ? 0 : place
+            );
+            if(place !== -1) {
+                comments.push(block_start(string, ranges, i1) + place + (!keepend && comments.length%2 ? end.length : 0));
+                place += (comments.length%2 ? start : end).length;
+            };
         }
-        return string;
+    }
+    if(comments.length%2) {
+        comments.push(string.length);
     };
-    return quote.edit(string, [false, [start, end, keepend]], code);
+    return comments;
+};
+function uncomment(string, start, end, keepend, no_quotes, escapable_quotes) {
+// removes comments.
+// - string: string to decomment.
+// - start, end: strings that start or end a comment.
+// - keepend: makes it so the end string isn't part of the comment. (for
+//   example, comments that begin with "//" and end with "\n". "\n" should be
+//   kept out.)
+// - no_quotes: if false, it'll ignore comment starts/ends that are within
+//   quotes.
+// - escapable_quotes: if true, quote characters can be escaped.
+    let comments = comment_finder(string, start, end, keepend, no_quotes, escapable_quotes);
+    let _string = "";
+    for(let i1 = 0; i1 <= comments.length; i1 += 2) {
+        _string += string_block(string, comments, i1);
+    };
+    if(comments.length) {
+        //console.log(string + "\n\n===>\n\n" + _string);
+    }
+    return _string;
 };
 function trimspecial(string, join) {
 // trims the text and replaces all stretches of whitespace with a single space.
@@ -3067,7 +3073,7 @@ function basicobjtotext(obj) {
     for(let i1 in obj) {
         if(obj.hasOwnProperty(i1)) {
             if(i1.includes(":") || i1 !== trimunspecial(i1)) {
-                console.log("indentobjtotext does not allow property names that have colons, non-space whitespace, consecutive spaces, or spaces at the beginning or end.");
+                console.log("basicobjtotext does not allow property names that have colons, non-space whitespace, consecutive spaces, or spaces at the beginning or end.");
                 return null;
             }
             else if(obj[i1] && typeof obj[i1] === "object" && !Array.isArray(obj[i1])) {
@@ -3501,7 +3507,8 @@ function block_ranges(string, escaped, starts, ends, noquotefix) {
 // - noquotefix: for the most part, quotes can be treated like any other set of
 //   brackets, but the one problem that can cause is that if you open brackets
 //   inside a quote, the quote cannot close until those brackets close. it fixes
-//   that by allowing the innermost quote to close at any time.
+//   that by allowing the innermost quote to close at any time. but since
+//   technically that's inconsistent, this lets you opt out of that.
     const quotes = `'"\``;
     if(typeof starts === "string") {
         starts = starts.split("");
@@ -3590,6 +3597,103 @@ let string_block = (string, block_ranges, block) => (
 );
 let block_start = (string, block_ranges, block) => (block ? block_ranges[block - 1] : 0);
 let block_end = (string, block_ranges, block) => (block < block_ranges.length ? block_ranges[block] : string.length);
+function odd_block(block_ranges, index) {
+// returns whether the given index is in an odd-numbered block.
+// - odd-numbered blocks usually represent quotes, or brackets, or whatever. so,
+//   this is used a lot to tell if control characters should really do something
+//   or not.
+    if(!block_ranges.length || index < block_ranges[0] || index >= block_ranges[block_ranges.length - 1]) {
+        return false;
+    };
+    for(let i1 = 1; i1 < block_ranges.length && _index === -1; i1++) {
+        let start = block_start("", block_ranges, i1);
+        let end = block_end("", block_ranges, i1);
+        if(index >= start && index < end) {
+            return !!(i1%2);
+        };
+    }
+    console.log("this shouldn't happen");
+    return false;
+};
+function even_block_split(string, block_ranges, splitter) {
+// like String.split, except it doesn't use splitters that are inside an odd
+// block.
+    let array = [];
+    for(let i1 = 0; i1 <= block_ranges.length; i1++) {
+        let block = string_block(string, block_ranges, i1);
+        block = i1%2 ? [block] : block.split(splitter);
+        if(array.length) {
+            array[array.length - 1] += block[0];
+        }
+        else {
+            array.push(block[0]);
+        };
+        array = array.concat(block.slice(1));
+    }
+    return array;
+};
+function block_word_split(string, block_ranges) {
+// splits the text up so each array item is an odd block, or a word of an even
+// block.
+// - for example, if a quote or set of parentheses should be considered one
+//   word.
+    let array = [];
+    for(let i1 = 0; i1 <= block_ranges.length; i1++) {
+        let block = string_block(string, block_ranges, i1).trim();
+        if(i1%2) {
+            array.push(block);
+        }
+        else if(block) {
+            array = array.concat(trimunspecial(block).split(" "));
+        };
+    }
+    return array;
+};
+function odd_block_expand(string, block_ranges) {
+// modifies the block_ranges so that blocks only begin/end at the edges of
+// whitespace.
+// - for example, if there's function-like syntax, where blocks have prefixes
+//   indicating what they do. this will make it so the block starts at the start
+//   of that prefix. and suffixes are possible too.
+    let ranges = structuredClone(block_ranges);
+    let left = (index) => !string.charAt(index - 1).trim();
+    let right = (index) => !string.charAt(index).trim();
+    // return booleans for whether the character to the left/right of the index
+    // is a non-whitespace.
+    for(let i1 = 0; i1 < ranges.length; i1++) {
+        let prev = i1 ? ranges[i1 - 1] : 0;
+        let next = i1 + 1 < ranges.length ? ranges[i1 + 1] : string.length;
+        let index = ranges[i1];
+        while(index >= prev && index <= next && left(index) === right(index)) {
+            index += i1%2 ? 1 : -1;
+            // move left if it's the beginning of an odd block, right if it's
+            // the end.
+        }
+        ranges[i1] = index;
+    }
+    return ranges;
+}
+function string_blocks(string, block_ranges) {
+    let blocks = [];
+    for(let i1 = 0; i1 <= block_ranges.length; i1++) {
+        blocks.push(string_block(string, block_ranges, i1));
+    }
+    return blocks;
+};
+function odd_blocks_only(string, block_ranges) {
+    let blocks = string_blocks(string, block_ranges);
+    for(let i1 = 0; i1 <= block_ranges.length; i1++) {
+        blocks.splice(i1, 1);
+    }
+    return blocks;
+};
+function even_blocks_only(string, block_ranges) {
+    let blocks = string_blocks(string, block_ranges);
+    for(let i1 = 1; i1 <= block_ranges.length; i1++) {
+        blocks.splice(i1, 1);
+    }
+    return blocks;
+};
 
 function trimunspecial(string) {
 // used in things like Bullets. trimspecial, except quoted text isn't an
@@ -3815,3 +3919,171 @@ function wordfrequency(string, ignore, ignore_dates) {
     array.sort((a, b) => b.count - a.count);
     return array;
 }
+function arithmetic(string, obj) {
+// interprets simple equations.
+// - string: the equation
+// - obj: an object of number variables (optional.)
+// =
+// - equations must alternate between values and operators.
+// - valid values:
+//   - numbers: anything Number() can read, and that isn't empty or entirely
+//     whitespace.
+//   - variables: anything that matches a property name in obj. the rules for
+//     names are...
+//     - no whitespace
+//     - not operators or parentheses
+//     - can't be mistaken for a number (basically, it can't be nothing but
+//       digits)
+//     - no periods or commas
+//     - can't be empty
+//   - parentheses: sets of parentheses mean "use whatever value you get when
+//     you interpret the contents of this as an equation". but there can also be
+//     prefixes that alter the results of that equation.
+//     - anything that matches the name of a one-argument function in the global
+//       Math object. for example...
+//       - abs
+//       - sign
+//       - floor, ceil, trunc
+//       - cos, sin, etc
+//       - sqrt
+//     - empty parentheses are not allowed.
+    let i1 = 0;
+    obj ??= {};
+    let mathfunc = [];
+    for(i1 in Math) {
+        if(typeof Math[i1] === "function" && Math[i1].length === 1) {
+            mathfunc.push(i1);
+        };
+    }
+    let operators = "^*/+-".split("");
+    for(i1 = 0; i1 < operators.length; i1++) {
+        string = string.replaceAll(operators[i1], " " + operators[i1] + " ");
+    }
+    for(i1 = 0; i1 < string.length; i1++) {
+        if(string[i1] === "(") {
+            let left = string.slice(0, i1);
+            let temp = mathfunc.find((element) => left.endsWith(element));
+            left = temp === undefined ? left + " " : left.slice(0, -temp.length) + " " + left.slice(-temp.length);
+            string = left + " " + string.slice(i1 + 1);
+            i1++;
+        }
+    }
+    string = string.replaceAll(")", " ) ");
+    string = trimunspecial(string);
+    //
+    function readequation(string) {
+    // reads one equation. the whole thing, or the contents of one set of
+    // parentheses. (this is only a separate function to avoid repeating the
+    // stuff at the beginning every time it recurses.)
+        let i1 = 0;
+        let words = string.trim().split(" ");
+        for(i1 = 0; i1 < words.length; i1++) {
+            if(words[i1].endsWith(")")) {
+                let operation = words[i1].slice(0, -1);
+                let open = 1;
+                let start = i1;
+                for(i1 = start + 1; i1 < words.length && open > 0; i1++) {
+                    open += words[i1].includes("(") - words[i1].includes(")");
+                }
+                if(open) {
+                // more open parentheses than close parentheses
+                    return null;
+                };
+                words.splice(i1, i1 - start, words.slice(start, i1).join(" "));
+            }
+            else if(words[i1] === ")") {
+                // closing parenthese even though there's currently no open parentheses.
+                return null;
+            };
+        }
+        // simplify parentheses contents
+        if(words.length && operators.includes(words[0])) {
+        // an equation like "-3" would turn into "- 3", which would be broken
+        // into "-" and "3"... and, later steps assume the first item is an
+        // operator.
+            words.splice(0, 0, "0");
+        };
+        if(words.length && operators.includes(words[words.length - 1])) {
+        // the equation ends with an operator. weird.
+            return null;
+        };
+        for(i1 = 0; i1 < words.length; i1++) {
+        // convert every value to a number.
+            if(operators.includes(words[0]) !== !!(i1%2)) {
+            // it needs to alternate between values and operators.
+                return null;
+            };
+            if(!(i1%2)) {
+            // convert values to numbers.
+                let temp = Number(words[i1]);
+                let type = obj[ words[i1] ];
+                if(words[i1].trim() && !isNaN(temp)) {
+                // number literal
+                    words[i1] = temp;
+                }
+                else if(type === "number" || type === "boolean") {
+                // variable
+                    words[i1] = Number(obj[ words[i1] ]);
+                }
+                else if(words[i1].includes("(") || words[i1].includes(")")) {
+                    if(!words[i1].endsWith(")") || words[i1].replaceAll("(", "").length !== words[i1].replaceAll(")", "").length) {
+                    // it should be a parenthesed phrase, and any inner
+                    // parentheses should close.
+                        return null;
+                    };
+                    let mod = "";
+                    if(!words[i1].startsWith("(")) {
+                        mod = mathfunc.find((element) => words[i1].startsWith(element + "(")) ?? "";
+                        if(!mod) {
+                        // prefix doesn't match any viable Math function.
+                            return null;
+                        }
+                    }
+                    words[i1] = (
+                        mod ? Math[mod](readequation(words[i1].slice(mod.length + 1, -1))) :
+                        readequation(words[i1].slice(1, -1))
+                    );
+                    if(words[i1] === null) {
+                        return null;
+                    };
+                }
+                else {
+                // unknown
+                    return null;
+                }
+            };
+        }
+        //
+        function operate1(operator, code) {
+            for(let i1 = 0; i1 + 2 < words.length; i1 += 2) {
+                if(words[i1 + 1] === operator) {
+                    words.splice(i1, 3, code(words[i1], words[i1 + 2]));
+                    i1 -= 2;
+                }
+            }
+        };
+        function operate2(operator1, code1, operator2, code2) {
+            for(let i1 = 0; i1 + 2 < words.length; i1 += 2) {
+                if(words[i1 + 1] === operator1) {
+                    words.splice(i1, 3, code1(words[i1], words[i1 + 2]));
+                    i1 -= 2;
+                }
+                else if(words[i1 + 1] === operator2) {
+                    words.splice(i1, 3, code2(words[i1], words[i1 + 2]));
+                    i1 -= 2;
+                }
+            }
+        };
+        operate1("^", (a, b) => a ** b);
+        operate2("*", (a, b) => a * b, "/", (a, b) => a / b);
+        operate2("+", (a, b) => a + b, "-", (a, b) => a - b);
+        if(words.length !== 1) {
+        // not sure what happened. (this could happen from operators i didn't
+        // account for or not having an operator between each pair of values,
+        // but it already errors from those.)
+            return null;
+        }
+        return words[0];
+    }
+    return readequation(string);
+};
