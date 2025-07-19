@@ -1440,7 +1440,7 @@ Gainsboro DCDCDC
         ctx.canvas.width = w;
         ctx.canvas.height = h;
         ctx.clearRect(0, 0, w, h);
-        ctx.font = "16px 'barkyfont'";
+        ctx.font = "6px 'barkyfont'";
         ctx.textBaseline = "alphabetic";
         for(let i1 = 0; i1 < palette.length; i1++) {
             let color = palette[i1].toLowerCase();
@@ -8797,8 +8797,8 @@ knee:
         // unit of measurement for buttons.
         depress: 1/8,
         // how many seconds to depress buttons for when they're clicked
-        font: "16px 'barkyfont'",
-        margin: [2, 1 - 5],
+        font: "6px 'barkyfont'",
+        margin: [2, 1 + 1],
         // adjustments to where text goes relative to the center-left of the
         // button
         lineheight: 8,
@@ -17581,7 +17581,7 @@ class PixelArt {
         }
         else if(_this.tool === "text") {
             ctx.textBaseline = "alphabetic";
-            ctx.font = "16px 'barkyfont'";
+            ctx.font = "6px 'barkyfont'";
             ctx.fillStyle = _this.forecolor;
             ctx.fillText(_this.html.text_text.value.toLowerCase(), click[0], click[1] + 6);
         }
