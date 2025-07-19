@@ -149,7 +149,7 @@
 			"the default bodytext now has 3d shapes for the hands, not 2d images.",
 		],
 		//*/
-		"18jul25: v1.5 (77h51m48s of development since the last update.)",
+		"18jul25: v1.5 (79h24m59s of development since the last update.)",
 		[
 			"added the posescript system. read the manual section for that. the bulk of this update was spent on that.",
 			"minor changes to the text shown while using pose tools.",
@@ -800,7 +800,7 @@
 					ctx.clearRect(0, 0, ...ranges);
 					ctx.font = AAX.ui.font;
 					ctx.textAlign = "center";
-					ctx.textBaseline = "middle";
+					ctx.textBaseline = AAX.ui.baseline;
 					const margin = AAX.ui.margin;
 					const spacednames = [
 						"full ellipse",
@@ -1810,7 +1810,7 @@
 				ctx.canvas.width = w;
 				ctx.canvas.height = h;
 				ctx.font = AAX.ui.font;
-				ctx.textBaseline = "middle";
+				ctx.textBaseline = AAX.ui.baseline;
 				// these get reset if the canvas dimensions change. fuck if i know
 				// why. ask mozilla.
 				let color = aa.color.buttons;
@@ -1832,7 +1832,7 @@
 				)) + (align === "center" && !((text.length*(AAX.ui.charwidth + 1) - 1)%2) ? .5 : 0);
 				ctx.font = AAX.ui.font;
 				ctx.textAlign = "left";
-				ctx.textBaseline = "middle";
+				ctx.textBaseline = AAX.ui.baseline;
 				for(i1 in buttons) {
 					loop.tick(1);
 					if(buttons.hasOwnProperty(i1)) {
@@ -9214,7 +9214,7 @@ rotate:
 				let ctx = bm.ui_ctx;
 				ctx.clearRect(0, 0, ctx.canvas.width, ctx.canvas.height);
 				ctx.font = AAX.ui.font;
-				ctx.textBaseline = "middle";
+				ctx.textBaseline = AAX.ui.baseline;
 				let part = bm.control.bodydata_part;
 				for(let button in bm.ui.buttons) {
 					if(bm.ui.buttons.hasOwnProperty(button)) {
